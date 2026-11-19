@@ -5,6 +5,8 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 import { termKey } from './keys';
 import { ShellMarks, type Mark } from './shellMarks';
+import { wheelLines, wheelReport, type WheelEncoding } from './wheel';
+import { loadWheel } from './wheelPrefs';
 import type { TermTheme } from './theme';
 
 /** One xterm and the element it lives in; the element is moved between containers, never re-created. */
@@ -123,6 +125,53 @@ export function createSurface(opts: { theme: TermTheme; onThread(): void; openUr
       return true;
     });
     t.parser.registerOscHandler(633, data => marks.handle(data));
+    // The mouse encoding the program asked for, followed as xterm follows it (the last one set wins, a reset goes back to the
+    // default): the wheel's reports are written in it. The handlers only watch, xterm still applies the mode.
+    let encoding: WheelEncoding = 'default';
+    const mouseEncoding = (on: boolean) => (params: (number | number[])[]) => {
+      for (const p of params) {
+        if (p !== 1006 && p !== 1016) continue;
+        encoding = !on ? 'default' : p === 1006 ? 'sgr' : 'other';
+      }
+      return false;
+    };
+    t.parser.registerCsiHandler({ prefix: '?', final: 'h' }, mouseEncoding(true));
+    t.parser.registerCsiHandler({ prefix: '?', final: 'l' }, mouseEncoding(false));
+    // A full reset (RIS) puts xterm's mouse encoding back to the default.
+    t.parser.registerEscHandler({ final: 'c' }, () => { encoding = 'default'; return false; });
+    // The wheel moves the lines per notch Settings say (spec 2026-11-17-terminal-wheel). In the history, the view scrolls them. Over
+    // a program holding the mouse (Claude Code), xterm would send one report per wheel event however far it goes and the program
+    // scrolls one step per report: one report per line instead, in one input. Read-only over such a program, with Shift, or on
+    // the alternate screen without the mouse (xterm's arrows): xterm's own way.
+    let partial = 0;
+    t.attachCustomWheelEventHandler(e => {
+      if (e.shiftKey) return true;
+      const mode = t.modes.mouseTrackingMode;
+      // X10 reports presses only, never the wheel.
+      const tracked = mode !== 'none' && mode !== 'x10';
+      if (!tracked) {
+        if (t.buffer.active.type !== 'normal') return true;
+        const r = wheelLines(e, loadWheel(), t.rows, partial);
+        partial = r.partial;
+        // xterm lets an event it does not take go on to the page.
+        e.preventDefault();
+        if (r.lines !== 0) t.scrollLines(r.lines);
+        return false;
+      }
+      if (readOnly || encoding === 'other') return true;
+      const box = (host.querySelector('.xterm-screen') ?? host).getBoundingClientRect();
+      if (!box.width || !box.height) return true;
+      const cellW = box.width / t.cols, rowPx = box.height / t.rows;
+      const r = wheelLines(e, loadWheel(), t.rows, partial);
+      partial = r.partial;
+      if (r.lines === 0) return false;
+      const col = Math.min(t.cols, Math.max(1, Math.floor((e.clientX - box.left) / cellW) + 1));
+      const row = Math.min(t.rows, Math.max(1, Math.floor((e.clientY - box.top) / rowPx) + 1));
+      const one = wheelReport(r.lines < 0 ? -1 : 1, col, row, { shift: false, alt: e.altKey, ctrl: e.ctrlKey }, encoding);
+      if (one === null) return true;
+      send(one.repeat(Math.abs(r.lines)));
+      return false;
+    });
     t.onScroll(viewChanged);
     t.onRender(viewChanged);
     t.onResize(viewChanged);

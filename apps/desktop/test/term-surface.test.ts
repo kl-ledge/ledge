@@ -17,13 +17,17 @@ const xt = vi.hoisted(() => {
     clearSelection = vi.fn(() => { this.selection = ''; });
     modes = { mouseTrackingMode: 'none', bracketedPasteMode: false };
     osc = new Map<number, (d: string) => boolean>();
+    esc = new Map<string, () => boolean>();
     csi = new Map<string, (p: (number | number[])[]) => boolean>();
     parser = {
       registerOscHandler: (n: number, fn: (d: string) => boolean) => { this.osc.set(n, fn); return { dispose() {} }; },
+      registerEscHandler: (id: { final: string }, fn: () => boolean) => { this.esc.set(id.final, fn); return { dispose() {} }; },
       registerCsiHandler: (id: { prefix?: string; final: string }, fn: (p: (number | number[])[]) => boolean) => { this.csi.set(`${id.prefix ?? ''}${id.final}`, fn); return { dispose() {} }; }
     };
     constructor(o: Record<string, unknown>) { this.options = { ...o }; terms.push(this); }
     attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) { this.keys = fn; }
+    wheel: (e: WheelEvent) => boolean = () => true;
+    attachCustomWheelEventHandler(fn: (e: WheelEvent) => boolean) { this.wheel = fn; }
     onData(fn: (d: string) => void) { this.data.push(fn); return { dispose() {} }; }
     resized: ((e: { cols: number; rows: number }) => void)[] = [];
     onResize(fn: (e: { cols: number; rows: number }) => void) { this.resized.push(fn); return { dispose() {} }; }
@@ -35,6 +39,7 @@ const xt = vi.hoisted(() => {
     buffer = { active: { type: 'normal', viewportY: 0, baseY: 0, cursorY: 0, cursorX: 0, length: 24, getLine: () => undefined }, onBufferChange: () => ({ dispose() {} }) };
     registerMarker() { return { line: this.buffer.active.baseY + this.buffer.active.cursorY, isDisposed: false, dispose() {} }; }
     scrollToLine = vi.fn();
+    scrollLines = vi.fn();
   }
   return { terms, links: [] as unknown[], FakeTerminal, webglThrows: false, contextLost: [] as (() => void)[], webgl: [] as { dispose: ReturnType<typeof vi.fn> }[] };
 });
@@ -51,6 +56,7 @@ vi.mock('@xterm/addon-webgl', () => ({
 
 import { createSurface, REPLAY_MAX } from '../src/term/surface';
 import { placeSurface } from '../src/term/place';
+import { saveWheel } from '../src/term/wheelPrefs';
 
 const clip = { text: '', readText: vi.fn(async () => clip.text), writeText: vi.fn(async (t: string) => { clip.text = t; }) };
 const key = (o: Partial<KeyboardEvent>) => {
@@ -59,7 +65,7 @@ const key = (o: Partial<KeyboardEvent>) => {
 };
 const surface = (onThread = vi.fn(), openUrl = vi.fn()) => { const s = createSurface({ theme: { background: '#101112' }, onThread, openUrl }); return { s, t: xt.terms.at(-1)!, onThread }; };
 
-beforeEach(() => { Object.defineProperty(navigator, 'clipboard', { value: clip, configurable: true }); });
+beforeEach(() => { Object.defineProperty(navigator, 'clipboard', { value: clip, configurable: true }); localStorage.clear(); });
 afterEach(() => { xt.terms.length = 0; xt.links.length = 0; xt.webgl.length = 0; xt.contextLost.length = 0; xt.webglThrows = false; clip.text = ''; vi.clearAllMocks(); });
 
 it('one xterm with a capped scrollback, in a host marked as the terminal', () => {
@@ -329,4 +335,79 @@ it('#299: OSC 633 marks the commands; Ctrl ↑ / Ctrl ↓ reach the marks only w
   // A view that declines (no integration, a full-screen program): the shell has it.
   sh.onMarkKey(() => false);
   expect(t.keys(key({ code: 'ArrowDown', key: 'ArrowDown', ctrlKey: true }))).toBe(true);
+});
+
+// Spec 2026-11-17-terminal-wheel (docs/mockups/terminal-wheel): the lines per notch Settings say, in the history as in a program
+// that tracks the mouse, where a notch sends one wheel report per line, in one input.
+const wheelSetup = () => {
+  const { s, t } = surface();
+  const input = vi.fn();
+  s.onInput(input);
+  const screen = document.createElement('div');
+  screen.className = 'xterm-screen';
+  screen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 480 }) as DOMRect;
+  s.host.appendChild(screen);
+  const wheel = (o: Partial<WheelEvent> & { wheelDeltaY?: number } = {}) => {
+    const e = { deltaY: -100, deltaMode: 0, wheelDeltaY: 120, clientX: 25, clientY: 45, shiftKey: false, altKey: false, ctrlKey: false, metaKey: false, preventDefault: vi.fn(), ...o } as unknown as WheelEvent;
+    return t.wheel(e);
+  };
+  return { s, t, input, wheel };
+};
+
+it('the wheel over a program that tracks the mouse writes one report per line, in the encoding the program asked', () => {
+  const { s, t, input, wheel } = wheelSetup();
+  // X10 reports presses only; the alternate screen without the mouse: xterm's arrows.
+  t.modes.mouseTrackingMode = 'x10';
+  t.buffer.active.type = 'alternate';
+  expect(wheel()).toBe(true);
+  t.modes.mouseTrackingMode = 'none';
+  expect(wheel()).toBe(true);
+  t.modes.mouseTrackingMode = 'any';
+  // Like Windows by default: 100 px is 3 lines, three reports at cell (3, 3), in the default encoding until SGR is asked.
+  expect(wheel()).toBe(false);
+  expect(input).toHaveBeenLastCalledWith(('\x1b[M' + String.fromCharCode(96, 35, 35)).repeat(3));
+  t.csi.get('?h')!([1000, 1006]);
+  expect(wheel({ deltaY: 200, wheelDeltaY: -240 })).toBe(false);
+  expect(input).toHaveBeenLastCalledWith('\x1b[<65;3;3M'.repeat(6));
+  // A speed chosen in Settings: that many per notch.
+  saveWheel({ mode: 'fixed', lines: 8 });
+  expect(wheel()).toBe(false);
+  expect(input).toHaveBeenLastCalledWith('\x1b[<64;3;3M'.repeat(8));
+  expect(input).toHaveBeenCalledTimes(3);
+  // Shift held, an encoding Desktop does not write: xterm's own way.
+  expect(wheel({ shiftKey: true })).toBe(true);
+  t.csi.get('?h')!([1016]);
+  expect(wheel()).toBe(true);
+  t.csi.get('?l')!([1016]);
+  saveWheel({ mode: 'system', lines: 8 });
+  expect(wheel()).toBe(false);
+  // A full reset goes back to the default encoding, as xterm does.
+  t.csi.get('?h')!([1006]);
+  t.esc.get('c')!();
+  expect(wheel()).toBe(false);
+  expect(input).toHaveBeenLastCalledWith(('\x1b[M' + String.fromCharCode(96, 35, 35)).repeat(3));
+  // Past column 95 the default encoding cannot travel: xterm's own way.
+  t.cols = 120;
+  expect(wheel({ clientX: 795 })).toBe(true);
+  expect(input).toHaveBeenCalledTimes(5);
+  // Read-only: nothing is typed, xterm keeps the wheel.
+  s.setReadOnly(true);
+  expect(wheel()).toBe(true);
+  expect(input).toHaveBeenCalledTimes(5);
+});
+
+it('the wheel in a terminal\'s history scrolls the lines Settings say, read-only too', () => {
+  const { s, t, input, wheel } = wheelSetup();
+  t.buffer.active.type = 'normal';
+  const e = vi.fn();
+  expect(wheel({ preventDefault: e })).toBe(false);
+  expect(t.scrollLines).toHaveBeenLastCalledWith(-3);
+  expect(e).toHaveBeenCalled();
+  saveWheel({ mode: 'fixed', lines: 8 });
+  s.setReadOnly(true);
+  expect(wheel({ deltaY: 100, wheelDeltaY: -120 })).toBe(false);
+  expect(t.scrollLines).toHaveBeenLastCalledWith(8);
+  expect(input).not.toHaveBeenCalled();
+  // Shift: xterm's own way.
+  expect(wheel({ shiftKey: true })).toBe(true);
 });
