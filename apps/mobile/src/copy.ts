@@ -1,5 +1,4 @@
-import { MESSAGE_MAX, type ActionErrorCode } from '@ledge/protocol';
-import { actionWords, type ActionVars } from '@ledge/ui/chat/actionWords';
+import { MESSAGE_MAX } from '@ledge/protocol';
 import { prsFr } from './copy.prs';
 import { rigsFr } from './copy.rigs';
 import { routinesFr } from './copy.routines';
@@ -26,7 +25,29 @@ const fr = {
   /** « À toi » (docs/mockups/ledge-mobile-refonte/m1-a-toi.html, 3228f5ed; m1-reponses-rig.html, adf70443): cards decided in the list, receipts. */
   /** The request and ask cards: a session's request in its thread or on its own screen, an OpenRig ask in the Rigs tab's
    *  « Demandes » (#40). Drawn for « À toi » (m1-a-toi.html), which they outlived. */
+  /** The harnesses' limits (docs/mockups/ledge-harness-usage.html; Réglages › Usage since #40 D9). */
+  limits: {
+    limits: 'LIMITES', limitsLabel: 'Limites', harness: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent' } as Record<string, string>,
+    harnessShort: { claude: 'Claude', codex: 'Codex', cursor: 'Cursor' } as Record<string, string>,
+    five: '5 h', week: 'Semaine', month: 'Mois', poolCursor: 'Cursor', poolOther: 'Autres', model: (m: string) => m,
+    weekShort: 'sem.', monthShort: 'mois',
+    resumes: (at: string) => `reprend à ${at}`, resumesOn: (at: string) => `reprend le ${at}`, loading: 'Lecture en cours…',
+    notOnPc: (harness: string) => `Lecture impossible : reconnecte ${harness} sur le PC.`,
+    unread: 'Limite non lue : Cursor ne la donne pas pour cette offre.', unreach: (age: string) => `Pas de lecture depuis ${age}.`, unreachNever: 'Lecture impossible pour l’instant.', stale: (age: string) => `Lu il y a ${age}.`,
+    reachedLabel: (h: string, w: string) => `${h} · ${w} atteinte`, overLabel: (h: string, w: string, p: number) => `${h} · ${w} à ${p} %`
+  },
   cards: {
+    /** A decision a session put to Ledge and a proposal about the notes, at the foot of its thread (#40 D2). */
+    decision: 'Décision', asks: 'te demande', answer: 'Répondre', answerLabel: (title: string) => `Répondre à « ${title} »`,
+    someone: 'Une session',
+    note: {
+      tag: 'Note', add: (note: string) => `propose d’ajouter à la note ${note}`, create: (note: string) => `propose une nouvelle note ${note}`,
+      flag: (note: string) => `signale la note ${note} comme fausse ou périmée`, source: (s: string) => `Source : ${s}`,
+      yes: 'Ajouter', edit: 'Modifier', no: 'Refuser', mark: 'Marquer à revoir', ignore: 'Ignorer', createYes: 'Créer la note', editYes: 'Ajouter ce texte', cancel: 'Annuler',
+      field: 'Le texte ajouté sous « Ajouts »', titleField: 'Titre', whenField: 'Quand la lire',
+      failed: 'Pas envoyé : réessaie.', confirmRequired: 'Protège d’abord tes accords depuis Réglages : ajouter demande la passkey de cet appareil.', cancelled: 'Vérification annulée. Rien n’a été écrit.', expired: 'La vérification a expiré. Recommence.', stale: 'Déjà traitée ailleurs.'
+    },
+    answerPlaceholder: 'Ta réponse…',
     plan: 'Plan à valider', diff: (file: string) => `Modifier ${file}`,
     age: { s: (n: number) => `${n} s`, min: (n: number) => `${n} min`, h: (n: number) => `${n} h`, d: (n: number) => `${n} j` },
     examine: 'Examiner',
@@ -95,10 +116,10 @@ const fr = {
   nav: {
     label: 'Navigation principale',
     /** The three tabs (#40 D6), the rail's Atelier and Réglages (docs/mockups/ledge-mobile-refonte/m0-socle.html, §1 and §2). */
-    sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', chat: 'Ledge', atelier: 'Atelier', settings: 'Réglages',
+    sessions: 'Sessions', prs: 'MR/PR', rigs: 'Rigs', atelier: 'Atelier', settings: 'Réglages',
     /** « Retour », named after the screen it leads to; plain when that screen is not known (after a reload). */
     back: 'Retour',
-    backTo: { sessions: 'Retour aux sessions', prs: 'Retour aux MR et PR', rigs: 'Retour aux rigs', chat: 'Retour à Ledge', atelier: 'Retour à l’Atelier', thread: 'Retour au fil', terminal: 'Retour au terminal', request: 'Retour à la demande', connection: 'Retour aux réglages', rig: 'Retour au rig', kernel: 'Retour au kernel', max: 'Retour à Max' } as Partial<Record<string, string>>
+    backTo: { sessions: 'Retour aux sessions', prs: 'Retour aux MR et PR', rigs: 'Retour aux rigs', atelier: 'Retour à l’Atelier', thread: 'Retour au fil', terminal: 'Retour au terminal', request: 'Retour à la demande', connection: 'Retour aux réglages', rig: 'Retour au rig', kernel: 'Retour au kernel', max: 'Retour à Max' } as Partial<Record<string, string>>
   },
   images: {
     attach: 'Joindre une image', remove: 'Retirer l\'image', tooLarge: 'Image trop lourde, même réduite', notImage: 'Ce fichier n\'est pas une image', max: '5 images au plus par message',
@@ -106,195 +127,10 @@ const fr = {
     noPreview: 'Image trop lourde pour cet appareil · ouvrir sur le PC', unavailable: 'Image indisponible',
     view: 'Image', share: 'Partager', save: 'Enregistrer', close: 'Fermer', prev: 'Image précédente', next: 'Image suivante'
   },
-  chat: {
-    title: 'Ledge',
-    /** The Ledge tab of a PC that does not offer the chat (design-ux, M0 point 2). */
-    unavailable: {
-      title: (pc: string) => `${pc} ne propose pas encore le chat à cet appareil`,
-      body: 'Le chat avec Ledge arrive avec une prochaine version de Ledge sur le PC.'
-    },
-    point: {
-      title: 'Le point', label: 'Le point', ago: (s: string) => `il y a ${s}`,
-      yours: 'À TOI', yoursLabel: 'À toi', given: 'CONFIÉES PAR LEDGE', givenLabel: 'Confiées par Ledge',
-      yes: 'Oui', no: 'Non', see: 'Voir', finished: 'a fini sa tâche', refused: 'a refusé sa tâche', dropped: 'a abandonné sa tâche',
-      progress: (done: number, given: number) => `${done}/${given}`,
-      state: { open: 'ouverte', taken: 'prise', done: 'finie', refused: 'refusée', dropped: 'abandonnée' },
-      calm: 'Rien ne t’attend. Demande à Ledge ce que tu veux savoir ou faire.',
-      near: (pct: number) => `contexte ${pct} %`, nearHint: 'La relève se lance depuis le PC.',
-      /** The harnesses' limits (docs/mockups/ledge-harness-usage.html, « LIMITES »): percent and reset only. */
-      limits: 'LIMITES', limitsLabel: 'Limites', harness: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent' } as Record<string, string>,
-      harnessShort: { claude: 'Claude', codex: 'Codex', cursor: 'Cursor' } as Record<string, string>,
-      five: '5 h', week: 'Semaine', month: 'Mois', poolCursor: 'Cursor', poolOther: 'Autres', model: (m: string) => m,
-      /** A week in a compact row under an answer (m3-chat.html §2, Q31): « Claude sem. ». */
-      weekShort: 'sem.', monthShort: 'mois',
-      resumes: (at: string) => `reprend à ${at}`, resumesOn: (at: string) => `reprend le ${at}`, loading: 'Lecture en cours…',
-      notOnPc: (harness: string) => `Lecture impossible : reconnecte ${harness} sur le PC.`,
-      unread: 'Limite non lue : Cursor ne la donne pas pour cette offre.', unreach: (age: string) => `Pas de lecture depuis ${age}.`, unreachNever: 'Lecture impossible pour l’instant.', stale: (age: string) => `Lu il y a ${age}.`,
-      reachedLabel: (h: string, w: string) => `${h} · ${w} atteinte`, overLabel: (h: string, w: string, p: number) => `${h} · ${w} à ${p} %`,
-      /** A decision a session put to the user: answered in the chat, through the card Ledge proposes. */
-      decision: 'Décision', asks: 'te demande', answer: 'Répondre', answerLabel: (title: string) => `Répondre à « ${title} »`,
-      someone: 'Une session',
-      answerDraft: (title: string, id: string, name: string) => `Réponse à la décision « ${title} » (${id}) de ${name} : `,
-      /** A proposal about the notes (docs/mockups/ledge-brain-notes.html, part 2): answered here, a « yes » with the device's check. */
-      note: {
-        tag: 'Note', add: (note: string) => `propose d’ajouter à la note ${note}`, create: (note: string) => `propose une nouvelle note ${note}`,
-        flag: (note: string) => `signale la note ${note} comme fausse ou périmée`, source: (s: string) => `Source : ${s}`,
-        yes: 'Ajouter', edit: 'Modifier', no: 'Refuser', mark: 'Marquer à revoir', ignore: 'Ignorer', createYes: 'Créer la note', editYes: 'Ajouter ce texte', cancel: 'Annuler',
-        field: 'Le texte ajouté sous « Ajouts »', titleField: 'Titre', whenField: 'Quand la lire',
-        failed: 'Pas envoyé : réessaie.', confirmRequired: 'Protège d’abord tes accords depuis Réglages : ajouter demande la passkey de cet appareil.', cancelled: 'Vérification annulée. Rien n’a été écrit.', expired: 'La vérification a expiré. Recommence.', stale: 'Déjà traitée ailleurs.'
-      }
-    },
-    /** The point Ledge writes on its own, compact (docs/mockups/ledge-operator.html, board 7): its rows answered in place. */
-    operator: {
-      title: 'Le point',
-      ongoing: (n: number) => (n === 1 ? '1 tâche en cours' : `${n} tâches en cours`),
-      folded: (at: string) => `Tout est réglé depuis ${at}`,
-      settled: { terminal: 'réglé dans le terminal', phone: 'réglé sur le téléphone', desktop: 'réglé dans Ledge Desktop', chat: 'réglé dans le chat', elsewhere: 'réglé ailleurs' },
-      reply: 'Répondre…', answer: { label: 'Ta réponse', placeholder: 'Ta réponse…', send: 'Envoyer', cancel: 'Annuler' },
-      /** A suggestion's button in the point's own words, when it has them (as the Desktop's point). */
-      suggest: {
-        'session.archive': (v: Record<string, string>) => (v.session ? `Archiver ${v.session}` : undefined),
-        'session.handover': () => 'Passer le relais',
-        'rig.send': (v: Record<string, string>) => (v.seat ? `Écrire à ${v.seat}` : undefined)
-      } as Record<string, (v: Record<string, string>) => string | undefined>,
-      error: (why: string) => `Pas envoyé : ${why}`,
-      notSent: 'Pas envoyé : réessaie.', setup: 'Protège d’abord tes accords depuis Réglages : cette réponse demande la passkey de cet appareil.', stale: 'Déjà réglé ailleurs.'
-    },
-    task: {
-      label: 'Tâche à confier', give: 'Confier',
-      given: (name: string, id: string, state: string) => `Confiée à ${name} · ${id} · ${state}`, notGiven: 'Pas confiée.'
-    },
-    reset: 'Nouvelle conversation',
-    /** The conversations the PC keeps (M3 §6, Q33): the clock's sheet, and a past one, read-only. Fallback B: Desktop's words. */
-    history: {
-      title: 'Conversations', current: 'En cours', count: (n: number) => n > 1 ? `${n} questions` : '1 question', since: (time: string) => `depuis ${time}`,
-      today: 'Aujourd’hui', yesterday: 'Hier', kept: 'Gardées 7 jours sur le PC, pour cet appareil seulement.',
-      pastBanner: 'Conversation passée · lecture seule · ses cartes ne s’appliquent plus', backToday: 'Revenir à la conversation en cours',
-      notApplied: 'Pas appliquée', none: 'Aucune conversation aujourd’hui.',
-      empty: 'Aucune conversation pour l’instant.', gone: 'Cette conversation n’est plus gardée sur le PC.', quote: (q: string) => `« ${q} »`
-    },
-    /** The empty thread's suggestions (M3 Q32): questions sent at once, and « Nouvelle session », an action. */
-    suggestions: {
-      waiting: 'Qui attend quelque chose de moi ?',
-      summarize: 'Résumer la nuit',
-      rig: (name: string) => `Où en est ${name} ?`,
-      session: (name: string) => `Où en est ${name} sur le badge d'attente ?`,
-      newSession: 'Nouvelle session'
-    },
-    stop: 'Arrêter',
-    answering: 'Ledge répond…',
-    askAgain: 'Reposer la question',
-    stepsLabel: 'Étapes',
-    sources: 'Sources : ',
-    /** A request waiting in a session the answer read (M3 Q30): its card under the latest answer, a line under an older one. */
-    inAnswer: {
-      request: (name: string) => `En attente dans la session de ${name}`, settled: 'Réglée depuis',
-      more: (n: number) => n > 1 ? `Voir les ${n} autres dans À toi` : 'Voir l’autre dans À toi'
-    },
-    field: 'Question pour Ledge',
-    placeholder: 'Demander à Ledge…',
-    /** Under the focused field (Q86): « + Image », then « · Entrée envoie » from a physical keyboard. */
-    plusImage: '+ Image', enterSends: 'Entrée envoie',
-    /** The tablet's Ledge pane, opened by the rail's button (m3-chat.html §7, Q36). */
-    pane: { close: 'Fermer le volet' },
-    send: 'Envoyer la question',
-    busy: 'Ledge répond déjà à d\'autres questions. Réessaie dans un instant.',
-    timeout: 'Ledge n\'a pas répondu à temps.',
-    failed: 'Ledge n\'a pas pu répondre.',
-    cancelled: 'Question arrêtée.',
-    offline: 'Hors ligne : pose la question quand le PC sera joignable.',
-    cut: 'Réponse coupée : la suite est sur le PC.',
-    relayLabel: 'Consigne proposée', launchLabel: 'Session proposée',
-    relayHead: (name: string) => `Envoyer à ${name}`,
-    launchHead: (tool: string, project: string) => `Lancer ${tool} dans ${project}`,
-    ignore: 'Ignorer', relayGo: 'Envoyer',
-    queued: (name: string) => `En attente : ${name} est occupé.`,
-    sentTo: (name: string) => `Envoyé à ${name} · `, launchedTo: 'Lancée · ', seeThread: 'voir son fil',
-    notSent: 'Pas envoyé.', notLaunched: 'Pas lancée.',
-    relayCancel: 'Annuler', relayRetry: 'Réessayer',
-    /** The target's state on the relay card, as the PC's pill (in « tu », as the desktop says it). */
-    relayPill: { yours: 'à toi', working: 'travaille', waiting: 'attend ta réponse', stopped: 'arrêtée' },
-    /** Why a relay failed, from the PC's code (never its text). */
-    relayFailed: (code?: string): string => ({
-      read_only: 'Pas envoyé : cette session n’a pas été lancée par Ledge.',
-      ended: 'Pas envoyé : la session s’est arrêtée avant de le recevoir.',
-      unknown_session: 'Pas envoyé : la session n’existe plus.',
-      busy: 'Pas envoyé : la session est en cours de fermeture ou de décision.',
-      not_taken: 'Pas envoyé : le terminal ne l’a pas pris.',
-      no_prompt: 'Pas envoyé : la session attend une réponse, réponds-lui d’abord.',
-      not_offered: 'Pas envoyé : la session attend une réponse, réponds-lui d’abord.',
-      free_text: 'Pas envoyé : la session attend une réponse, réponds-lui d’abord.',
-      stale: 'Pas envoyé : la carte a été ignorée entre-temps.'
-    } as Record<string, string>)[code ?? ''] ?? 'Pas envoyé.',
-    review: 'Revoir', ignoredRest: (at: string) => `Le reste ignoré à ${at}`,
-    launchSetup: 'Protège d\'abord tes accords depuis Réglages.',
-    closeLabel: 'Sessions à fermer', closeRow: 'Fermer', closeAll: (n: number) => `Fermer tout (${n})`,
-    closing: 'Fermeture…', closed: 'Fermée', killed: 'Fermée de force', ended: 'Terminée',
-    closeFailed: 'Échec de la fermeture', closeSetup: 'Protège d\'abord tes accords depuis Réglages.',
-    /** The generic card (#94, docs/mockups/ledge-action-card.html, « Téléphone »): the rows' lines are the PC's (actionWords),
-     *  the sentences that speak to the user say « tu » (ledge-action-card-codes.md). */
-    action: {
-      label: (n: number) => n > 1 ? `Plan de ${n} actions` : 'Action proposée',
-      risk: { read: 'Lecture', reversible: 'Réversible', destructive: 'Irréversible' },
-      step: (k: number) => `Étape ${k}`,
-      stepState: { done: (k: number) => `Étape ${k}, appliquée`, failed: (k: number) => `Étape ${k}, échouée`, refused: (k: number) => `Étape ${k}, refusée`, running: (k: number) => `Étape ${k}, en cours` },
-      verbs: {
-        'session.model': 'Changer', 'session.interrupt': 'Interrompre', 'session.archive': 'Archiver', 'session.restore': 'Restaurer', 'session.resume': 'Reprendre',
-        'session.decide': 'Accepter',
-        'task.cancel': 'Abandonner', 'task.pass': 'Passer le relais', 'task.answer': 'Répondre', 'note.add': 'Ajouter',
-        'rig.act': 'Appliquer', 'rig.seats': 'Changer'
-      } as Record<string, string>,
-      /** An OpenRig row's button, its line's verb (M3 Q34); undefined: the action's verb above. */
-      verb: (action: string | undefined, v: ActionVars): string | undefined => actionWords.fr.verb(action, v),
-      apply: 'Appliquer', deny: 'Refuser', ignore: 'Ignorer', review: 'Revoir', retry: 'Réessayer', running: 'En cours…',
-      done: (at: string) => `Appliquée${at ? ` · ${at}` : ''}`, refusedState: 'Refusée', denied: (at: string) => `Refus envoyé${at ? ` · ${at}` : ''}`,
-      open: (name: string) => `Ouvrir ${name}`,
-      failed: (why: string) => `Échec : ${why}`, refused: (why: string) => `Refusée : ${why} Rien n’a été envoyé.`,
-      held: (k: number) => `Pas appliquée : le plan s’est arrêté à l’étape ${k}.`,
-      stale: 'La demande a changé depuis : rien n’a été envoyé.',
-      deniedNote: (name: string) => `${name} a reçu ton refus : la commande n’a pas été lancée.`,
-      cutMark: 'Demande coupée : la suite est sur le PC.',
-      cutNote: 'Demande trop longue pour cet appareil : elle s’accepte sur le PC. Tu peux la refuser d’ici.',
-      /** What an irreversible OpenRig step stops, in its sheet (Q85): the daemon's list, « … et 3 autres » when it cut it. */
-      stops: (how: 'stop' | 'restart' | 'removed', n: number, seats: string, more: number) => {
-        const head = how === 'removed' ? (n > 1 ? `Les ${n} sièges retirés s’arrêtent` : 'Le siège retiré s’arrête')
-          : how === 'restart' ? (n > 1 ? `Ses ${n} sièges s’arrêtent puis redémarrent` : 'Son siège s’arrête puis redémarre')
-          : n > 1 ? `Ses ${n} sièges s’arrêtent` : 'Son siège s’arrête';
-        return `${head} : ${seats}${more > 0 ? ` … et ${more} ${more > 1 ? 'autres' : 'autre'}` : ''}.`;
-      },
-      all: (n: number) => `Tout appliquer (${n})`, resume: (k: number, n: number) => `Reprendre à l’étape ${k} (${n})`, skip: (k: number, n: number) => `Continuer sans l’étape ${k} (${n})`,
-      inOrder: 'Dans l’ordre ; s’arrête au premier échec.', notReplayed: 'Les étapes faites ne sont pas rejouées.',
-      progress: (k: number, n: number) => `Étape ${k} sur ${n}…`, planDone: (at: string) => `Plan appliqué${at ? ` à ${at}` : ''}`,
-      notSent: 'Pas envoyé. Réessaie.',
-      sheet: { many: (n: number) => `Appliquer ces ${n} actions, dans l’ordre ?`, one: (line: string) => `${line} ?`, stops: 'Si une étape échoue, les suivantes ne sont pas appliquées.', cancel: 'Annuler' },
-      ignored: (n: number, at: string, sent: { done: number; denied: number; failed: number }) => {
-        const went = [
-          ...(sent.done ? [`${sent.done} ${sent.done > 1 ? 'appliquées' : 'appliquée'}`] : []),
-          ...(sent.denied ? [`${sent.denied} ${sent.denied > 1 ? 'refus envoyés' : 'refus envoyé'}`] : []),
-          ...(sent.failed ? [`${sent.failed} ${sent.failed > 1 ? 'échouées' : 'échouée'}`] : [])
-        ];
-        if (!went.length) return `${n > 1 ? `Plan de ${n} actions ignoré` : 'Carte ignorée'} à ${at} · rien n’a été envoyé`;
-        return n > 1 ? `Plan de ${n} actions : ${went.join(', ')}, le reste ignoré à ${at}` : `Carte ignorée à ${at} · l’action est partie, mais n’a pas abouti`;
-      },
-      /** A row's line, from its words; undefined when one is missing (the daemon's summary then). */
-      line: (action: string, v: ActionVars): string | undefined => actionWords.fr.line[action]?.(v),
-      kind: actionWords.fr.kind,
-      /** Why a row was refused or failed: the PC’s words, with the phone’s own sentences where it asks something of the user. */
-      why: (code: ActionErrorCode | undefined, action: string | undefined, v: ActionVars): string => {
-        if (code === 'changed') return 'la situation a changé depuis : redemande à Ledge.';
-        if (code === 'not_decision') return v.task ? `la tâche « ${v.task} » n’est pas une décision qui t’est posée.` : 'cette tâche n’est pas une décision qui t’est posée.';
-        return actionWords.fr.why(code, action, v);
-      }
-    },
-    steps: {
-      sessions: (n: number) => `Lit les ${n} sessions…`,
-      pane: (name: string) => `Regarde le terminal de ${name}…`,
-      reply: (name: string) => `Lit la dernière réponse de ${name}…`,
-      look: (name: string) => `Regarde ${name}…`
-    }
-  },
   /** « Sessions » (docs/mockups/ledge-mobile-refonte/m2-sessions.html §1, Q24, Q25): the filters, the groups, a row's line. */
   sessions: {
+    /** A close this phone sent, over the row's state until the session ends. */
+    closing: 'Fermeture…',
     /** Issue #16 (docs/mockups/ledge-reorder.html, cards 6 and 7): the same words as Desktop, the failures as design-ux wrote them
      *  for the phone. `i` is already an ordinal (« 1re », « 2e »). */
     reorder: {

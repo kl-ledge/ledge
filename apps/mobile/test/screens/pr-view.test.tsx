@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PhoneServerMessage, PrDetail } from '@ledge/protocol';
 import { copy } from '../../src/copy';
 import { getAssertion } from '../../src/link/webauthn';
-import { forgetLedgePane, setLedgePane } from '../../src/state/ledgePane';
 import { detail, forgeState, mr, pr } from '../model/forge-fixtures';
 import { snapshot } from '../state/helpers';
 import { session } from '../model/fixtures';

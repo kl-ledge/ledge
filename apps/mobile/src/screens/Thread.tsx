@@ -21,7 +21,7 @@ import { useNow } from '../useNow';
 import { footLimit, indicators, tokenCount } from '../model/usage';
 import { useWide, useWideSide } from '../ui/layout';
 import { physicalKeyboard } from '../ui/MessageField';
-import { windowLabel } from '../ui/chat/Limits';
+import { windowLabel } from '../ui/Limits';
 import { BackLink, LinkStatus, linkView } from '../ui/Header';
 import { Notice } from '../ui/Notice';
 import { TaskFoot, askedBy } from './TaskFoot';
@@ -423,7 +423,7 @@ export function SessionFoot({ store, forge, session, wide, threshold, onModel }:
       {wide && <span className="flex-1" />}
       {limit && (
         <span className="flex-none">
-          {copy.chat.point.harnessShort[limit.harness] ?? limit.harness} {windowLabel(limit.window)}{' '}
+          {copy.limits.harnessShort[limit.harness] ?? limit.harness} {windowLabel(limit.window)}{' '}
           <b className={`font-semibold ${limit.tone === 'red' ? 'text-approval' : limit.tone === 'amber' ? 'text-attention' : 'text-fg'}`}>{limit.window.pct} %</b>
         </span>
       )}

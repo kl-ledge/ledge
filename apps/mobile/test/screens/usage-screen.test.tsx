@@ -53,12 +53,12 @@ describe('Réglages › Usage (#40 D9)', () => {
     expect(within(main).getByText('Claude Code')).toBeInTheDocument();
     expect(within(main).getByText('Codex')).toBeInTheDocument();
     expect(within(main).getByText('64 %')).toBeInTheDocument();
-    expect(within(main).queryByText(copy.chat.point.limits)).toBeNull();
+    expect(within(main).queryByText(copy.limits.limits)).toBeNull();
     expect(document.querySelector('a[data-back]')).toHaveAttribute('data-back', 'connection');
   });
 
   it('reading: says so', () => {
     open('#/connection/usage', null);
-    expect(screen.getByText(copy.chat.point.loading)).toBeInTheDocument();
+    expect(screen.getByText(copy.limits.loading)).toBeInTheDocument();
   });
 });
