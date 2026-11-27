@@ -215,6 +215,14 @@ describe('#54: missions', () => {
       waitsOn: { kind: 'external', text: 'réponse de l\'utilisateur' }, lastNote: null });
   });
 
+  it('an id names a mission whole, never as the start of a longer id', async () => {
+    const m = row('qitem-20261127192400-12c04d22', MAX, LEAD, 'in-progress', '19:00');
+    const r = await missionsOf({ rows: [m,
+      row('q-long', LEAD, BACK, 'pending', '19:10', { body: 'Voir qitem-20261127192400-12c04d22ab, une autre ligne.' }),
+      row('q-whole', LEAD, BACK, 'pending', '19:11', { body: 'Pour qitem-20261127192400-12c04d22.' })] }).m.list();
+    expect(r.missions[0]!.children.map(c => c.qitemId)).toEqual(['q-whole']);
+  });
+
   it('neither a row to a person, nor one inside the kernel, nor a seat\'s own row is a mission', async () => {
     const r = await missionsOf({ rows: [
       row('p', MAX, 'ledge@external', 'pending', '17:00'), row('k', MAX, 'advisor-agent@kernel', 'pending', '17:00'), row('s', LEAD, BACK, 'pending', '17:00')

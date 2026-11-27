@@ -330,7 +330,8 @@ export function createMissions(deps: MissionsDeps): MissionsService {
           if (!made) { mine = true; continue; }
           for (const r of made) pool2.set(str(r.qitemId)!, r);
         }
-        const names = (text: string | null) => !!text && [...inChain].some(id => text.includes(id));
+        // An id whole: not the start of a longer one.
+        const names = (text: string | null) => !!text && [...inChain].some(id => new RegExp(`${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![0-9a-z])`, 'i').test(text));
         for (const r of pool2.values()) {
           if (inChain.has(str(r.qitemId)!) || missionRows.has(str(r.qitemId)!) || isSweep(r)) continue;
           if (names(str(r.body)) || names(str(r.summary))) { attach(r, 'cites_mission'); continue; }
