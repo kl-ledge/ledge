@@ -361,19 +361,27 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }).catch(e => log(`openrig goals: not read: ${(e as Error).message}`));
     }, 600);
   };
-  // #54: the operator's thread's « Missions » and « Échanges », read from the first front that asks, again on each queue event and on a
-  // timer (OpenRig sends no event for a message), pushed whole to every front when they change.
+  // #54: the operator's thread's « Missions » and « Échanges », read while a front that asked for them is connected, again on each queue
+  // event and on a timer (OpenRig sends no event for a message), pushed whole to those fronts when they change.
   const missions = opts.missions ?? createMissions({ state: () => openrig.state() });
-  let missionsFollowed = false, missionsWant = EXCHANGES_DEFAULT, missionsTimer: NodeJS.Timeout | null = null, missionsPoll: NodeJS.Timeout | null = null, lastMissions = '';
+  const missionsAskers = new Set<Reply>();
+  let missionsWant = EXCHANGES_DEFAULT, missionsTimer: NodeJS.Timeout | null = null, missionsPoll: NodeJS.Timeout | null = null, lastMissions = '';
   const pushMissions = () => {
-    if (!missionsFollowed || missionsTimer) return;
+    if (!missionsAskers.size || missionsTimer) return;
     missionsTimer = setTimeout(() => {
       missionsTimer = null;
+      if (!missionsAskers.size) return;
       void missions.list(missionsWant).then(l => {
         const key = JSON.stringify(l);
-        if (key !== lastMissions) { lastMissions = key; broadcast({ type: 'openrig.missionsChanged', ...l }); }
+        if (key !== lastMissions) { lastMissions = key; for (const r of missionsAskers) r({ type: 'openrig.missionsChanged', ...l }); }
       }).catch(e => log(`openrig missions: not read: ${(e as Error).message}`));
     }, 600);
+  };
+  /** The last front that asked has gone: no more reading. */
+  const leaveMissions = (r: Reply) => {
+    if (!missionsAskers.delete(r) || missionsAskers.size) return;
+    if (missionsPoll) clearInterval(missionsPoll);
+    missionsPoll = null; lastMissions = '';
   };
   const onQueueEvent = () => { pushGoals(); pushMissions(); };
   const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: onQueueEvent });
@@ -1568,8 +1576,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       // #54: asked by the operator's thread only. `exchanges`: what « Échanges » shows (« Voir plus ancien » asks for more).
       case 'openrig.missions': {
         missionsWant = msg.exchanges ?? EXCHANGES_DEFAULT;
-        if (!missionsFollowed) {
-          missionsFollowed = true; followAsks();
+        missionsAskers.add(reply);
+        if (!missionsPoll) {
+          followAsks();
           missionsPoll = setInterval(pushMissions, opts.missionsPollMs ?? 15_000);
           missionsPoll.unref?.();
         }
@@ -2323,7 +2332,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     localClients.add(ws); ws.once('close', () => localClients.delete(ws));
     const reply: Reply = m => send(ws, m);
     shellReplies.add(reply);
-    ws.once('close', () => { shellReplies.delete(reply); browserLive.unwatchAll(reply); panes?.release(reply); });
+    ws.once('close', () => { shellReplies.delete(reply); browserLive.unwatchAll(reply); panes?.release(reply); leaveMissions(reply); });
     sendSnapshot(reply);
     ws.on('message', data => {
       let msg: ClientMessage;

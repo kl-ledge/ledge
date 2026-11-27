@@ -3065,7 +3065,7 @@ describe('server: goals to Max', () => {
 });
 
 describe('server: the operator thread\'s missions and exchanges (#54)', () => {
-  it('openrig.missions answers its asker with what it asks for, then is pushed to every front on a queue event or the timer, only when it changed', async () => {
+  it('openrig.missions answers its asker, then is pushed to the fronts that asked on a queue event or the timer, only when it changed; reading stops when they leave', async () => {
     const asked: number[] = [];
     let read = { openrig: 'ok' as const, operator: 'operator-agent@kernel', missions: [], exchanges: [], exchangesMore: false };
     let event: (() => void) | null = null;
@@ -3073,19 +3073,29 @@ describe('server: the operator thread\'s missions and exchanges (#54)', () => {
       human: { async list() { return { channel: { state: 'ready' as const, person: null, slack: false }, asks: [] }; }, async answer(q) { return { qitemId: q, ok: true }; },
         start(push) { event = () => push({ channel: { state: 'ready', person: null, slack: false }, asks: [] }); }, stop() {} },
       missions: { async list(n) { asked.push(n ?? 0); return read; } } });
-    const c = await connect({ port: srv2.port }), other = await connect({ port: srv2.port });
-    await c.next('snapshot'); await other.next('snapshot');
+    const c = await connect({ port: srv2.port }), other = await connect({ port: srv2.port }), idle = await connect({ port: srv2.port });
+    await c.next('snapshot'); await other.next('snapshot'); await idle.next('snapshot');
     c.send({ type: 'openrig.missions', requestId: 'm1', exchanges: 120 });
     expect(await c.next('openrig.missionsChanged')).toEqual({ type: 'openrig.missionsChanged', requestId: 'm1', ...read });
-    expect(asked).toEqual([120]);
+    other.send({ type: 'openrig.missions', requestId: 'm2', exchanges: 120 });
+    await other.next('openrig.missionsChanged');
+    expect(asked.slice(0, 2)).toEqual([120, 120]);
     // Unchanged: the timer reads again, nothing is pushed.
     await new Promise(r => setTimeout(r, 800));
-    expect(asked.length).toBeGreaterThan(1);
+    expect(asked.length).toBeGreaterThan(2);
     expect(asked.every(n => n === 120)).toBe(true);
     read = { ...read, exchangesMore: true };
     event!();
     expect((await other.next('openrig.missionsChanged', 3000)).exchangesMore).toBe(true);
-    c.close(); other.close(); await srv2.close();
+    // A front that never asked gets nothing.
+    await expect(idle.next('openrig.missionsChanged', 300)).rejects.toThrow();
+    // Both askers gone: the timer stops reading.
+    c.close(); other.close();
+    await new Promise(r => setTimeout(r, 300));
+    const n = asked.length;
+    await new Promise(r => setTimeout(r, 800));
+    expect(asked.length).toBe(n);
+    idle.close(); await srv2.close();
   });
 
   it('the daemon says it answers them', async () => {

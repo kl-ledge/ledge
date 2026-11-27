@@ -158,20 +158,22 @@ describe('#54: what OpenRig says when there is nothing to read', () => {
 });
 
 describe('#54: missions', () => {
-  // Max gives #40 to the lead at 16:00 (blocked on q-2b); #44 at 18:00. The lead creates q-a (16:30, only #40 held), q-b (18:30, both held),
-  // q-2b (18:40, both held, but #40 waits on it), q-c (18:50, both held, cited in a #40 note), q-old (15:00, before), and q-done (16:40, ended).
+  // Max gives #40 to the lead at 16:00 (blocked on q-2b), #44 at 18:00. Only explicit links attach a row (the lead's decision):
+  // q-a names m40 in its body, q-wait waits on q-a, q-2b is what m40 waits on (now at QA), the cited row is in a note of the lead's on m40,
+  // q-done names m40 and ended. q-b was made by the lead during #40 with no link: not shown. A sweep row naming m40 is never a row of it.
   const m40 = row('m40', MAX, LEAD, 'blocked', '16:00', { blockedOn: 'q-2b', summary: 'Commencer #40', tsUpdated: t('19:00') });
   const m44 = row('m44', MAX, LEAD, 'in-progress', '18:00', { summary: '#44', tsUpdated: t('18:01') });
   const rows: Row[] = [
     m40, m44,
-    row('q-a', LEAD, BACK, 'in-progress', '16:30', { summary: 'PR 4, back', tsUpdated: t('16:31') }),
-    row('q-b', LEAD, FRONT, 'pending', '18:30'),
+    row('q-a', LEAD, BACK, 'in-progress', '16:30', { summary: 'PR 4, back', body: 'Pour m40 : la partie back.', tsUpdated: t('16:31') }),
+    row('q-wait', BACK, QA, 'blocked', '16:40', { summary: 'Revue PR 4', blockedOn: 'q-a', tsUpdated: t('16:41') }),
+    row('q-b', LEAD, FRONT, 'pending', '17:30'),
     row('q-2b', LEAD, FRONT, 'handed-off', '18:40', { summary: 'PR 2b, téléphone', handedOffTo: QA, tsUpdated: t('18:45') }),
     row('q-2b-qa', FRONT, QA, 'in-progress', '18:45', { handedOffFrom: 'q-2b', summary: 'Revue 2b', tsUpdated: t('18:46') }),
-    row('q-c', LEAD, BACK, 'pending', '18:50', { summary: 'PR 3, TUI' }),
     row('q-old', LEAD, BACK, 'done', '15:00', { tsUpdated: t('16:20') }),
-    row('q-done', LEAD, QA, 'done', '16:40', { summary: 'Inventaire', tsUpdated: t('17:00') }),
-    row('q-ask', LEAD, 'ledge@external', 'pending', '16:50', { humanIntent: 'ask' })
+    row('q-done', LEAD, QA, 'done', '16:40', { summary: 'Inventaire', body: 'Inventaire pour m40.', tsUpdated: t('17:00') }),
+    row('q-ask', LEAD, 'ledge@external', 'pending', '16:50', { humanIntent: 'ask', body: 'm40' }),
+    row('qitem-recovery-0a1b2c3d4e5f6a7b', LEAD, LEAD, 'pending', '17:10', { summary: 'Custody not checked: no successor of m40', body: 'm40', tags: ['stuck-sweep-finding', 'recovery-for:m40'], tsUpdated: t('17:10') })
   ];
   const steps = {
     m40: [step('pending', '16:00', MAX, 'created'), step('in-progress', '16:01', LEAD, 'claimed'), step('blocked', '16:35', LEAD, 'PR 4 chez dev-back.'),
@@ -183,7 +185,7 @@ describe('#54: missions', () => {
   const cited = row('qitem-20261127185000-0000c0de', LEAD, BACK, 'pending', '18:50', { summary: 'PR 3, TUI' });
 
   it('each open mission: state and since, title, who to whom, what it waits on, the holder\'s last note, the rows attached only when sure', async () => {
-    const { m } = missionsOf({ rows: [...rows.filter(r => r.qitemId !== 'q-c'), cited], steps });
+    const { m } = missionsOf({ rows: [...rows, cited], steps });
     const r = await m.list();
     expect(r.partial).toBeUndefined();
     expect(r.missions.map(x => x.qitemId)).toEqual(['m40', 'm44']);
@@ -193,14 +195,14 @@ describe('#54: missions', () => {
       waitsOn: { kind: 'row', qitemId: 'q-2b', title: 'PR 2b, téléphone', holder: FRONT, state: 'handed-off' },
       lastNote: { at: t('19:00'), by: LEAD, text: 'Attend la 2b ; la TUI est qitem-20261127185000-0000c0de.' }
     });
-    // q-a (only #40 held), q-2b (waited on: shown where it is now, at QA), the cited row; q-b (two missions held) is not shown.
     expect(x.children.map(c => [c.qitemId, c.holder, c.by, c.title])).toEqual([
-      ['q-a', BACK, 'created', 'PR 4, back'],
+      ['q-a', BACK, 'cites_mission', 'PR 4, back'],
+      ['q-wait', QA, 'blocked_on', 'Revue PR 4'],
       ['q-2b-qa', QA, 'blocked_on', 'PR 2b, téléphone'],
       ['qitem-20261127185000-0000c0de', BACK, 'cited', 'PR 3, TUI']
     ]);
     expect(x.closed).toEqual({ count: 1, titles: ['Inventaire'] });
-    // #44: no note, nothing attached by time (the lead holds #40 too), nothing waited on.
+    // #44: no note, no link, nothing waited on.
     expect(r.missions[1]).toMatchObject({ qitemId: 'm44', state: 'in-progress', since: t('18:01'), waitsOn: null, lastNote: null, children: [], closed: { count: 0, titles: [] } });
   });
 
@@ -261,6 +263,18 @@ describe('#54: exchanges', () => {
     q1.tsUpdated = t('19:05');
     await m.list();
     expect(calls.filter(c => c.startsWith('/api/queue/q1/transitions'))).toHaveLength(2);
+  });
+
+  it('a row OpenRig\'s sweep made is not an exchange', async () => {
+    const sweep = row('qitem-recovery-0a1b2c3d4e5f6a7b', LEAD, FRONT, 'pending', '19:00', { summary: 'Stuck sweep: stalled-after-claim on q1', tags: ['stuck-sweep-finding'] });
+    const r = await missionsOf({ rows: [sweep], steps: { [sweep.qitemId]: [step('pending', '19:00', LEAD, 'created')] } }).m.list();
+    expect(r.exchanges).toEqual([]);
+  });
+
+  it('nothing older than what was read: no « Voir plus ancien »', async () => {
+    const r = await missionsOf({ rows: [row('q1', LEAD, BACK, 'pending', '19:00')], steps: { q1: [step('pending', '19:00', LEAD, 'created')] }, outbox: [msg('o1', BACK, LEAD, '19:20:00', 'ok')] }).m.list();
+    expect(r.exchanges).toHaveLength(2);
+    expect(r.exchangesMore).toBe(false);
   });
 
   it('a failed message read is partial', async () => {

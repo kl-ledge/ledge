@@ -551,12 +551,12 @@ export type OpenRigGoalReplied = z.infer<typeof OpenRigGoalRepliedSchema>;
 export const MissionRowStateSchema = z.enum(['pending', 'in-progress', 'blocked']);
 export type MissionRowState = z.infer<typeof MissionRowStateSchema>;
 
-/** A row a mission's holder created, at the end of its own chain of handoffs: who holds it now and since when. Attached by deduction,
- *  and only when sure (`by`): `blocked_on` the mission waits on it; `cited` its id is in the holder's notes on the mission; `created` the
- *  holder made it while this was the only mission it held. A row that fits none of them is not shown. */
+/** A row linked to a mission, at the end of its own chain of handoffs: who holds it now and since when. Attached only by an explicit link
+ *  (`by`), never by who made it when: `blocked_on` a `blockedOn` between it and the mission or one of the mission's rows (either way);
+ *  `cited` its id is in the holder's notes on the mission; `cites_mission` the mission's id is in its summary, body or notes. */
 export const MissionChildSchema = z.object({
   qitemId: z.string(), title: z.string(), holder: z.string(), state: MissionRowStateSchema, since: z.string(),
-  by: z.enum(['blocked_on', 'cited', 'created'])
+  by: z.enum(['blocked_on', 'cited', 'cites_mission'])
 });
 export type MissionChild = z.infer<typeof MissionChildSchema>;
 
@@ -580,8 +580,8 @@ export const MissionSchema = z.object({
   waitsOn: MissionWaitSchema.nullable(),
   /** The holder's last note on the open row (`rig queue update --note`, a block's note…), the queue's own notes left out. */
   lastNote: z.object({ at: z.string(), by: z.string(), text: z.string() }).nullable(),
-  /** The holders' rows still open, the oldest first. */ children: z.array(MissionChildSchema),
-  /** The holders' rows that ended (the same attachment): their count and titles, the most recent first. */
+  /** The rows linked to it still open, the oldest first. */ children: z.array(MissionChildSchema),
+  /** The rows linked to it that ended: their count and titles, the most recent first. */
   closed: z.object({ count: z.number().int().nonnegative(), titles: z.array(z.string()) }),
   /** Part of this mission could not be read (its journal, a successor, the holder's rows): what is shown is what was read. */
   partial: z.boolean().optional()

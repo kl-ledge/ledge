@@ -7,8 +7,8 @@ import { fetchHttp, type RigHttp } from './openrigHuman.js';
  * Everything is read from OpenRig as it keeps it; nothing is asked of the operator or the rigs.
  *
  * - A mission is a row the operator (the kernel's `operator.agent`) gave a seat of another rig, followed down its handoffs to the open
- *   row at the end. Its holder's rows are attached by deduction, and only when sure (MissionChild's `by`); a row that fits no rule is not
- *   shown rather than guessed.
+ *   row at the end. Rows are attached to it only by an explicit link (MissionChild's `by`); a row without one is not shown rather than
+ *   guessed. Rows OpenRig's sweep makes (`qitem-recovery-*`) are never anyone's work.
  * - « Échanges »: the members' messages (`GET /api/queue/outbox/list?rig=`, every `rig send`, with OpenRig's delivery state; the envelope
  *   is taken off its text when it reads as OpenRig writes it today, the body is kept whole otherwise), the rows given, handed on, blocked
  *   and ended (each row's journal, `GET /api/queue/<id>/transitions`). A queue wake (`wake-intent-*`) is not a message: its delivery state
@@ -50,6 +50,9 @@ const oneLine = (t: string): string => {
 };
 const titleOf = (r: Json): string => oneLine(str(r.summary) ?? (str(r.body) ?? '').trim().split(/\r?\n/).find(Boolean) ?? str(r.qitemId) ?? '');
 const handedOn = (r: Json): boolean => str(r.state) === 'handed-off' || !!str(r.handedOffTo) || str(r.closureReason) === 'handed_off_to';
+/** A row OpenRig's own sweep made (« Stuck sweep: … », « Custody not checked: … »): never a seat's work, a mission's row or an exchange. */
+export const isSweep = (r: Json): boolean => (str(r.qitemId) ?? '').startsWith('qitem-recovery-')
+  || (Array.isArray(r.tags) && r.tags.some(t => t === 'stuck-sweep-finding' || (typeof t === 'string' && t.startsWith('recovery-for:'))));
 /** A block on something outside OpenRig (`--blocked-on external:<text>`), not on a row. */
 const isExternal = (on: string): boolean => on.startsWith('external:');
 const isOpen = (r: Json): boolean => OPEN.has(str(r.state) ?? '');
@@ -249,7 +252,7 @@ export function createMissions(deps: MissionsDeps): MissionsService {
     const inRigs = (seat: string) => rigs.includes(rigOf(seat));
     const exchangeRows = changed.filter(r => {
       const s = str(r.sourceSession) ?? '', d = str(r.destinationSession) ?? '';
-      return !isPerson(s) && !isPerson(d) && !str(r.humanIntent) && (inRigs(s) || inRigs(d));
+      return !isPerson(s) && !isPerson(d) && !str(r.humanIntent) && !isSweep(r) && (inRigs(s) || inRigs(d));
     });
     const rowEntries = (await pool(exchangeRows, async r => {
       const steps = await journal(r);
@@ -260,7 +263,9 @@ export function createMissions(deps: MissionsDeps): MissionsService {
     })).flat();
     const all = [...messages, ...rowEntries].filter(e => e.at >= since).sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id));
     const exchanges = all.slice(0, want);
-    const exchangesMore = all.length > want || !!cutoff || since === span;
+    // Older entries exist: some were cut here, a message list was cut by its limit, or something read is older than the span.
+    const older = !cutoff && ([...entries.values()].some(e => (str(e.tsDispatched) ?? '') < since) || changed.some(r => (str(r.tsCreated) ?? '') < since));
+    const exchangesMore = all.length > want || !!cutoff || older;
 
     // ── Missions ──
     const missions: Mission[] = [];
@@ -282,34 +287,12 @@ export function createMissions(deps: MissionsDeps): MissionsService {
       };
       const chains = (await pool(open, async r => {
         const d = str(r.destinationSession) ?? '';
-        if (isPerson(d) || rigOf(d) === KERNEL_RIG || str(r.humanIntent)) return null;
+        if (isPerson(d) || rigOf(d) === KERNEL_RIG || str(r.humanIntent) || isSweep(r)) return null;
         const chain = await fromOperator(r);
         return chain && rigOf(str(chain[0]!.destinationSession) ?? '') !== KERNEL_RIG ? chain : null;
       })).filter((c): c is Json[] => !!c);
 
-      // Every mission's hands, open and recent, for the « only mission it held » rule: a seat holding two at once attaches neither's rows
-      // by time. The operator's rows changed since the oldest open mission began, followed down their handoffs.
-      const start = chains.map(c => str(c[0]!.tsCreated) ?? '').sort()[0];
-      type Tenure = { seat: string; from: string; to: string; root: string };
-      const tenures: Tenure[] = [];
-      const tenureOf = (r: Json, root: string): Tenure => ({
-        seat: str(r.destinationSession) ?? '', from: str(r.tsCreated) ?? '', root,
-        to: isOpen(r) ? new Date(now()).toISOString() : str(r.tsUpdated) ?? ''
-      });
-      if (start) {
-        const given = await list(`/api/queue/list?sourceSession=${encodeURIComponent(operator)}&updatedSince=${encodeURIComponent(start)}`) ?? [];
-        given.forEach(keep);
-        const roots = new Map<string, Json>([...given, ...chains.map(c => c[0]!)].map(r => [str(r.qitemId)!, r]));
-        for (const r of roots.values()) {
-          const d = str(r.destinationSession) ?? '';
-          if (isPerson(d) || rigOf(d) === KERNEL_RIG) continue;
-          const own = chains.find(c => str(c[0]!.qitemId) === str(r.qitemId));
-          const chain = own ?? (await forward(r)).chain;
-          for (const c of chain) tenures.push(tenureOf(c, str(r.qitemId)!));
-        }
-      }
-      const sole = (seat: string, at: string, root: string) =>
-        !tenures.some(t => t.seat === seat && t.root !== root && t.from <= at && at <= t.to);
+      // Rows that may name a mission: the holders' own since the mission began, and every row changed in the exchanges' span.
       const holderRows = new Map<string, Promise<Json[] | undefined>>();
       const madeBy = (seat: string, since: string) => {
         const k = `${seat}\n${since}`;
@@ -317,6 +300,8 @@ export function createMissions(deps: MissionsDeps): MissionsService {
         return holderRows.get(k)!;
       };
 
+      /** Every open mission's own rows: another mission naming this one is not one of its rows. */
+      const missionRows = new Set(chains.flat().map(r => str(r.qitemId)!));
       for (const chain of chains) {
         const root = chain[0]!, cur = chain.at(-1)!;
         const rootId = str(root.qitemId)!, curId = str(cur.qitemId)!;
@@ -327,33 +312,55 @@ export function createMissions(deps: MissionsDeps): MissionsService {
         const cited = new Set(notes.flatMap(n => n.text.match(QITEM_ID) ?? []));
         const inChain = new Set(chain.map(r => str(r.qitemId)!));
         const blockedOn = str(cur.blockedOn);
-        // The holders' rows: each chain row's holder, over its own tenure.
+        // Only explicit links attach a row (#54, the lead's decision): a `blockedOn` between it and the mission or one of its rows, its
+        // id in the holder's notes on the mission, or the mission's id in its body or notes. Never a guess from who made it when.
         const found = new Map<string, { r: Json; by: MissionChild['by'] }>();
-        const rank = { blocked_on: 0, cited: 1, created: 2 } as const;
-        const attach = (r: Json, by: MissionChild['by']) => {
+        const rank = { blocked_on: 0, cited: 1, cites_mission: 2 } as const;
+        const attach = (r: Json, by: MissionChild['by']): boolean => {
           const id = str(r.qitemId)!;
-          if (inChain.has(id) || isPerson(str(r.destinationSession) ?? '') || str(r.humanIntent)) return;
+          if (inChain.has(id) || missionRows.has(id) || isPerson(str(r.destinationSession) ?? '') || str(r.humanIntent) || isSweep(r)) return false;
           const had = found.get(id);
           if (!had || rank[by] < rank[had.by]) found.set(id, { r, by });
+          return !had;
         };
+        const pool2 = new Map<string, Json>();
+        for (const r of [...changed, ...open]) pool2.set(str(r.qitemId)!, r);
         for (const c of chain) {
-          const t = tenureOf(c, rootId), seat = t.seat;
-          const made = await madeBy(seat, t.from);
+          const made = await madeBy(str(c.destinationSession) ?? '', str(root.tsCreated) ?? '');
           if (!made) { mine = true; continue; }
-          for (const r of made) {
-            const at = str(r.tsCreated) ?? '';
-            if (at >= t.from && at <= t.to && sole(seat, at, rootId)) attach(r, 'created');
-          }
+          for (const r of made) pool2.set(str(r.qitemId)!, r);
+        }
+        const names = (text: string | null) => !!text && [...inChain].some(id => text.includes(id));
+        for (const r of pool2.values()) {
+          if (inChain.has(str(r.qitemId)!) || missionRows.has(str(r.qitemId)!) || isSweep(r)) continue;
+          if (names(str(r.body)) || names(str(r.summary))) { attach(r, 'cites_mission'); continue; }
+          const s = await journal(r);
+          if (!s) { mine = true; continue; }
+          if (s.some(x => names(str(x.transitionNote)))) attach(r, 'cites_mission');
         }
         for (const id of cited) {
           if (inChain.has(id)) continue;
           const r = await row(id);
           if (r) attach(r, 'cited'); else mine = true;
         }
+        // `blockedOn`, both ways, step by step: what the mission or an attached row waits on, and a row that waits on one of them.
+        for (let round = 0; round < CHAIN_MAX; round++) {
+          let grew = false;
+          const linked = new Set([...inChain, ...found.keys()]);
+          const waited = [cur, ...[...found.values()].map(f => f.r)].map(r => str(r.blockedOn)).filter((on): on is string => !!on && !isExternal(on) && !linked.has(on));
+          for (const on of new Set(waited)) {
+            const r = await row(on);
+            if (r) grew = attach(r, 'blocked_on') || grew; else mine = true;
+          }
+          for (const r of pool2.values()) {
+            const on = str(r.blockedOn);
+            if (on && linked.has(on)) grew = attach(r, 'blocked_on') || grew;
+          }
+          if (!grew) break;
+        }
         let waitsOn: MissionWait | null = null;
         if (blockedOn && !isExternal(blockedOn)) {
           const r = await row(blockedOn);
-          if (r) attach(r, 'blocked_on'); else mine = true;
           waitsOn = { kind: 'row', qitemId: blockedOn, title: r ? titleOf(r) : null, holder: r ? str(r.destinationSession) : null, state: r ? str(r.state) : null };
         } else if (blockedOn) {
           waitsOn = { kind: 'external', text: oneLine(blockedOn.replace(/^external:/, '')) };
