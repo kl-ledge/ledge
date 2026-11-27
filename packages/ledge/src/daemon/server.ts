@@ -58,7 +58,7 @@ import { createPhoneGateway, type PhoneGateway } from '../mobile/gateway.js';
 import { phoneLaunch } from '../mobile/launch.js';
 import { createNotifier } from '../mobile/push/notifier.js';
 import { decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
-import { setAsideOperatorJournal } from './retired.js';
+import { setAsideChatData, setAsideOperatorJournal } from './retired.js';
 import { createAskWatch, createNoticeFeed, noticesOf } from './notices.js';
 import { createAsides, type Asides } from './aside.js';
 import { pushFor, resolvedFor } from '../mobile/push/triggers.js';
@@ -213,7 +213,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
   /** The pull and merge requests of the sessions' branches (lot 8a): the daemon's own, started with it; tests give one or none. */ forge?: ForgeService;
   /** The daemon's own (#40, D11): OpenRig's asks followed from the start, for the island's notices and the urgent asks' push, and the
-   *  retired operator's journal (`ledge.sqlite`) set aside, never deleted. Tests leave it out. */ followRigs?: boolean }): Promise<ServerHandle> {
+   *  retired operator's journal (`ledge.sqlite`) and the removed chat's data (`chat.json`, `chat/`, `mobile/chat/`) set aside, never
+   *  deleted. Tests leave it out. */ followRigs?: boolean }): Promise<ServerHandle> {
   const { store, tmux } = opts;
   const now = opts.now ?? (() => new Date().toISOString());
   const launcher = opts.launcher ?? [process.execPath, process.argv[1] ?? 'ledge'];
@@ -2006,8 +2007,10 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     // OpenRig's asks are followed from the start where it is installed: the island's notices and the urgent asks' push need them
     // (#40, D11). The first list read is their baseline.
     void openrig.state().then(st => { if (st.installed) followAsks(); }).catch(e => log(`openrig: asks not followed: ${(e as Error).message}`));
-    // The retired operator's journal is set aside, never deleted (the owner's condition, #40 D11).
-    setAsideOperatorJournal(paths().dir, new Date(), log);
+    // The retired operator's journal and the removed chat's data are set aside, never deleted (the owner's condition, #40 D11).
+    const startedAt = new Date();
+    setAsideOperatorJournal(paths().dir, startedAt, log);
+    setAsideChatData(paths().dir, startedAt, log);
   }
 
   wss.on('connection', (ws, req) => {

@@ -27,3 +27,26 @@ export function setAsideOperatorJournal(dir: string, now: Date, log: (line: stri
   log(`operator journal set aside: ${base}`);
   return base;
 }
+
+/** What the removed chat kept under `~/.ledge` (#40): the PC's conversation of the day, its context and OMP folders, and each paired
+ *  device's conversations. */
+export const CHAT_DATA = ['chat.json', 'chat', join('mobile', 'chat')] as const;
+
+/**
+ * Sets the removed chat's data aside (#40, the owner's condition, as the operator's journal): each of `CHAT_DATA` that exists in `dir` is
+ * renamed `<name>.bak-<date>` beside it, a file or a whole folder, never deleted; a name already taken gets a number. Returns the new
+ * names. One that fails is left for the next start, and said; the others go on.
+ */
+export function setAsideChatData(dir: string, now: Date, log: (line: string) => void = () => {}): string[] {
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const out: string[] = [];
+  for (const rel of CHAT_DATA) {
+    const from = join(dir, rel);
+    if (!existsSync(from)) continue;
+    let to = `${rel}.bak-${stamp}`;
+    for (let n = 2; existsSync(join(dir, to)); n++) to = `${rel}.bak-${stamp}-${n}`;
+    try { renameSync(from, join(dir, to)); out.push(to); log(`chat data set aside: ${to}`); }
+    catch (e) { log(`chat data not set aside (${rel}): ${(e as Error).message}`); }
+  }
+  return out;
+}

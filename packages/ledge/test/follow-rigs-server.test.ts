@@ -71,9 +71,10 @@ beforeEach(() => { process.env.LEDGE_HOME = mkdtempSync(join(tmpdir(), 'ledge-op
 afterEach(async () => { for (const c of close.splice(0).reverse()) await c(); });
 
 describe('startServer({ followRigs: true }) (#40, D11)', () => {
-  it('the island\'s notices come after the snapshot; the retired operator\'s journal is set aside, never deleted (#40, D11)', async () => {
+  it('the island\'s notices come after the snapshot; the retired operator\'s journal and the chat\'s data are set aside, never deleted (#40, D11)', async () => {
     writeFileSync(join(paths().dir, 'ledge.sqlite'), 'journal');
     writeFileSync(join(paths().dir, 'ledge.sqlite-wal'), 'wal');
+    writeFileSync(join(paths().dir, 'chat.json'), '{}');
     const srv = await startServer({ store: new Store(), tmux: fakeTmux(), port: 0, followRigs: true });
     close.push(() => srv.close());
     const a = await open(srv.port); close.push(async () => { a.ws.close(); });
@@ -84,6 +85,9 @@ describe('startServer({ followRigs: true }) (#40, D11)', () => {
     expect(kept).toHaveLength(2);
     expect(readFileSync(join(paths().dir, kept.find(f => !f.endsWith('-wal'))!), 'utf8')).toBe('journal');
     expect(readFileSync(join(paths().dir, kept.find(f => f.endsWith('-wal'))!), 'utf8')).toBe('wal');
+    // The removed chat's data too (#40): set aside beside itself.
+    expect(existsSync(join(paths().dir, 'chat.json'))).toBe(false);
+    expect(readdirSync(paths().dir).filter(f => f.startsWith('chat.json.bak-'))).toHaveLength(1);
   });
 
   it('a new urgent rig ask reaches the island (with its qitem) and the phone\'s push, once (#40, D11)', async () => {
