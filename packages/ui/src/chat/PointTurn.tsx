@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type JSX, type ReactNo
 import type { ChatAction, ChatPoint, ChatTurn, PointItem } from '@ledge/protocol';
 import { Button } from '../ui/Button';
 import { useChatCopy, type ChatCopy } from './copy';
-import { inline } from './inline';
+import { inline } from '../text/inline';
 export { newestPointRead } from './point';
 
 type Nav = NonNullable<PointItem['nav']>[number];
