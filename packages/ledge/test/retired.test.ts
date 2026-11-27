@@ -18,6 +18,13 @@ describe('setAsideOperatorJournal', () => {
     expect(said).toEqual(['operator journal set aside: ledge.sqlite.bak-20261127T183005Z']);
   });
 
+  it('a sidecar left by a rename that failed half way is set aside at the next start', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ledge-retired-'));
+    writeFileSync(join(dir, 'ledge.sqlite-wal'), 'wal');
+    expect(setAsideOperatorJournal(dir, AT)).toBe('ledge.sqlite.bak-20261127T183005Z');
+    expect(readdirSync(dir)).toEqual(['ledge.sqlite.bak-20261127T183005Z-wal']);
+  });
+
   it('nothing to set aside does nothing; a name already taken gets a number, never overwritten', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ledge-retired-'));
     expect(setAsideOperatorJournal(dir, AT)).toBeNull();

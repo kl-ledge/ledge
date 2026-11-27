@@ -182,7 +182,6 @@ export async function createMobileService(opts: {
   /** What a device is called on the PC's screens and the phone's: its name, else its pairing label. */
   const shownName = (d: ApprovedDevice) => (d.name ?? d.label).slice(0, 40);
   const online = (id: string) => linkState.state === 'online' && channels.online().has(id);
-
   const recovery = createRecovery({
     pc,
     pcName: () => hostname().slice(0, 40) || undefined,
@@ -639,7 +638,6 @@ export async function createMobileService(opts: {
       recoveryListeners.add(fn);
       return () => { recoveryListeners.delete(fn); };
     },
-
 
     onMessage(fn) {
       messageListeners.add(fn);

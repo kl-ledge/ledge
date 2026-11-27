@@ -12,12 +12,14 @@ const SIDECARS = ['', '-wal', '-shm'] as const;
  */
 export function setAsideOperatorJournal(dir: string, now: Date, log: (line: string) => void = () => {}): string | null {
   const from = join(dir, JOURNAL);
-  if (!existsSync(from)) return null;
+  // A sidecar left by a rename that failed half way counts too: the next start sets it aside.
+  if (!SIDECARS.some(x => existsSync(`${from}${x}`))) return null;
   const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
   let base = `${JOURNAL}.bak-${stamp}`;
   for (let n = 2; SIDECARS.some(x => existsSync(join(dir, `${base}${x}`))); n++) base = `${JOURNAL}.bak-${stamp}-${n}`;
   try {
-    for (const x of SIDECARS) if (existsSync(`${from}${x}`)) renameSync(`${from}${x}`, join(dir, `${base}${x}`));
+    // The sidecars first, the journal last: a failure leaves the journal in place, set aside again at the next start.
+    for (const x of [...SIDECARS].reverse()) if (existsSync(`${from}${x}`)) renameSync(`${from}${x}`, join(dir, `${base}${x}`));
   } catch (e) {
     log(`operator journal not set aside: ${(e as Error).message}`);
     return null;
