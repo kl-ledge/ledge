@@ -3,14 +3,13 @@ import { normalizePath, PROJECT_COLORS, projectOf, type FoundRepo, type Project,
 /** One machine's answer to `repos.scan`, as the app gathers them; only `ok` machines are proposed. `label`: the machine's name, for the texts. */
 export interface ScanOf { machine: string; label: string; status: 'ok' | 'offline' | 'outdated'; repos: FoundRepo[]; truncated: boolean }
 /** Why a folder is proposed. `machines` are labels. `naming`: a group sharing the prefix `stem` before « - »; `name`: a word typed in
- *  the editor found in the folder's name, else (`in`) in a group or the name of its remote, else in its manifest's name, `value` (proposeFor). `chat`: the LLM's own reason (lot 11, task 5); `proposeProjects` never gives it. */
+ *  the editor found in the folder's name, else (`in`) in a group or the name of its remote, else in its manifest's name, `value` (proposeFor). */
 export type Why =
   | { kind: 'remote'; remote: string; machines: string[] }
   | { kind: 'agent'; names: string[] }
   | { kind: 'naming'; stem: string }
   | { kind: 'name'; word: string; in?: 'remote' | 'manifest'; value?: string }
-  | { kind: 'folder'; parent: string }
-  | { kind: 'chat'; text: string };
+  | { kind: 'folder'; parent: string };
 export interface ProposedRepo { machine: string; path: string; why: Why }
 /** The facts the app turns into the card's line: `machines` labels, `target` the target project's name, `agents` the names of the sessions to file. */
 export type Summary = { repos: number; machines: string[]; target?: string; agents: string[] };

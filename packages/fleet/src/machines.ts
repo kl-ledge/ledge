@@ -39,7 +39,6 @@ export interface Fleet {
   terminal(id: string, opts?: { readOnly?: boolean }): string[] | null;
   /** A login shell in the session's folder (`workdir ?? cwd`), or null when it cannot be opened. */
   shell(id: string): string[] | null;
-  turnMachine(qid: string): MachineState | undefined;
   documentMachine(id: string): string | undefined;
   localSnapshot(): Extract<ServerMessage, { type: 'snapshot' }> | null;
   /** Sends to one machine; false when it is not connected (nothing sent). */

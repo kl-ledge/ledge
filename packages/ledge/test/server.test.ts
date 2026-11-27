@@ -2154,7 +2154,7 @@ describe('server', () => {
 describe('the chat, removed (#40)', () => {
   it('an older front gets a clean refusal: a question ends at once, a card or point message is refused by name, nothing else happens', async () => {
     const c = await connect({ port: srv.port }); await c.next('snapshot');
-    c.send({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' });
+    c.send({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' } as never);
     expect(await c.next('chat.error')).toMatchObject({ qid: 'q1', message: expect.stringContaining('#40') });
     c.send({ type: 'point.act', qid: 'q1', item: 'x', answer: { id: 'allow' } } as never);
     expect(await c.next('error')).toMatchObject({ request: 'point.act', message: expect.stringContaining('#40') });

@@ -91,13 +91,13 @@ describe('phone gateway: reads and forward', () => {
     expect(g.got('dev1').at(-1)).toEqual({ type: 'session.removed', id: 'c' });
   });
 
-  it('forward ignores what it does not know: chat.delta, mobile, machines, recents', async () => {
+  it('forward ignores what it does not know: an older daemon’s chat.delta, mobile, machines, recents', async () => {
     const g = setup();
     g.send('dev1', { type: 'snapshot.request' });
     g.send('dev1', { type: 'session.watch', id: 'b' });
     await flush();
     const before = g.fm.sent.length;
-    g.gw.forward({ type: 'chat.delta', qid: 'q', text: 'x' } as ServerMessage);
+    g.gw.forward({ type: 'chat.delta', qid: 'q', text: 'x' } as unknown as ServerMessage);
     g.gw.forward({ type: 'mobile', state: g.fm.mobile.state() });
     g.gw.forward({ type: 'machines', machines: [] });
     g.gw.forward({ type: 'recents', recents: [] });

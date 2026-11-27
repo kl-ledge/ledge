@@ -1411,8 +1411,7 @@ export const fr = {
       : w.kind === 'agent' ? `Dossier ouvert par ${andList(w.names)}`
       : w.kind === 'naming' ? `Nommé ${w.stem}-*`
       : w.kind === 'name' ? (w.in === 'remote' ? `Remote ${w.value} proche de « ${w.word} »` : w.in === 'manifest' ? `Manifeste « ${w.value} » proche de « ${w.word} »` : `Nom proche de « ${w.word} »`)
-      : w.kind === 'folder' ? `Rangé dans ${w.parent}`
-      : w.text,
+      : `Rangé dans ${w.parent}`,
     /** « Laisser Ledge faire » (lot 11): the offer, the scan's steps, the proposal. */
     ledge: {
       offerTitle: 'Pas envie de chercher les dépôts vous-même ?',

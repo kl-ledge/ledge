@@ -24,12 +24,11 @@ function setup() {
   const local = peer(), server = peer(), extra = peer();
   const client = createFleetClient([LOCAL_MACHINE, remote], o => o.url === LOCAL_MACHINE.url ? local.client : o.url.endsWith('/ssh/dev-server') ? server.client : extra.client);
   const got: ServerMessage[] = []; client.onMessage(m => got.push(m)); client.connect();
-  const snapshot: ServerMessage = { type: 'snapshot', sessions: [fakeSession('same')], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.4.0', install: 'npm', systemd: true, routing: true, openrigRig: true } };
+  const snapshot: ServerMessage = { type: 'snapshot', sessions: [fakeSession('same')], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.4.0', install: 'npm', systemd: true, openrigRig: true } };
   local.emit(snapshot); server.emit({ ...snapshot, sshAlias: remote.ssh });
   return { client, local, server, extra, got, snapshot };
 }
 const lastSnapshot = (got: ServerMessage[]) => got.filter(m => m.type === 'snapshot').at(-1)!;
-const lastHistory = (got: ServerMessage[]) => got.filter(m => m.type === 'chat.history').at(-1)!.turns;
 beforeEach(() => localStorage.clear());
 
 it('keeps its history and machines under the given prefix', () => {
@@ -39,10 +38,12 @@ it('keeps its history and machines under the given prefix', () => {
   expect(localStorage.getItem('ledge.machines')).toBeNull();
 });
 
-it('writes the fleet history under the given prefix', () => {
+it('the chat left Ledge (#40): no history is written, and an old one stays untouched', () => {
+  const old = JSON.stringify({ day: '2026-11-01', turns: [] });
+  localStorage.setItem('desktop.fleet.history', old);
   const local = peer();
-  createFleetClient([LOCAL_MACHINE], () => local.client, { prefix: 'desktop' }).connect(); // connect() persists the history
-  expect(localStorage.getItem('desktop.fleet.history')).not.toBeNull();
+  createFleetClient([LOCAL_MACHINE], () => local.client, { prefix: 'desktop' }).connect();
+  expect(localStorage.getItem('desktop.fleet.history')).toBe(old);
   expect(localStorage.getItem('ledge.fleet.history')).toBeNull();
 });
 
@@ -148,7 +149,7 @@ describe('multi-machine connections', () => {
   });
   it('the fleet opens a shell in the folder the agent moved into', () => {
     const { client, local } = setup();
-    local.emit({ type: 'snapshot', sessions: [fakeSession('a1', { cwd: '/r', workdir: '/r/.worktrees/x' })], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.4.0', install: 'npm', systemd: true, routing: true } });
+    local.emit({ type: 'snapshot', sessions: [fakeSession('a1', { cwd: '/r', workdir: '/r/.worktrees/x' })], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.4.0', install: 'npm', systemd: true } });
     expect(client.fleet!.shell('local:a1')!.at(-1)).toContain("cd '/r/.worktrees/x'");
     expect(client.fleet!.shell('local:nope')).toBeNull();
     expect(client.fleet!.terminal('local:a1', { readOnly: true })).toContain('--read-only');
@@ -396,7 +397,7 @@ describe('multi-machine connections', () => {
       approvals: { given: 1 }, mergeable: true, openThreads: 0, updatedAt: AT, sessions, ...extra });
     const forgeSetup = () => {
       const s = setup();
-      const withForge = { ...s.snapshot, daemon: { version: '0.54.0', install: 'npm' as const, systemd: true, routing: true, forge: true } };
+      const withForge = { ...s.snapshot, daemon: { version: '0.54.0', install: 'npm' as const, systemd: true, forge: true } };
       s.local.emit(withForge); s.server.emit({ ...withForge, sshAlias: remote.ssh });
       return s;
     };
@@ -979,196 +980,6 @@ describe('multi-machine connections', () => {
   });
 });
 
-describe('common chat routing', () => {
-  it('asks for clarification without launching or asking either target', () => {
-    const { client, local, server, got } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Lance les tests' });
-    expect(local.sent[0]).toMatchObject({ type: 'chat.route', context: { machines: [expect.objectContaining({ id: 'local' }), expect.objectContaining({ id: 'server' })] } });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: null, text: 'Sur quelle machine ?', choices: ['local', 'server'] } });
-    expect(lastHistory(got)[0]).toMatchObject({ answer: 'Sur quelle machine ?', choices: [{ id: 'local', label: 'Local' }, { id: 'server', label: 'dev-server' }] });
-    expect(server.sent).toEqual([]); expect(local.sent).toHaveLength(1);
-  });
-  it('keeps proposal ownership, history and confirmation separate from routing', () => {
-    const { client, local, server, got } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Lance sur le serveur' });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Lance une session dans /w/repo' } });
-    expect(server.sent).toEqual([{ type: 'chat.ask', qid: 'q', text: 'Lance une session dans /w/repo', tool: undefined }]);
-    server.emit({ type: 'chat.done', qid: 'q', text: 'Confirmer ?', at: new Date().toISOString(), proposal: { cwd: '/w/repo', project: 'repo', tool: 'claude' } });
-    expect(lastHistory(got)[0]).toMatchObject({ question: 'Lance sur le serveur', machineId: 'server', proposal: { cwd: '/w/repo' } });
-    client.fleet!.select('local');
-    client.send({ type: 'session.launch', cwd: '/w/repo', tool: 'claude', qid: 'q' });
-    expect(server.sent.at(-1)).toMatchObject({ type: 'session.launch', qid: 'q' });
-    expect(local.sent).toHaveLength(1);
-    server.set('unreachable');
-    expect(got.at(-2)).toMatchObject({ type: 'error' });
-  });
-  it('keeps every row of a session card and qualifies the launched ones (#24)', () => {
-    const { client, local, server, got } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Lance a et b sur le serveur' });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Lance a et b' } });
-    const a = { cwd: '/w/a', project: 'a', tool: 'claude' as const }, b = { cwd: '/w/b', project: 'b', tool: 'claude' as const };
-    server.emit({ type: 'chat.done', qid: 'q', text: 'Deux sessions.', at: new Date().toISOString(), proposal: a, proposals: [a, b] });
-    expect(lastHistory(got)[0]).toMatchObject({ proposal: a, proposals: [a, b] });
-    server.emit({ type: 'chat.history', turns: [{ qid: 'q', question: 'Lance a et b', askedAt: new Date().toISOString(), steps: [], answer: 'Deux sessions.', answeredAt: new Date().toISOString(), proposal: a, proposals: [a, { ...b, launchedId: 'n2' }] }] });
-    expect(lastHistory(got)[0]!.proposals![1]).toMatchObject({ launchedId: 'server:n2' });
-    client.send({ type: 'session.launch', cwd: '/w/a', tool: 'claude', qid: 'q', rows: [0, 1] });
-    expect(server.sent.at(-1)).toMatchObject({ type: 'session.launch', qid: 'q', rows: [0, 1] });
-  });
-  describe('generic card', () => {
-    const at = new Date().toISOString();
-    const rows = (over: Record<string, unknown> = {}) => [{ action: 'session.interrupt', args: { session: 'a1' }, summary: 'Interrompre **bot1**', vars: { session: 'bot1' }, risk: 'reversible' as const, session: 'a1', ...over }];
-    function routed() {
-      const s = setup();
-      s.client.send({ type: 'chat.ask', qid: 'q', text: 'Interromps bot1 sur le serveur' });
-      s.local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Interromps bot1' } });
-      return s;
-    }
-    it('keeps the rows of a remote chat.done, their session qualified, and in the history', () => {
-      const { server, got } = routed();
-      server.emit({ type: 'chat.done', qid: 'q', text: 'Une.', at, actions: rows() });
-      expect(lastHistory(got)[0]!.actions).toEqual([{ ...rows()[0], session: 'server:a1' }]);
-      server.emit({ type: 'chat.history', turns: [{ qid: 'q', question: 'Interromps', askedAt: at, steps: [], answer: 'Une.', answeredAt: at, actions: rows({ state: 'done', doneAt: at }) }] });
-      expect(lastHistory(got)[0]!.actions![0]).toMatchObject({ session: 'server:a1', state: 'done' });
-    });
-    it('routes chat.act and chat.ignore to the turn\'s machine, and relays chat.acted under the overlay\'s qid', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.done', qid: 'q', text: 'Une.', at, actions: rows() });
-      client.send({ type: 'chat.act', rid: 'r1', qid: 'q' });
-      expect(server.sent.at(-1)).toEqual({ type: 'chat.act', rid: 'r1', qid: 'q' });
-      client.send({ type: 'chat.ignore', qid: 'q' });
-      expect(server.sent.at(-1)).toEqual({ type: 'chat.ignore', qid: 'q' });
-      server.emit({ type: 'chat.acted', rid: 'r1', qid: 'q', done: [0], failed: [] });
-      expect(got.at(-1)).toEqual({ type: 'chat.acted', rid: 'r1', qid: 'q', done: [0], failed: [] });
-    });
-  });
-  describe('close card', () => {
-    const at = new Date().toISOString();
-    const closes = (over: Array<Record<string, unknown>> = [{}, {}]) => over.map((o, i) => ({ id: `a${i + 1}`, name: `bot${i + 1}`, tool: 'claude' as const, ...o }));
-    const turn = (cs: ReturnType<typeof closes>) => ({ qid: 'q', question: 'Ferme-les', askedAt: at, steps: [], answer: 'Deux.', answeredAt: at, closes: cs });
-    function routed() {
-      const s = setup();
-      s.client.send({ type: 'chat.ask', qid: 'q', text: 'Ferme-les sur le serveur' });
-      s.local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Ferme-les' } });
-      return s;
-    }
-    const drops = (got: ServerMessage[]) => got.filter(m => m.type === 'error' && m.message === 'dev-server is offline');
-    it('qualifies the close rows of a remote turn, in the history and through chat.done', () => {
-      const { server, got } = routed();
-      server.emit({ type: 'chat.done', qid: 'q', text: 'Deux.', at, closes: closes() });
-      expect(lastHistory(got)[0]!.closes!.map(c => c.id)).toEqual(['server:a1', 'server:a2']);
-      server.emit({ type: 'chat.history', turns: [turn(closes([{ closedAt: at, how: 'exit' }, {}]))] });
-      expect(lastHistory(got)[0]!.closes![0]).toMatchObject({ id: 'server:a1', how: 'exit' });
-    });
-    it('relays session.closed qualified, without ending anything else', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q' });
-      expect(server.sent.at(-1)).toEqual({ type: 'session.close', qid: 'q' });
-      server.emit({ type: 'session.closed', qid: 'q', row: 0, id: 'a1', how: 'exit' });
-      expect(got.filter(m => m.type === 'session.closed')).toEqual([{ type: 'session.closed', qid: lastHistory(got)[0]!.qid, row: 0, id: 'server:a1', how: 'exit' }]);
-      server.set('unreachable');
-      expect(drops(got)).toHaveLength(1);
-    });
-    it('holds a close operation until every requested row is settled', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes([{}, { error: 'old failure' }]))] });
-      client.send({ type: 'session.close', qid: 'q', rows: [0, 1] });
-      server.emit({ type: 'chat.history', turns: [turn(closes([{ closedAt: at, how: 'exit' }, { error: 'old failure' }]))] });
-      server.set('unreachable'); // row 1's error did not change since the send: still held
-      expect(drops(got)).toHaveLength(1);
-    });
-    it('a launch on the same machine supersedes the close: a drop names the launch', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q' });
-      client.send({ type: 'session.launch', tool: 'claude', cwd: '/w/a', machineId: 'server' });
-      server.emit({ type: 'chat.history', turns: [turn(closes([{ closedAt: at, how: 'exit' }, { closedAt: at, how: 'exit' }]))] }); // the old close's rows settling must not end the launch
-      server.set('unreachable');
-      expect(got.filter(m => m.type === 'error')).toEqual([{ type: 'error', message: 'dev-server is offline', request: 'session.launch' }]);
-    });
-    it('does not hold a close operation for a turn without closes', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [{ ...turn(closes()), closes: undefined }] });
-      client.send({ type: 'session.close', qid: 'q' });
-      expect(server.sent.at(-1)).toEqual({ type: 'session.close', qid: 'q' });
-      server.set('unreachable');
-      expect(got.filter(m => m.type === 'error')).toEqual([]);
-    });
-    it('sends the raw qid of a turn whose global qid differs', () => {
-      const { client, local, server, got } = setup();
-      client.send({ type: 'chat.ask', qid: 'q', text: 'Ferme-les' });
-      local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'local', text: 'Ferme-les' } });
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      const remoteQid = lastHistory(got).find(t => t.machineId === 'server')!.qid;
-      expect(remoteQid).not.toBe('q');
-      client.send({ type: 'session.close', qid: remoteQid });
-      expect(server.sent.at(-1)).toEqual({ type: 'session.close', qid: 'q' });
-      expect(local.sent.some(m => m.type === 'session.close')).toBe(false);
-    });
-    it('without rows, waits for every row', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q' });
-      server.emit({ type: 'chat.history', turns: [turn(closes([{ closedAt: at, how: 'exit' }, {}]))] });
-      server.set('unreachable');
-      expect(drops(got)).toHaveLength(1);
-    });
-    it('a row refused with a new error settles the operation', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes([{}, { error: 'old failure' }]))] });
-      client.send({ type: 'session.close', qid: 'q', rows: [0, 1] });
-      server.emit({ type: 'chat.history', turns: [turn(closes([{ closedAt: at, how: 'exit' }, { error: 'new failure' }]))] });
-      server.set('unreachable');
-      expect(drops(got)).toHaveLength(0);
-    });
-    it('settles only the requested rows', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q', rows: [1] });
-      server.emit({ type: 'chat.history', turns: [turn(closes([{}, { closedAt: at, how: 'killed' }]))] });
-      server.set('unreachable');
-      expect(drops(got)).toHaveLength(0);
-    });
-    it('ends a close operation on its error and on the machine\'s drop', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q' });
-      server.emit({ type: 'error', message: 'unknown turn', request: 'session.close' });
-      server.set('unreachable');
-      expect(drops(got)).toHaveLength(0);
-    });
-    it('refuses a close in flight when the machine drops, naming the request', () => {
-      const { client, server, got } = routed();
-      server.emit({ type: 'chat.history', turns: [turn(closes())] });
-      client.send({ type: 'session.close', qid: 'q' });
-      server.set('unreachable');
-      expect(got.filter(m => m.type === 'error')).toEqual([{ type: 'error', message: 'dev-server is offline', request: 'session.close' }]);
-    });
-  });
-  it('keeps a project proposal on the routed turn, with its machine (lot 11 task 5)', () => {
-    const { client, local, got } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Crée un projet Paper' });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'local', text: 'Crée un projet Paper' } });
-    const projectProposal = { name: 'Paper', repos: [{ path: '/w/paper', why: 'Nommé paper' }] };
-    local.emit({ type: 'chat.done', qid: 'q', text: 'Je propose Paper.', at: new Date().toISOString(), projectProposal });
-    expect(lastHistory(got)[0]).toMatchObject({ machineId: 'local', projectProposal });
-  });
-  it('a reply to an offline machine says which request it refuses', () => {
-    const { client, server, got } = setup();
-    server.set('unreachable');
-    client.send({ type: 'session.reply', id: 'server:same', text: 'Go' });
-    expect(got.at(-1)).toEqual({ type: 'error', id: 'server:same', message: 'dev-server is offline', request: 'session.reply' });
-  });
-  it('refuses an offline routed destination even while the coordinator stays online', () => {
-    const { client, local, server, got } = setup();
-    server.set('unreachable');
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Sur serveur' });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Lance' } });
-    expect(lastHistory(got)[0]?.error).toContain('offline');
-    expect(local.sent).toHaveLength(1); expect(server.sent).toEqual([]);
-  });
-});
-
 class FakeProbe {
   static last: FakeProbe; url: string; protocols?: string[]; closed = false;
   onmessage: ((ev: { data: unknown }) => void) | null = null; onclose: (() => void) | null = null; onerror: (() => void) | null = null; onopen: (() => void) | null = null;
@@ -1176,7 +987,7 @@ class FakeProbe {
   close() { this.closed = true; }
   emit(m: ServerMessage) { this.onmessage?.({ data: JSON.stringify(m) }); }
 }
-const probeSnapshot = (sshAlias?: string): ServerMessage => ({ type: 'snapshot', sessions: [fakeSession('a'), fakeSession('b')], daemon: { version: '0.4.1', install: 'npm', systemd: true, routing: true }, sshAlias });
+const probeSnapshot = (sshAlias?: string): ServerMessage => ({ type: 'snapshot', sessions: [fakeSession('a'), fakeSession('b')], daemon: { version: '0.4.1', install: 'npm', systemd: true }, sshAlias });
 
 describe('connection test', () => {
   it('probe presents the token', async () => {
@@ -1389,24 +1200,6 @@ describe('attachments', () => {
     expect(got.filter(m => m.type === 'attachment.error')).toEqual([{ type: 'attachment.error', requestId: 'r1', reason: 'offline' }, { type: 'attachment.error', requestId: 'g1', reason: 'offline' }]);
     expect(got.some(m => m.type === 'error')).toBe(false);
     expect(local.sent).toEqual([]); expect(server.sent).toEqual([]);
-  });
-  it('keeps chat images out of chat.route and hands them to the routed machine', () => {
-    const { client, local, server } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Lance sur le serveur', images: [image] });
-    expect(local.sent[0]).toMatchObject({ type: 'chat.route' });
-    expect(local.sent[0]).not.toHaveProperty('images');
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Lance' } });
-    expect(server.sent).toEqual([{ type: 'chat.ask', qid: 'q', text: 'Lance', tool: undefined, images: [image] }]);
-  });
-  it('ends the turn when the routed machine refuses its images, and takes the next question', () => {
-    const { client, local, server, got } = setup();
-    client.send({ type: 'chat.ask', qid: 'q', text: 'Lance sur le serveur', images: [image] });
-    local.emit({ type: 'chat.routed', qid: 'q', result: { machineId: 'server', text: 'Lance' } });
-    server.emit({ type: 'chat.error', qid: 'q', message: 'image refused: too_large' });
-    expect(lastHistory(got)[0]).toMatchObject({ qid: 'q', error: 'image refused: too_large' });
-    client.send({ type: 'chat.ask', qid: 'q2', text: 'Autre' });
-    expect(got.some(m => m.type === 'chat.error' && m.message === 'one question at a time')).toBe(false);
-    expect(local.sent.at(-1)).toMatchObject({ type: 'chat.route', qid: 'q2' });
   });
 });
 

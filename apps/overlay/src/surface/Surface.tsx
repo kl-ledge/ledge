@@ -89,7 +89,7 @@ export function Surface({ screenH, screenW = window.innerWidth, client, dnd, isl
     if (c.kind === 'failed' && !byId.get(c.id)?.pending) dispatch({ type: 'notice', id: c.id, kind: 'error' });
   } });
   // Ledge's own notices: a rig's question, a decision, a routine (requests), a machine offline (a notice).
-  const ledge = useLedgeNotices({ client, dispatch, byId, status, lastError, t, dnd, visible, onAnswered: cue => sounds.user(cue) });
+  const ledge = useLedgeNotices({ client, dispatch, byId, status, t, dnd, visible, onAnswered: cue => sounds.user(cue) });
 
   // Ctrl+Alt+L reopens the oldest request still waiting, and takes the focus so its keys arrive; without one it does nothing.
   useEffect(() => onShortcut(() => {

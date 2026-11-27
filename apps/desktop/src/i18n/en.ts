@@ -1334,8 +1334,7 @@ export const en: Messages = {
       : w.kind === 'agent' ? `Folder opened by ${andList(w.names)}`
       : w.kind === 'naming' ? `Named ${w.stem}-*`
       : w.kind === 'name' ? (w.in === 'remote' ? `Remote ${w.value} close to “${w.word}”` : w.in === 'manifest' ? `Manifest “${w.value}” close to “${w.word}”` : `Name close to “${w.word}”`)
-      : w.kind === 'folder' ? `Kept in ${w.parent}`
-      : w.text,
+      : `Kept in ${w.parent}`,
     ledge: {
       offerTitle: 'Rather not look for the repositories yourself?',
       offerBody: 'Ledge scans your machines, groups the repositories that go together and proposes a project for you to check.',

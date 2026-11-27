@@ -20,7 +20,7 @@ function setup(routines = true) {
   const local = peer(), server = peer();
   const client = createFleetClient([LOCAL_MACHINE, remote], o => (o.url === LOCAL_MACHINE.url ? local.client : server.client));
   client.connect();
-  const snapshot: ServerMessage = { type: 'snapshot', sessions: [fakeSession('same')], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.62.0', install: 'npm', systemd: true, routing: true, ...(routines ? { routines: true } : {}) } };
+  const snapshot: ServerMessage = { type: 'snapshot', sessions: [fakeSession('same')], launcher: ['node', '/opt/ledge/cli.js'], daemon: { version: '0.62.0', install: 'npm', systemd: true, ...(routines ? { routines: true } : {}) } };
   local.emit(snapshot); server.emit({ ...snapshot, sshAlias: remote.ssh });
   return { fleet: client.fleet!, local, server };
 }

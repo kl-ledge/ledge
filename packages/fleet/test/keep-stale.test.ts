@@ -12,7 +12,7 @@ function peer() {
   return { client, sent, set(s: DaemonStatus) { status = s; onSt(s); }, emit(m: ServerMessage) { onMsg(m); } };
 }
 // A remote peer's snapshot must echo its ssh alias, or the fleet rejects it as an old local daemon.
-const snap = (ids: string[], sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: ids.map(id => fakeSession(id)), recents: [], daemon: { version: '0.4.0', install: 'npm', systemd: true, routing: true } });
+const snap = (ids: string[], sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: ids.map(id => fakeSession(id)), recents: [], daemon: { version: '0.4.0', install: 'npm', systemd: true } });
 const lastSnapshot = (got: ServerMessage[]) => [...got].reverse().find(m => m.type === 'snapshot') as Extract<ServerMessage, { type: 'snapshot' }> | undefined;
 
 function setup(opts = { keepStale: true }) {

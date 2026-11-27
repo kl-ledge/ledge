@@ -72,7 +72,7 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
 
   it('a rig’s question: Ledge’s mark, « Rig question », who and the question, its rig and time; the suggested answer first in coral; a click answers on its machine, « Received », and the island closes', () => {
     const f = fleetClient(); mount(f);
-    f.set({ dev: [rigAsk('q1')] });
+    f.set({ dev: [rigAsk40('q1')] });
     expect(island()).toHaveAttribute('data-kind', 'rig');
     expect(island()).toHaveAttribute('data-ledge', 'ask');
     expect(card().querySelector('[data-ledge-mark]')).not.toBeNull();
@@ -85,24 +85,20 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
     expect(screen.getByRole('button', { name: 'Answer in Ledge O' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Later Esc' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
-    expect(f.sent).toEqual([{ machine: 'dev', msg: { type: 'point.act', qid: 'p1', item: 'rig.ask:q1', answer: { id: 'merge' } } }]);
+    expect(f.direct).toEqual([expect.objectContaining({ type: 'openrig.answer', machineId: 'dev', qitemId: 'q1' })]);
+    f.hear(answered((f.direct[0] as { requestId: string }).requestId));
     expect(card()).toHaveTextContent('Received');
     tick(900);
     expect(surface()).toHaveAttribute('data-closing', 'true');
   });
 
-  it('#40: a rig’s question from a daemon without the point (no qid): its buttons show; a click answers through OpenRig on its machine, « Received »', () => {
+  it('#40: a rig’s question from a daemon before #40 (no questionId): no buttons, nothing sent through the point; « Answer in Ledge » opens it there', () => {
     const f = fleetClient(); mount(f);
-    f.set({ dev: [rigAsk40('q1')] });
-    const buttons = [...card().querySelectorAll('.di-actions .ledge-btn')];
-    expect(buttons.map(b => b.textContent)).toEqual(['Merge', 'Wait for qa']);
-    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
-    expect(f.sent).toEqual([]);
-    expect(f.direct).toEqual([{ type: 'openrig.answer', requestId: expect.any(String), machineId: 'dev', qitemId: 'q1', answer: { kind: 'choice', questionId: 'q', optionId: 'merge' } }]);
-    f.hear(answered((f.direct[0] as { requestId: string }).requestId));
-    expect(card()).toHaveTextContent('Received');
-    tick(900);
-    expect(surface()).toHaveAttribute('data-closing', 'true');
+    f.set({ dev: [rigAsk('q1')] });
+    expect(screen.queryByRole('button', { name: 'Merge' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Answer in Ledge O' }));
+    expect(f.sent).toEqual([]); expect(f.direct).toEqual([]);
+    expect(opened).toEqual([{ kind: 'ask', id: 'q1' }]);
   });
 
   it('#40: with the point there too (qid and questionId), the answer still goes through OpenRig, never point.act', () => {
@@ -142,13 +138,13 @@ describe('Ledge’s own notices on the island (complement, cards #ledge)', () =>
     expect(card().querySelector('.di-note[data-tone="bad"]')).toHaveTextContent('Offline: reconnecting to the daemon');
   });
 
-  it('a rig’s answer refused by the daemon brings the question back with its reason, at the head of the line (review 575f5fb8, 3)', () => {
+  it('a rig’s answer refused brings the question back with its reason, at the head of the line (review 575f5fb8, 3)', () => {
     const f = fleetClient(); mount(f);
-    f.set({ dev: [rigAsk('q1')] });
+    f.set({ dev: [rigAsk40('q1')] });
     fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
     // A session's request arrives meanwhile: it waits behind the question that comes back.
     act(() => { daemonStore.apply({ type: 'session.updated', session: fakeSession('otto', { name: 'Otto', state: 'waiting_permission', pending: { kind: 'permission', text: 'npm test', source: 'hook' } }) }); });
-    act(() => { daemonStore.apply({ type: 'error', message: 'This question was already answered', request: 'point.act' }); });
+    f.hear(answered((f.direct[0] as { requestId: string }).requestId, { ok: false, error: 'refused', message: 'This question was already answered' }));
     tick(900 + 240);
     expect(island()).toHaveAttribute('data-kind', 'rig');
     expect(card().querySelector('.di-note[data-tone="bad"]')).toHaveTextContent('This question was already answered');

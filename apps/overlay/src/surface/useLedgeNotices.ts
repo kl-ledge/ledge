@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ClientMessage, OpenRigAnswered, OperatorNotice, Session } from '@ledge/protocol';
+import type { OpenRigAnswered, OperatorNotice, Session } from '@ledge/protocol';
 import type { DaemonClient, DaemonStatus } from '../daemon/client';
-import type { DaemonError } from '../daemon/store';
 import { LOCAL_MACHINE, useMachines, useOperatorNotices, useTasks } from '../daemon/machines';
 import { openInLedge } from '../desktop/openInLedge';
 import { routineNotice } from '../routines';
@@ -18,7 +17,9 @@ export const OPENRIG_ANSWER_WAIT_MS = 45_000;
 let nextAnswer = 0;
 /** A rig's question the island answers with its buttons: through OpenRig (`questionId`, #40) or, from a daemon before #40, the point
  *  holding it (`qid`). */
-const answerable = (n: OperatorNotice): boolean => !!n.qitem && !!n.options?.length && (!!n.questionId || !!n.qid);
+/** A rig's question is answered through `openrig.answer`, which needs its `questionId` (#40): a daemon from before #40 sends none, and its
+ *  question only opens Desktop's Rigs view. */
+const answerable = (n: OperatorNotice): boolean => !!n.qitem && !!n.options?.length && !!n.questionId;
 
 /** The id under which a machine that dropped waits as a notice. */
 export const offlineId = (machine: string) => `machine:${machine}`;
@@ -28,11 +29,10 @@ export const offlineId = (machine: string) => `machine:${machine}`;
  * the person, a routine to activate or that could not run (requests, in the island's queue under `ledge:<machine>|<id>`), and
  * a machine that dropped (a 6 s notice). « Le point » stays in Ledge Desktop's chat: it never reaches the island.
  * The words, the buttons and the daemon commands are the notch's of before (routines through `routine.cmd`, an approval bound to the
- * key it was shown with). A rig's question is answered through OpenRig's own `openrig.answer` (#40 D1), not through the point: a
- * daemon from before #40 (a notice without `questionId`) is still answered through the point holding it (`point.act`).
+ * key it was shown with). A rig's question is answered through OpenRig's own `openrig.answer` (#40 D1).
  */
 export function useLedgeNotices(o: {
-  client: DaemonClient; dispatch: (e: SurfaceEvent) => void; byId: Map<string, Session>; status: DaemonStatus; lastError: DaemonError | null;
+  client: DaemonClient; dispatch: (e: SurfaceEvent) => void; byId: Map<string, Session>; status: DaemonStatus;
   t: Messages; dnd: boolean; visible: boolean; onAnswered: (cue: 'accept' | 'deny') => void;
 }) {
   const { client, dispatch, byId, t } = o;
@@ -122,9 +122,6 @@ export function useLedgeNotices(o: {
     else if (task) openInLedge({ kind: 'task', id: task });
   }
 
-  const sendOn = (machine: string, m: ClientMessage): boolean => { if (client.fleet) return client.fleet.sendTo(machine, m); client.send(m); return true; };
-  /** A rig answer sent from the island through the point (a daemon from before #40): its refusal is read from the next `point.act` error. */
-  const acting = useRef<{ key: string; qid: string; seq: number } | null>(null);
   /** The rig answers sent through `openrig.answer`, by requestId: each ends with its `openrig.answered`, or `uncertain` after
    *  OPENRIG_ANSWER_WAIT_MS or when the connection drops (sending it again is safe: OpenRig records an answer once). */
   const answers = useRef(new Map<string, { key: string; timer: ReturnType<typeof setTimeout> }>());
@@ -144,32 +141,17 @@ export function useLedgeNotices(o: {
     const offStatus = client.onStatus(s => { if (s !== 'open') lost(); });
     return () => { off(); offStatus(); for (const w of answers.current.values()) clearTimeout(w.timer); answers.current.clear(); };
   }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
-  /** One of a rig question's proposed answers: through OpenRig's `openrig.answer` on its machine, or the point holding it on a
-   *  daemon from before #40. */
+  /** One of a rig question's proposed answers, through OpenRig's `openrig.answer` on its machine. */
   function choose(key: string, option: string): void {
     const n = find(key); if (!n || !answerable(n.notice)) return;
-    const { qitem, questionId, qid } = n.notice;
-    if (questionId) {
-      const requestId = `island-answer-${++nextAnswer}`;
-      answers.current.set(requestId, { key, timer: setTimeout(() => ended({ type: 'openrig.answered', requestId, qitemId: qitem!, ok: false, error: 'uncertain' }), OPENRIG_ANSWER_WAIT_MS) });
-      client.send({ type: 'openrig.answer', requestId, machineId: n.machine, qitemId: qitem!, answer: { kind: 'choice', questionId, optionId: option } });
-    } else {
-      if (!sendOn(n.machine, { type: 'point.act', qid: qid!, item: `rig.ask:${qitem}`, answer: { id: option } })) return;
-      acting.current = { key, qid: qid!, seq: o.lastError?.seq ?? 0 };
-    }
+    const { qitem, questionId } = n.notice;
+    const requestId = `island-answer-${++nextAnswer}`;
+    answers.current.set(requestId, { key, timer: setTimeout(() => ended({ type: 'openrig.answered', requestId, qitemId: qitem!, ok: false, error: 'uncertain' }), OPENRIG_ANSWER_WAIT_MS) });
+    client.send({ type: 'openrig.answer', requestId, machineId: n.machine, qitemId: qitem!, answer: { kind: 'choice', questionId: questionId!, optionId: option } });
     // Set aside at once, as the notch did: the notice leaves the daemon's list only once the rig settles the question.
     // « Reçu », then the island closes; a refusal brings it back.
     setFailure(null); dispatch({ type: 'decided' }); setAside(key, true); o.onAnswered('accept');
   }
-  // A refused rig answer: a launch to confirm goes to the point in Desktop's chat (never confirmed from the island); any other
-  // refusal brings the question back with the daemon's reason.
-  useEffect(() => {
-    const a = acting.current; const e = o.lastError;
-    if (!a || !e || e.seq <= a.seq || e.request !== 'point.act') return;
-    acting.current = null;
-    if (e.code === 'confirm_required') { openInLedge({ kind: 'point', qid: a.qid }); return; }
-    refused(a.key, e.message);
-  }, [o.lastError?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** A routine item's button, answered on its machine: a grouped request in one command, all or nothing (`others`), only to a
    *  daemon that says it can (`routineGroups`); an approval names what the island showed (each routine's key). A success sets the

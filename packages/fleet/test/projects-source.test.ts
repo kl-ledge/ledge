@@ -12,7 +12,7 @@ function peer() {
   const client: DaemonClient = { connect() {}, close() {}, send(m) { sent.push(m); }, status: () => status, onMessage(fn) { onMsg = fn; return () => {}; }, onStatus(fn) { onSt = fn; return () => {}; } };
   return { client, sent, set(s: DaemonStatus) { status = s; onSt(s); }, emit(m: ServerMessage) { onMsg(m); } };
 }
-const snap = (sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: [], recents: [], daemon: { version: '0.6.0', install: 'npm', systemd: true, routing: true } });
+const snap = (sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: [], recents: [], daemon: { version: '0.6.0', install: 'npm', systemd: true } });
 const machinesMsg = (machines: Machines): ServerMessage => ({ type: 'machines', machines });
 function setup() {
   const local = peer(), server = peer();

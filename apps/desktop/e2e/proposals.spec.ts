@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { ClientMessage, FoundRepo } from '@ledge/protocol';
 import { test, expect, openNewProject, seedAtelier } from './fixtures';
-import { eight, fakeDaemon, twoProjects, type ChatReply } from './daemon';
+import { eight, fakeDaemon, twoProjects } from './daemon';
 
 test.beforeEach(async ({ page }) => {
   await seedAtelier(page);

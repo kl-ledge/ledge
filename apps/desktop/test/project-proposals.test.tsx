@@ -361,7 +361,6 @@ describe('the reasons and the summary, in both languages', () => {
       expect(why({ kind: 'agent', names: ['Kit', 'Zed'] })).toBe(agent);
       expect(why({ kind: 'naming', stem: 'paper' })).toBe(naming);
       expect(why({ kind: 'folder', parent: '/w' })).toBe(folder);
-      expect(why({ kind: 'chat', text: 'Vu dans la conversation' })).toBe('Vu dans la conversation');
       expect(why({ kind: 'name', word: 'fonts' })).toBe(l === 'fr' ? 'Nom proche de « fonts »' : 'Name close to “fonts”');
     }
     expect(MESSAGES.fr.projects.why({ kind: 'remote', remote: 'r', machines: ['Local'] })).toBe('Même remote r');

@@ -1,13 +1,6 @@
 import { z } from 'zod';
 import { ChatActionSchema } from './chat.js';
 
-/** Every kind of event the operator journal records; a point is built from the unread ones. `routine.fired`: a routine's firing
- *  reached its session (routines spec §3.5), one event per firing. */
-export const OPERATOR_EVENT_KINDS = ['session.request', 'session.question', 'session.finished', 'session.error', 'session.exited',
-  'session.context_full', 'request.settled', 'task.opened', 'task.closed', 'task.stale', 'decision.asked', 'brain.proposed',
-  'rig.ask', 'rig.seat_unreachable', 'rig.state', 'rig.goal_update', 'forge.pipeline_failed', 'forge.merged', 'routine.fired'] as const;
-export type OperatorEventKind = typeof OPERATOR_EVENT_KINDS[number];
-
 export const PointGroupSchema = z.enum(['atoi', 'done', 'ongoing', 'rigs']);
 export type PointGroup = z.infer<typeof PointGroupSchema>;
 
