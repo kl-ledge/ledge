@@ -601,7 +601,7 @@ const openConversation = useCallback((peer: string) => openTab({ kind: 'conv', p
             <div className="pinned-task" role="note" aria-label={t.session.heldTask.pinned} data-task={held.id}>
               <span className="kicker mono">{t.session.notice.task}</span>
               <span className="pinned-text">{t.session.heldTask.task(held.id, held.title, held.giverName, t.chat.task.state[held.state])}</span>
-              <button type="button" className="message-link" onClick={() => p.dispatch({ type: 'ledge', tab: 'tasks', task: held.id })}>{t.session.heldTask.seeTasks}</button>
+              <button type="button" className="message-link" onClick={() => p.dispatch({ type: 'tasks', task: held.id })}>{t.session.heldTask.seeTasks}</button>
             </div>
           )}
           {view === 'thread' && !archived && seat === null && <Reply session={session} helper={helper} asker={asker} since={waitedFor} decisions={p.decisions} memory={memory} memoKey={key}

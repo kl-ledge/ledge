@@ -102,7 +102,7 @@ export function SettingsPage({ section: asked, ctx, noBack = false }: { section:
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0; }, [section]);
   const { dispatch } = ctx;
   // As the sidebar's gear inside Settings: the chat closes, then Escape takes the place back.
-  const back = () => { dispatch({ type: 'chat', open: false }); dispatch({ type: 'escape' }); };
+  const back = () => { dispatch({ type: 'escape' }); };
   // Escape closes what a section has open first (a machine form or confirmation, an accent being edited), then goes back; a held
   // Escape closes the one thing its first press did, no more, and never leaves the page (its repeats are taken and do nothing).
   const layers = useRef<EscapeLayers>({ list: [] }).current;

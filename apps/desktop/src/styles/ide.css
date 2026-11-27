@@ -53,7 +53,6 @@ body.ide-resizing { cursor: col-resize; user-select: none; }
 .ide-body > .ide-activity { grid-column: 1; }
 .ide-body > .ide-explorer { grid-column: 2; }
 .ide-body > .ide-editor { grid-column: 3; }
-.ide-body > .ide-right { grid-column: 4; }
 .ide-status-row { display: contents; }
 
 /* The editing area (mockup `editor()`): dockview's group, then the bottom panel. */
@@ -232,8 +231,6 @@ body.ide-resizing-y { cursor: row-resize; user-select: none; }
 .ide-term > .ide-free-shell { flex: 1; height: auto; }
 
 /* The right panel (mockup `rightPanel()`): the docked chat, 300 px, no × (Ctrl+/ hides it). */
-.ide-right { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.ide-right > .ledge-chat-panel { position: static; flex: 1; width: auto; min-height: 0; box-shadow: none; z-index: auto; }
 
 /* A session tab (mockup `.tab`, `tabLabel()`): logo, name, >_, rig, state dot; the alert is a 2 px line under it. */
 /* Its content fills the tab's height and centres on it (mockup `.tab`: align-items center): dockview's part is a block. */

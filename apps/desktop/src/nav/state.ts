@@ -6,9 +6,6 @@ export type View = 'atelier';
 export type ProjectFilter = string;
 export type SectionId = 'general' | 'workspace' | 'appearance' | 'island' | 'notifications' | 'sounds' | 'machines' | 'mobile' | 'projects' | 'notes' | 'shortcuts' | 'about';
 export const SECTIONS: readonly SectionId[] = ['general', 'workspace', 'appearance', 'island', 'notifications', 'sounds', 'machines', 'mobile', 'projects', 'notes', 'shortcuts', 'about'];
-/** The tabs of the IDE's right panel (lot 12, docs/mockups/ledge-ide-tasks-history.html): Ledge's views. */
-export type HomeTab = 'conversation' | 'tasks' | 'history';
-export const HOME_TABS: readonly HomeTab[] = ['conversation', 'tasks', 'history'];
 /** A dialog of the OpenRig page to open on arrival (docs/mockups/ledge-sidebar-tidy.html): the rig launch form, or a running rig's seats. */
 export type OpenRigOpen = { launch: true } | { reseat: string };
 
@@ -45,13 +42,13 @@ export type Modal =
 /** Every dialog kind, as the Ledge guide (docs/ledge-guide.md) must describe them: a Record, so a new kind fails to compile until it is listed here. */
 const MODAL_KIND: Record<NonNullable<Modal>['kind'], true> = { search: true, shortcuts: true, launch: true, project: true, broadcast: true, rigLaunch: true, report: true };
 export const MODAL_KINDS = Object.keys(MODAL_KIND) as NonNullable<Modal>['kind'][];
-/** chatFocus: bumped each time the chat is asked for (/, an open button), even already open: its field takes the focus again. */
-export interface NavState { place: Place; modal: Modal; chat: boolean; chatFocus: number; helpers: boolean; paused: boolean }
+export interface NavState { place: Place; modal: Modal; helpers: boolean; paused: boolean }
 export type NavAction =
   /** The atelier (the overview), on a project filter. */
   | { type: 'home'; project?: ProjectFilter }
   /** Ledge, in the IDE's right panel, on a tab (a task's detail on « Tâches »): routed by workspace/route.ts, never reduced. */
-  | { type: 'ledge'; tab?: HomeTab; task?: string }
+  /** The Tasks view (#40 D3), on a task's detail when one is named (« Voir dans Tâches »). */
+  | { type: 'tasks'; task?: string }
   /** Sets the current place's project filter without going anywhere (a session page stays open; in Settings, the place behind). */
   | { type: 'filter'; project: ProjectFilter }
   | { type: 'open'; id: string; helper?: string; focus?: 'reply'; item?: string; /** A file to open in its side pane on arrival (a request's source). */ doc?: string; /** IDE only: where the tab opens, over the setting « Ouvrir une session »; the reducer ignores it. */ where?: 'active' | 'right' }
@@ -60,7 +57,6 @@ export type NavAction =
    *  else the rigs). `role`: open that role, seen from `seat` (`rig/logicalId`) or from its spec. */
   | { type: 'openrig'; machine?: string; section?: OpenRigSection; role?: string; seat?: string; open?: OpenRigOpen }
   | { type: 'modal'; modal: Modal }
-  | { type: 'chat'; open?: boolean }
   | { type: 'helpers' } | { type: 'paused' }
   | { type: 'escape' };
 
@@ -69,7 +65,7 @@ export const openClick = (id: string, e: { ctrlKey: boolean; metaKey: boolean })
 
 /** Where the app opens: the Atelier (the IDE's workspace says which tab is in front). */
 export function initialNav(overview: Overview): NavState {
-  return { place: { kind: 'overview', view: 'atelier', project: 'all' }, modal: null, chat: false, chatFocus: 0, helpers: overview.helpers, paused: overview.paused };
+  return { place: { kind: 'overview', view: 'atelier', project: 'all' }, modal: null, helpers: overview.helpers, paused: overview.paused };
 }
 
 type Base = Exclude<Place, { kind: 'settings' }>;
@@ -80,8 +76,8 @@ export function navReducer(s: NavState, a: NavAction): NavState {
   switch (a.type) {
     case 'home':
       return { ...s, place: { kind: 'overview', view: 'atelier', project: a.project ?? 'all' } };
-    // The right panel's: workspace/route.ts turns it into the panel shown on its tab.
-    case 'ledge': return s;
+    // A view of the activity bar: workspace/route.ts shows it.
+    case 'tasks': return s;
     case 'filter': {
       if (baseOf(place).project === a.project) return s;
       return { ...s, place: place.kind === 'settings' ? { ...place, back: { ...place.back, project: a.project } } : { ...place, project: a.project } };
@@ -90,10 +86,10 @@ export function navReducer(s: NavState, a: NavAction): NavState {
     // App.tsx's front-tab sync re-sends the open modal right after the navigation it dispatches.
     case 'open': {
       const b = baseOf(place);
-      return { ...s, place: { kind: 'session', id: a.id, ...(a.helper !== undefined && { helper: a.helper }), ...(a.focus !== undefined && { focus: a.focus }), ...(a.item !== undefined && { item: a.item }), ...(a.doc !== undefined && { doc: a.doc }), view: b.view, project: b.project }, modal: null, chat: false };
+      return { ...s, place: { kind: 'session', id: a.id, ...(a.helper !== undefined && { helper: a.helper }), ...(a.focus !== undefined && { focus: a.focus }), ...(a.item !== undefined && { item: a.item }), ...(a.doc !== undefined && { doc: a.doc }), view: b.view, project: b.project }, modal: null };
     }
     case 'settings':
-      return { ...s, place: { kind: 'settings', section: a.section ?? 'general', back: baseOf(place) }, modal: null, chat: false };
+      return { ...s, place: { kind: 'settings', section: a.section ?? 'general', back: baseOf(place) }, modal: null };
     case 'openrig': {
       const b = baseOf(place);
       const prev = b.kind === 'openrig' ? b : undefined;
@@ -103,18 +99,13 @@ export function navReducer(s: NavState, a: NavAction): NavState {
       const same = prev !== undefined && machine === prev.machine;
       const role = a.role ?? (same ? prev.role : undefined);
       const seat = a.role !== undefined ? a.seat : same ? prev.seat : undefined;
-      return { ...s, place: { kind: 'openrig', ...(machine !== undefined ? { machine } : {}), ...(section !== undefined ? { section } : {}), ...(role !== undefined ? { role } : {}), ...(seat !== undefined ? { seat } : {}), ...(a.open !== undefined && section !== 'roles' ? { open: a.open } : {}), view: b.view, project: b.project }, modal: null, chat: false };
+      return { ...s, place: { kind: 'openrig', ...(machine !== undefined ? { machine } : {}), ...(section !== undefined ? { section } : {}), ...(role !== undefined ? { role } : {}), ...(seat !== undefined ? { seat } : {}), ...(a.open !== undefined && section !== 'roles' ? { open: a.open } : {}), view: b.view, project: b.project }, modal: null };
     }
     case 'modal': return { ...s, modal: a.modal };
-    case 'chat': {
-      const chat = a.open ?? !s.chat;
-      return chat ? { ...s, chat, chatFocus: s.chatFocus + 1 } : { ...s, chat };
-    }
     case 'helpers': return { ...s, helpers: !s.helpers };
     case 'paused': return { ...s, paused: !s.paused };
     case 'escape': {
       if (s.modal) return { ...s, modal: null };
-      if (s.chat) return { ...s, chat: false };
       if (place.kind === 'settings') return { ...s, place: place.back };
       if (place.kind === 'session' || place.kind === 'openrig') return { ...s, place: { kind: 'overview', view: place.view, project: place.project } };
       if (place.project !== 'all') return { ...s, place: { ...place, project: 'all' } };

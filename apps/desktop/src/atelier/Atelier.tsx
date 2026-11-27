@@ -111,7 +111,7 @@ export function Atelier({ nav, dispatch, sessions, projects, order, projectIdOf,
   const tiles = useMemo(() => [
     ...scene.rooms.map(r => roomTileWidth(r.tables, seats)), ...(scene.empty || scene.unassigned.length > 0 ? [ZONE_TILE] : [])
   ], [scene, seats]);
-  const view = useAtelierView(tiles, [nav.helpers, nav.chat, filter, sessions.length]);
+  const view = useAtelierView(tiles, [nav.helpers, filter, sessions.length]);
   const tabPlace = useTabPlace();
   useScreenKeys(e => {
     if (view.keys(e)) return true;
