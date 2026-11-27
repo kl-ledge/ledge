@@ -1,6 +1,6 @@
 # packages/ui — `@ledge/ui`
 
-Shared React UI: the mascots (`src/bots/Bot.tsx`), reply parsing, Markdown documents, chat cards, themes, sounds and
+Shared React UI: the mascots (`src/bots/Bot.tsx`), reply parsing, Markdown documents, themes, sounds and
 i18n (`src/i18n/{lang,copy}.tsx`), used by Desktop, the island and the phone app.
 
 ## Commands

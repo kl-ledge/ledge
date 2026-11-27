@@ -1,7 +1,7 @@
 # apps/overlay — `overlay`
 
-The island: a pill on the top edge of the screen that opens into the session list, a session's view and a read-only
-Ask Ledge chat. It has no native shell of its own: Desktop builds it into its notch window.
+The island: a pill on the top edge of the screen that opens into the session list and a session's view; it
+answers a rig's urgent ask through OpenRig (`openrig.answer`). It has no native shell of its own: Desktop builds it into its notch window.
 
 ## Commands
 

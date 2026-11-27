@@ -1,7 +1,7 @@
 # packages/protocol — `@ledge/protocol`
 
 The zod schemas every part of Ledge speaks: sessions and their events, `ServerMessage`/`ClientMessage`,
-`PROTOCOL_PORT`, chat, tasks, OpenRig, the phone. Nothing else defines a message shape.
+`PROTOCOL_PORT`, tasks, OpenRig, the phone. Nothing else defines a message shape.
 
 ## Commands
 

@@ -1,12 +1,12 @@
 # Ledge, le guide
 
-Ce guide est écrit à la main et versionné avec le code. Ledge le recopie dans le `ledge.md` de son chat. Il sert à répondre aux questions sur Ledge lui-même : ce qu'il est, ce que permet chaque écran, et vers quel écran renvoyer l'utilisateur. Chaque écran porte entre parenthèses son identifiant dans le code. Un test vérifie que chaque écran déclaré dans le code figure ici : un nouvel écran s'ajoute donc aussi à ce guide.
+Ce guide est écrit à la main et versionné avec le code. `ledge brain @ledge` le sert aux agents, en tête de ce que Ledge sait de lui-même. Il sert à répondre aux questions sur Ledge lui-même : ce qu'il est, ce que permet chaque écran, et vers quel écran renvoyer l'utilisateur. Chaque écran porte entre parenthèses son identifiant dans le code. Un test vérifie que chaque écran déclaré dans le code figure ici : un nouvel écran s'ajoute donc aussi à ce guide.
 
 ## Ce qu'est Ledge
 
 Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cursor Agent et OMP, lancés dans WSL ou sur un serveur SSH. Il montre ce que fait chaque agent et ce qu'il attend. Il permet de répondre à une demande sans ouvrir son terminal et de lancer des sessions.
 
-- **Le daemon** (`ledge daemon`, paquet npm `@paradow/ledge`) tourne dans WSL ou sur un serveur. Il suit les sessions par leurs hooks et par tmux, garde les projets, les tâches et les messages entre sessions, et fait tourner le chat de Ledge. La CLI `ledge` lui parle :
+- **Le daemon** (`ledge daemon`, paquet npm `@paradow/ledge`) tourne dans WSL ou sur un serveur. Il suit les sessions par leurs hooks et par tmux, garde les projets, les tâches, les décisions et les messages entre sessions, et les routines. La CLI `ledge` lui parle :
   - `ledge claude|codex|cursor` lance un agent suivi ;
   - `ledge attach <id>` met le terminal sur une session ;
   - `ledge who` liste les sessions en vie, et `ledge status` toutes les sessions avec leur id (`--all` : les archivées aussi) ; `--json` donne à un agent l'id, le nom, l'outil, l'état, le projet, le dossier, la branche, le sujet, l'archive et la dernière activité ;
@@ -14,11 +14,11 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
   - `ledge send` et `ledge read` servent aux messages entre sessions ;
   - `ledge task`, `ledge decide`, `ledge handover` et `ledge close` gèrent les tâches, les décisions, la passation de relais et la fermeture ;
   - `ledge brain` montre ce que Ledge sait de lui-même (`@ledge`, `@projects`, `@machines`) et l'index des notes de l'utilisateur ; `ledge brain <nom>` en lit une ;
-  - une session propose un fait durable pour une note avec `ledge brain propose <nom> "<fait>" "<source>"` (`new:<nom>` : une nouvelle note), ou en signale une fausse avec `ledge brain flag <nom> "<quoi>"`. Elle arrive dans « À toi » avec ses boutons, sur le PC et le téléphone : « Ajouter » écrit le fait daté sous `## Ajouts`, « Modifier » écrit ton texte à la place, « Refuser » n'écrit rien (un signalement : « Marquer à revoir », « Ignorer » ; une nouvelle note : son titre et « quand la lire » se corrigent avant « Créer la note »). Sur le téléphone, « Ajouter » demande la vérification de l'appareil. `ledge decide` y répond aussi : « oui », « oui : <texte> » ou « non » ;
+  - une session propose un fait durable pour une note avec `ledge brain propose <nom> "<fait>" "<source>"` (`new:<nom>` : une nouvelle note), ou en signale une fausse avec `ledge brain flag <nom> "<quoi>"`. Elle arrive avec ses boutons dans la vue Tâches sur le PC, et dans le fil de la session sur le téléphone : « Ajouter » écrit le fait daté sous `## Ajouts`, « Modifier » écrit ton texte à la place, « Refuser » n'écrit rien (un signalement : « Marquer à revoir », « Ignorer » ; une nouvelle note : son titre et « quand la lire » se corrigent avant « Créer la note »). Sur le téléphone, « Ajouter » demande la vérification de l'appareil. `ledge decide` y répond aussi : « oui », « oui : <texte> » ou « non » ;
   - `ledge routine` programme une routine : Ledge tape une consigne dans une session permanente à heures fixes (voir « Les routines ») ;
-  - `ledge tui` est Ledge dans un terminal ;
+  - `ledge tui` est Ledge dans un terminal (voir « Ledge dans un terminal ») ;
   - `ledge setup` et `ledge uninstall` installent et retirent les hooks et `~/.ledge`.
-- **Ledge Desktop** est l'application Windows : la fenêtre principale, un espace de travail en onglets (sessions, sièges OpenRig, MR et PR, atelier, réglages) avec le chat de Ledge à droite, et l'**encoche**.
+- **Ledge Desktop** est l'application Windows : la fenêtre principale, un espace de travail en onglets (sessions, sièges OpenRig, MR et PR, atelier, réglages), et l'**encoche**.
 - **L'encoche** (l'île) ne reste pas à l'écran. Au repos, il n'y a rien en haut de l'écran.
   - Quand un agent a quelque chose à dire, une pastille sort du bord haut et flotte à 8 px de lui. Elle porte le logo du provider de l'agent (Claude, Codex…) et le signe de l'événement. Puis elle s'ouvre sur la notification, se referme et disparaît.
   - Une carte par événement, avec le logo, une pastille d'état, la phrase, le projet et la branche :
@@ -30,38 +30,29 @@ Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cu
   - Un avis (tour terminé, erreur) se ferme seul : un anneau autour du logo se vide pendant les 6 s, et le survol le retient. Un clic ouvre la session dans Ledge Desktop.
   - Une demande reste ouverte jusqu'à la réponse ou « Plus tard ». Après « Plus tard », plus rien n'est à l'écran : `Ctrl+Alt+L` rouvre la plus ancienne demande en attente.
   - Une seule notification à la fois, les demandes avant les avis ; « +2 autres » dit ce qui attend. « Ne pas déranger » n'ouvre rien.
-  - Les avis de Ledge (la question d'un rig, une décision, une routine) et « une machine est hors ligne » passent aussi par l'encoche. Le point de Ledge, lui, reste dans le chat de Ledge Desktop.
-  - La musique, le chat de Ledge, la ligne d'activité, les mascottes et le réveil au survol ne sont plus dans l'encoche : le chat est dans Ledge Desktop.
+  - Les avis de Ledge et « une machine est hors ligne » passent aussi par l'encoche : la demande urgente d'un rig (ses choix y répondent directement ; « Ouvrir » mène au bloc Demandes de la vue Rigs), une décision qu'une session pose à l'utilisateur (« Ouvrir » mène à la vue Tâches), une routine.
+  - La musique, la ligne d'activité, les mascottes et le réveil au survol ne sont plus dans l'encoche.
   - `Ctrl+Alt+L` rouvre la plus ancienne demande en attente ; sans demande, il ne fait rien.
   - `Ctrl+Alt+N` ouvre « Nouvelle session » dans Ledge Desktop.
   - Ses réglages sont dans Réglages › Encoche.
 - **Ledge mobile** est une application web pour le téléphone, servie par un relais. Elle se lie au PC depuis Réglages › Accès mobile.
-- **Le chat de Ledge** (toi) répond aux questions, et écrit de lui-même « le point » (voir « Ledge, l'opérateur »). Il ne touche à rien sans un clic de l'utilisateur : une action passe par une carte ou un bouton qu'il valide.
+- **Il n'y a plus de chat avec Ledge** ni de « point » écrit de lui-même, ni de page « À toi » (#40). Ce qui attend l'utilisateur se trouve là où il y répond : une session qui demande un accord ou pose une question, dans l'arbre et sa page ; une demande d'OpenRig, dans le bloc Demandes de la vue Rigs ; une décision qu'une session lui confie (`ledge task give ledge`) ou un signalement (`ledge report`), dans la vue Tâches sur le PC et dans le fil de la session sur le téléphone ; une routine à activer, sur sa page et dans l'écran Routines.
 
 Les notes de l'utilisateur se rangent dans `~/.ledge/context/*.md`. Le front matter est optionnel :
 - `title`, et `when`, qui dit quand lire la note ;
-- `scope` : `chat` (jamais proposée aux sessions), `sessions` (jamais au chat) ou `all` (le défaut) ;
+- `scope` : `sessions` ou `all` (le défaut) ; `chat`, la portée de l'ancien chat, n'est proposée à aucune session ;
 - `projects` : les projets (noms ou ids, séparés par des virgules) dont les sessions la voient dans leur index ; sans lui, toutes ;
 - `checked` : la date (`AAAA-MM-JJ`) où son contenu a été vérifié.
 
-Le chat les recopie à chaque question. Une session lancée par Ledge reçoit à son démarrage l'index des notes de son projet, jamais les notes elles-mêmes, et en lit une avec `ledge brain <nom>`. `scope: chat` retire une note de ce que Ledge propose aux sessions ; ce n'est pas une protection : une session qui a un shell peut lire le dossier.
+Une session lancée par Ledge reçoit à son démarrage l'index des notes de son projet, jamais les notes elles-mêmes, et en lit une avec `ledge brain <nom>`. `scope: chat` retire une note de ce que Ledge propose aux sessions ; ce n'est pas une protection : une session qui a un shell peut lire le dossier.
 
-## Ledge, l'opérateur
+## Ledge dans un terminal
 
-Ledge n'attend pas qu'on l'interroge : il écrit « le point » dans le chat, de lui-même (« de lui-même » dans l'en-tête du tour). C'est un tour de la conversation, avec une phrase d'ouverture, puis des lignes rangées en quatre groupes : « À toi » (ce qui attend l'utilisateur), « Terminé », « En cours » et « Rigs ». Chaque ligne dit qui, quoi, et porte ses boutons : les réponses possibles (« Autoriser », « Refuser », le choix d'un rig), « Répondre… » pour un texte libre, et parfois une suggestion de Ledge (« Archiver Otto », « Passer le relais »). Une ligne réglée ailleurs, dans le terminal, sur le téléphone ou sur le PC, garde un reçu (« réglé dans le terminal ») au lieu de boutons. Quand tout est réglé, le point se replie en une ligne.
-
-**Ce qui réveille Ledge :**
-- tout de suite : une demande d'accord, une question d'un agent, une demande urgente d'un rig ;
-- groupé, au plus une fois par minute : une session terminée ou en erreur, des tâches, une PR, des rigs, la réponse de Max ;
-- jamais : les outils, la réflexion, les sous-agents.
-
-Un plafond évite que Ledge parle trop. Le daemon tient un journal des événements et écrit ce dont le chat a besoin dans ses fichiers (`journal.md`, `attentes.md`) ; Ledge n'agit jamais seul : répondre, archiver, passer un relais, écrire à un siège ou réparer une PR est toujours un clic. Une réponse irréversible demande une confirmation.
-
-**Le point ne passe pas par l'encoche** : il s'écrit dans le chat de Ledge Desktop. La question d'un rig, elle, s'ouvre dans l'encoche comme une demande. Le tour terminé et l'erreur d'une session y ont leur carte de 6 s (voir « Ce qu'est Ledge »).
-
-**Sur le téléphone**, le réglage « Le point de Ledge » (Réglages › Notifications, l'ancien « Agent terminé ») active la notification d'un point. Le point et ses réponses s'y affichent comme sur le PC.
-
-**Dans `ledge tui`**, l'accès mobile se règle dans Réglages › Accès mobile (activer, relais, compte GitHub, appareils à renommer ou révoquer) ; `L` agit quand un téléphone demande à se lier : il ouvre « Lier un appareil », pour approuver ou refuser la demande.
+`ledge tui` montre Ledge dans le terminal, en six écrans, de `1` à `6` : la vue d'ensemble, la session choisie, « Nouvelle session », les Réglages, OpenRig et les Routines. `?` ouvre l'aide, `q` quitte.
+- **La vue d'ensemble** range les sessions par projet et par branche, puis les rigs et le kernel. Une session qui demande un accord ou pose une question y porte son état ; `y`, `n`, `A` et `1`-`9` lui répondent quand elle est choisie, et `tab` mène à la prochaine qui attend. Une session qui a posé une décision à l'utilisateur porte un « ? » ambre après son nom.
+- **L'écran Session** montre son fil et sa demande. Une décision qu'elle a posée s'affiche en ambre sous le fil d'Ariane (« Nova te demande : … · D répondre à la décision ») : `D` ouvre le champ, la réponse se relit, `y` l'envoie. Une relève qui a échoué s'y dit en rouge, et `H` réessaie ; dans l'arbre, son ◔ passe en rouge.
+- **La ligne d'usage**, en bas de chaque écran, donne les limites des agents ; une alerte y prend la place de son agent, en ambre au-delà du seuil, en rouge quand la limite est atteinte (la plus grave, puis « +n »).
+- **Réglages › Accès mobile** règle l'accès mobile (activer, relais, compte GitHub, appareils à renommer ou révoquer) ; `L` agit quand un téléphone demande à se lier : il ouvre « Lier un appareil », pour approuver ou refuser la demande.
 
 ## Les routines
 
@@ -94,26 +85,24 @@ Deux tirs d'une même routine ne s'empilent pas : le nouveau remplace celui qui 
 
 **PC en veille ou éteint** : au réveil, une routine `--catch-up once` (le défaut) tire une seule fois, pour le dernier créneau manqué, marqué en retard ; `skip` laisse passer les créneaux manqués.
 
-**Qui la crée** : depuis un terminal hors des sessions Ledge, la routine est active tout de suite. Une session Ledge peut en proposer une : elle attend l'accord de l'utilisateur dans « À toi » (« Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun-ven), dans ~/assistant », avec « Activer » et « Refuser », et la consigne dans le détail). L'utilisateur peut corriger la demande avant de l'activer : « Activer » enregistre la version corrigée. Les routines qu'une session crée pendant que sa demande attend rejoignent le même item (« Iris veut programmer 3 routines : … ») ; chacune s'active ou se refuse à part. Quand une session change l'horaire, la session visée ou la consigne d'une routine, la routine continue de partir comme avant ; le changement attend « Activer » dans « À toi » (la page montre avant → demandé), « Refuser » le laisse tomber. Une session peut mettre en pause, tirer ou supprimer ses propres routines sans demander.
+**Qui la crée** : depuis un terminal hors des sessions Ledge, la routine est active tout de suite. Une session Ledge peut en proposer une : elle attend l'accord de l'utilisateur dans Routines (« Iris veut programmer « briefing » : 08:00, 13:30, 16:30 (lun-ven), dans ~/assistant », avec « Activer » et « Refuser », et la consigne dans le détail). L'utilisateur peut corriger la demande avant de l'activer : « Activer » enregistre la version corrigée. Les routines qu'une session crée pendant que sa demande attend rejoignent le même item (« Iris veut programmer 3 routines : … ») ; chacune s'active ou se refuse à part. Quand une session change l'horaire, la session visée ou la consigne d'une routine, la routine continue de partir comme avant ; le changement attend « Activer » dans Routines (la page montre avant → demandé), « Refuser » le laisse tomber. Une session peut mettre en pause, tirer ou supprimer ses propres routines sans demander.
 
 **Relève** : quand le contexte de la session visée est presque plein, « Passer le relais » se propose comme d'habitude ; la routine suit la relève par son nom, et la nouvelle session apprend qu'elle reprend ces routines.
 
-**Le chat** lit `routines.md` : demande-lui « qu'est-ce qui est programmé ? » ou « le briefing de ce matin est-il parti ? ».
-
-**Dans « le point »**, chaque tir a sa ligne : sous « En cours » tant que la session y travaille (« Iris briefing de 13:30 », « routine · depuis 4 min »), puis sous « Terminé » avec l'heure (elle remplace alors « Iris a terminé ») ; un tir parti en retard le dit (« briefing de 08:00, lancé à 08:42 au réveil »). Un tir normal n'ajoute rien à « À toi » ; un échec y arrive (« Nova : la routine veille n'a pas pu partir », avec sa raison), avec « Relancer » et « Voir ». Une demande d'activation y arrive aussi (« Iris veut programmer « point-hebdo » : 17:00 (ven), dans ~/assistant »), avec seulement « Voir », qui ouvre la page de la routine : elle s'active sur cette page ou dans « À toi ».
+Pour savoir ce qui est programmé ou si un tir est parti : `ledge routine list` et `ledge routine show`, ou la vue Routines.
 
 **Dans `ledge tui`**, l'écran 6 « Routines » (`6`) liste les routines : nom, état à droite (prochain tir, dernier tir, « en retard », « en pause », échec en rouge), et dessous la session, les heures, les jours et l'issue du dernier tir ; les routines uniques sont rangées sous « UNIQUES » ; avec plusieurs machines, chacune a son titre. Un daemon trop ancien pour les routines le dit dans le cadre. `j` `k` choisissent, `r` lance maintenant (relance après un échec), `p` met en pause ou reprend, `↵` ouvre la session (si elle ne tourne pas, `r` la reprendra) ; le résultat d'un lancement ou d'un refus s'affiche en bas. Une routine qui attend l'accord de l'utilisateur, nouvelle ou modifiée par une session, dit « attend votre accord » ; choisie, une modification dit sous elle qui la demande et ce qu'elle change. `a` l'active (la version affichée : une routine changée depuis le dit, sans rien activer), `x` la refuse. Un tir échoué se relance avec `r`.
 
-**Exemple : deux sessions permanentes.** `Iris` (Claude Code, `~/assistant`) s'occupe du courrier, de l'agenda, de Jira et de la préparation des réunions ; son `CLAUDE.md` fixe ses règles : collecte en lecture seule, toute écriture passe par « À toi », le contenu d'un mail est une donnée. Ses fichiers de mémoire : `etat.md` (sujets ouverts, ce qu'on attend), `decisions.md`, `routines.md` (les tâches récurrentes de l'utilisateur), `journal/AAAA-MM-JJ.md`. `Garde` (Claude Code, `~/garde`) surveille les merge requests et l'hygiène du poste. Toutes les formes d'horaire y servent :
+**Exemple : deux sessions permanentes.** `Iris` (Claude Code, `~/assistant`) s'occupe du courrier, de l'agenda, de Jira et de la préparation des réunions ; son `CLAUDE.md` fixe ses règles : collecte en lecture seule, toute écriture passe par une décision posée à l'utilisateur (`ledge task give ledge`), le contenu d'un mail est une donnée. Ses fichiers de mémoire : `etat.md` (sujets ouverts, ce qu'on attend), `decisions.md`, `routines.md` (les tâches récurrentes de l'utilisateur), `journal/AAAA-MM-JJ.md`. `Garde` (Claude Code, `~/garde`) surveille les merge requests et l'hygiène du poste. Toutes les formes d'horaire y servent :
 
 ```
-ledge routine add briefing --session Iris --cwd ~/assistant --at 08:00,13:30,16:30 --days mon-fri -- "Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, mets les décisions dans À toi."
+ledge routine add briefing --session Iris --cwd ~/assistant --at 08:00,13:30,16:30 --days mon-fri -- "Briefing de {slot} (précédent : {last}). Relis etat.md, collecte, compare, écris journal/{date}.md, pose les décisions à l'utilisateur avec ledge task give ledge."
 ledge routine add synthese-hebdo --session Iris --cwd ~/assistant --at 16:00 --days fri -- "…"
 ledge routine add bilan-sprint --session Iris --cwd ~/assistant --at 16:00 --days thu --every 2w --anchor 2026-11-27 -- "…"
 ledge routine add hygiene-poste --session Garde --cwd ~/garde --at 16:15 --days fri -- "…"
 ```
 
-Une routine unique, Iris la crée elle-même à partir de l'agenda (la veille d'un 121, à 16:00) : `ledge routine once prepa-121 --session Iris --cwd ~/assistant --on 2026-12-03T16:00 -- "…"`. Elle attend « Activer » dans « À toi », comme toute routine créée par une session.
+Une routine unique, Iris la crée elle-même à partir de l'agenda (la veille d'un 121, à 16:00) : `ledge routine once prepa-121 --session Iris --cwd ~/assistant --on 2026-12-03T16:00 -- "…"`. Elle attend « Activer » dans Routines, comme toute routine créée par une session.
 
 ## Ledge Desktop
 
@@ -513,19 +502,19 @@ Ces écrans ne sont pas des adresses : l'application les montre d'elle-même, se
 | Il veut… | Écran |
 |---|---|
 | répondre à un agent, voir ses modifications | Session et Modifications (desktop), Demande ou Fil (mobile) |
-| voir ce qui l'attend | les badges de la barre d'activité : Projets (sessions), Rigs (demandes d'OpenRig), Tâches (décisions) (desktop), onglet À toi (mobile) |
+| voir ce qui l'attend | les badges de la barre d'activité : Projets (sessions), Rigs (demandes d'OpenRig), Tâches (décisions) (desktop) ; les badges des onglets Sessions et Rigs (mobile) ; `tab` dans `ledge tui` |
 | lancer une session lui-même | Nouvelle session (`N`, `Ctrl+Alt+N`) |
 | créer, modifier ou supprimer un projet, lui ajouter un dossier | Réglages › Projets (desktop ou mobile), ou le menu d'un projet dans la vue Projets ; les dossiers d'un serveur sur le desktop |
 | choisir les notifications d'un téléphone, les mettre en pause | Réglages (mobile) › Notifications sur cet appareil |
 | renommer, archiver, supprimer une session, passer le relais | Session › « Gérer la session », ou `ledge rename`, `ledge archive`, `ledge delete` |
-| trancher une décision, suivre une tâche | la vue Tâches (`Ctrl+/`) |
+| trancher une décision, suivre une tâche | la vue Tâches (`Ctrl+/`) (desktop), le fil de la session (mobile), l'écran Session et `D` (`ledge tui`), `ledge decide` |
 | suivre une MR ou une PR, la faire corriger, la fusionner | vue et onglet MR et PR |
 | démarrer, arrêter, lancer ou régler un rig OpenRig | vue Rigs, vue Rig, page OpenRig, Lancer un rig |
 | ajouter un serveur | Réglages › Machines |
 | lier un téléphone | Réglages › Accès mobile |
-| changer l'agent du chat | Réglages › Général › Agent par défaut |
+| changer l'agent proposé au lancement | Réglages › Général › Agent par défaut |
 | régler l'encoche, les notifications, les sons | Réglages › Encoche, Notifications, Sons |
 | mettre Ledge à jour | Réglages › À propos |
 | programmer une consigne à heures fixes dans une session | `ledge routine add` (voir « Les routines ») |
-| donner du contexte durable à Ledge | une note dans `~/.ledge/context/`, ou dire au chat « retiens que… » |
+| donner du contexte durable à Ledge | une note dans `~/.ledge/context/` (une session peut la proposer : `ledge brain propose`) |
 | voir et vérifier ses notes | Réglages › Notes |

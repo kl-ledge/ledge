@@ -6,12 +6,12 @@ All captures below are the real app, in French (its default language, English is
 
 ## Ledge Desktop
 
-Ledge Desktop is the main window, a workspace in the manner of VS Code: an activity bar on the left (« Projets », « Rigs », « À toi », « MR et PR », then the atelier and the settings, which open as tabs), the sidebar it drives, groups of tabs side by side (a session, an OpenRig seat, a merge or pull request, a rig, the atelier), a bottom panel of terminals and, on the right, Ledge's chat with three tabs: « Conversation », « Tâches » (every task, and the decisions waiting for you) and « Historique » (today's conversations). A tab dragged out of the window opens in a window of its own. « À toi » lists what waits for you, answered in place; its page adds the merge requests to look at, the sessions near their context limit and what finished since your last visit.
+Ledge Desktop is the main window, a workspace in the manner of VS Code: an activity bar on the left (« Projets », « Rigs », « MR et PR », « Routines », « Tâches », then the atelier and the settings, which open as tabs), the sidebar it drives, groups of tabs side by side (a session, an OpenRig seat, a merge or pull request, a rig, the atelier) and a bottom panel of terminals. A tab dragged out of the window opens in a window of its own. What waits for you shows where you answer it: a session's request on its row and tab, OpenRig's asks in a « Demandes » block at the top of Rigs, a decision a session puts to you in « Tâches » (`Ctrl+/`). There is no chat with Ledge any more (#40).
 
 The atelier, a tab, gives each project a table: the agents sit around it, their topics lie on it as sheets, their subagents stand at the ends. When an agent writes to another, a bubble opens over the sender and a dotted line runs to the receiver's seat.
 
 <p>
-  <img src="screens/desktop-atelier-dark.png" alt="The IDE on its Atelier tab: the Projects view on the left, Ledge and Website tables with eight agents, Otto writing to Nova, Ledge's chat on the right" width="720">
+  <img src="screens/desktop-atelier-dark.png" alt="The IDE on its Atelier tab: the Projects view on the left, Ledge and Website tables with eight agents, Otto writing to Nova" width="720">
   <img src="screens/desktop-atelier-light.png" alt="The same atelier in light theme" width="720">
 </p>
 
@@ -25,10 +25,6 @@ A session opens in a tab, on its thread: each exchange folds into one line, the 
 `N` opens « Nouvelle session »: the project, where to work (a new branch in a worktree, or the project's folder), the agent and its model, the permissions, the first message, and where the tab opens.
 
 <img src="screens/desktop-launch-dark.png" alt="New session: project Ledge on main, Claude Code, Codex, Cursor Agent or OMP, default model, first message, opened in the active group" width="720">
-
-`Ctrl+/` asks Ledge from wherever you are: the chat is the right panel, beside whatever tabs are shown; hovering a bot named in the answer lights its seat, and a proposal comes as a card you launch with one click.
-
-<img src="screens/desktop-chat-dark.png" alt="Ledge's chat in the right panel: Otto and Luna are waiting, a card proposes a session to fix the tests" width="720">
 
 The sections below are the island, the notch at the top of the screen.
 
@@ -69,10 +65,6 @@ It scales to a busy day: twelve sessions scroll inside the panel, with the count
 
 <img src="screens/team-dark.png" alt="Twelve sessions in the list, three asking for you" width="408">
 
-## Asking Ledge
-
-Above the sessions, matching the notch's mascot above the bots, the "Demander à Ledge" field takes a question about your sessions, for example "Où en sont les autres ?". `/` focuses it from the list, `Enter` sends it. `Enter` on the empty field, or a click on the field's mascot, opens today's conversation without asking. The chat view opens: first the steps (the terminals, replies and repositories Ledge reads), then the answer writing itself live, with its sources underneath and the bots' names as links that open their session. A second question resumes the same conversation, one per day. `+` in the chat header starts a new one. Ledge Desktop's Settings › Général › « Agent par défaut » chooses which tool answers (Claude Code, Codex, Cursor Agent or OMP); the sessions Ledge proposes open on the same choice. Ledge only reads: it never touches anything and never sends an instruction to a session.
-
 ## Starting a session from Ledge
 
 The island has no form of its own: `Ctrl+Alt+N`, from anywhere, opens « Nouvelle session » in Ledge Desktop (see above): the instruction, the agent with its model and effort, the project, the machine and the folders, optionally a role. The session appears in the island at once with the Démarrage badge.
@@ -100,9 +92,9 @@ The text comes from the `Stop` hook of Claude Code (its `last_assistant_message`
 
 ## Reading a cited Markdown file
 
-Click a `.md` or `.markdown` reference in an agent reply or in Ledge's chat. Ledge opens the file in the same panel, at 560 px or 800 px when expanded. The reader has a collapsible table of contents, a rendered view and a Markdown source view. Links to another local Markdown file open inside the reader; Back walks through those documents before returning to the original conversation. The reply and any draft remain in place. Escape goes back; the close button folds the panel to the island.
+Click a `.md` or `.markdown` reference in an agent reply. Ledge opens the file in the same panel, at 560 px or 800 px when expanded. The reader has a collapsible table of contents, a rendered view and a Markdown source view. Links to another local Markdown file open inside the reader; Back walks through those documents before returning to the original conversation. The reply and any draft remain in place. Escape goes back; the close button folds the panel to the island.
 
-The WSL daemon reads a regular UTF-8 Markdown file, up to 1 MiB, from the session's working directory or an absolute WSL path. Relative paths in the Ledge chat need a known source and otherwise show a clear error. The reader does not edit files or send decisions to agents. HTML and images in documents remain inert. Reload explicitly reads the file again. Windows drive paths and `file:` links are outside this first version. The browser flow is covered by `apps/overlay/e2e/document-reader.spec.ts`; native Windows display and DPI validation remains to be done.
+The WSL daemon reads a regular UTF-8 Markdown file, up to 1 MiB, from the session's working directory or an absolute WSL path. The reader does not edit files or send decisions to agents. HTML and images in documents remain inert. Reload explicitly reads the file again. Windows drive paths and `file:` links are outside this first version. The browser flow is covered by `apps/overlay/e2e/document-reader.spec.ts`; native Windows display and DPI validation remains to be done.
 
 ## Following an agent at work
 
@@ -129,25 +121,25 @@ A session started with plain `claude`, without the launcher, is still visible th
 
 ## In a terminal
 
-`ledge tui` is the same Ledge in a terminal: a WSL tab, a server over SSH, a tmux pane. « À toi » comes first, then the projects by branch; the selected session's card has its request and the keys that answer it, with the last lines of its terminal under it (a 100-column terminal, the sessions simulated). `y` allows, `n` denies, digits pick a question's option, `↵` opens the thread, `a` puts the terminal on the session's pane and comes back when tmux detaches. `/` asks Ledge, `+` starts a session, `,` opens the settings (French or English).
+`ledge tui` is the same Ledge in a terminal: a WSL tab, a server over SSH, a tmux pane. The projects by branch take the left column, a session that waits marked in its row; the selected session's card has its request and the keys that answer it, with the last lines of its terminal under it (a 100-column terminal, the sessions simulated). `y` allows, `n` denies, digits pick a question's option, `↵` opens the thread, `a` puts the terminal on the session's pane and comes back when tmux detaches. `tab` jumps to the next session that waits, `+` starts a session, `,` opens the settings (French or English); a decision a session puts to you is answered on its Session screen with `D`.
 
 ```text
  ◖ ledge  4 sessions · 1 machine · 2 t’attendent                                            Local ●
-╭─ À TOI · 2 ──────────────────────────────╮╭─ OTTO · CÂBLER LA LISTE DES SESSIONS ────────────────╮
-│ ◆ Otto   ledge    npm test        5 min  ││ ◆ Votre accord  Claude Code · opus · high · Local ·… │
-│ ? Luna   website  Quel port pour… 4 min  ││   ↳ Explore · Lire le code                           │
-╰──────────────────────────────────────────╯│                                                      │
-╭─ PROJETS ────────────────────────────────╮│ Veut exécuter : npm test  Bash                       │
-│ ■ Ledge 3 sessions                       ││                                                      │
-│   ⎇ release/LEDGE-42-v0.5.0              ││  Autoriser y    Refuser n    Toujours A              │
-│ ▌  ◆ Otto   Câbler la… Votre accord +1   ││  Refuser en expliquant r                             │
-│   ⎇ fix/LEDGE-42-ssh-reconnect           │╰──────────────────────────────────────────────────────╯
-│    ● Nova   Reconnexi… Au travail        │╭─ TERMINAL · LEDGE-OTTO ──────────────────────────────╮
-│   ⎇ docs/protocol                        ││   ✓ Read src/App.tsx                                 │
-│    ○ Bix    Documente… Disponible        ││   ✓ Edit src/App.tsx  +12 −3                         │
-│ ■ Website 1 session                      ││   ✗ npm test  2 échecs                               │
-│   ⎇ feat/WEB-18-homepage                 ││                                                      │
-│    ? Luna   Nouvelle … Une question      ││   Je relance les tests après correction.             │
+╭─ PROJETS ────────────────────────────────╮╭─ OTTO · CÂBLER LA LISTE DES SESSIONS ────────────────╮
+│ ■ Ledge 3 sessions                       ││ ◆ Votre accord  Claude Code · opus · high · Local ·… │
+│   ⎇ release/LEDGE-42-v0.5.0              ││   ↳ Explore · Lire le code                           │
+│ ▌  ◆ Otto   Câbler la… Votre accord +1   ││                                                      │
+│   ⎇ fix/LEDGE-42-ssh-reconnect           ││ Veut exécuter : npm test  Bash                       │
+│    ● Nova   Reconnexi… Au travail        ││                                                      │
+│   ⎇ docs/protocol                        ││  Autoriser y    Refuser n    Toujours A              │
+│    ○ Bix    Documente… Disponible        ││  Refuser en expliquant r                             │
+│ ■ Website 1 session                      │╰──────────────────────────────────────────────────────╯
+│   ⎇ feat/WEB-18-homepage                 │╭─ TERMINAL · LEDGE-OTTO ──────────────────────────────╮
+│    ? Luna   Nouvelle … Une question      ││   ✓ Read src/App.tsx                                 │
+│                                          ││   ✓ Edit src/App.tsx  +12 −3                         │
+│                                          ││   ✗ npm test  2 échecs                               │
+│                                          ││                                                      │
+│                                          ││   Je relance les tests après correction.             │
 │                                          ││                                                      │
 │                                          │╰──────────────────────────────────────────────────────╯
 │                                          │╭─ ÉCHANGES ───────────────────────────────────────────╮

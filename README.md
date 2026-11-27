@@ -6,17 +6,15 @@ The workshop of one person who runs coding agents (Claude Code, Codex, Cursor Ag
 
 - **Organise.** Ledge Desktop's atelier gives each project a table and seats its sessions around it, subagents at the ends. Messages between agents travel across the room.
 - **Launch and steer.** Start a session from an instruction, pick the project, machine, model and effort; change the model later, archive a session and resume it on the same conversation, read its thread, diffs and terminal.
-- **Decide.** Requests that wait for you reach you where you are: the island on the top edge of the screen, Desktop's "Your turn", the phone, end-to-end encrypted, or any terminal with `ledge tui`. Answers are typed into the right pane and checked.
-- **Ask.** Ledge knows every session, its repository, its issues, PRs and CI. Ask it a question; when an action fits, it proposes a card (launch, relay an instruction, close, file into a project) and nothing happens until you click.
+- **Decide.** Requests that wait for you reach you where you are: the island on the top edge of the screen, Desktop's tree and its Rigs and Tasks views, the phone, end-to-end encrypted, or any terminal with `ledge tui`. Answers are typed into the right pane and checked.
 - **Let agents talk.** Sessions find each other with `ledge who` and write with `ledge send` or Claude Code's `SendMessage`, delivered at the receiver's next free moment.
 
 You hold the organisation: Ledge proposes, you decide. Personal project. Windows host + WSL2, with remote Linux machines over SSH.
 
-<img src="docs/screens/desktop-atelier-dark.png" alt="Ledge Desktop's IDE on its Atelier tab: the Projects view, two project tables with eight agents, Otto writing to Nova, Ledge's chat on the right" width="900">
+<img src="docs/screens/desktop-atelier-dark.png" alt="Ledge Desktop's IDE on its Atelier tab: the Projects view, two project tables with eight agents, Otto writing to Nova" width="900">
 
 <p>
   <img src="docs/screens/desktop-session-dark.png" alt="A session in its tab: its thread and the command waiting for your approval" width="440">
-  <img src="docs/screens/desktop-chat-dark.png" alt="Ledge's chat in the right panel: who needs me, and a card to start a session" width="440">
 </p>
 
 **[Take the tour](docs/tour.md)**: Ledge Desktop and the island, captured from the real app.
@@ -44,7 +42,7 @@ You hold the organisation: Ledge proposes, you decide. Personal project. Windows
 2. The agent's own hooks (installed once by `ledge setup`) call `ledge hook <Event>` (Codex: `ledge hook codex <Event>`, Cursor Agent: `ledge hook cursor <event>`) on every lifecycle event. Each call forwards one message to the daemon and exits in a few milliseconds.
 3. The daemon keeps the state of every session, polls each tmux pane once a second to detect prompts the hooks do not report and to build a terminal preview, and pushes every change over a local WebSocket.
 4. The Windows overlay shows one mascot per session in the island, stretches it into a bubble when a session waits for you, and sends your decision back. The daemon types it into the right pane and checks that the prompt went away.
-5. From the list, "Ask Ledge" sends a question to the daemon. The daemon writes a read-only context folder and runs the chosen harness headless (Claude Code, Codex, Cursor Agent or OMP). The overlay streams the steps and the answer. Ledge never types into a session from the chat.
+5. What waits for you is answered where it shows (#40, there is no chat with Ledge any more): a session's request in its tree row and page, OpenRig's asks in the Rigs view's « Demandes » block, a decision a session puts to you (`ledge task give ledge`) in the Tasks view on Desktop, the session's thread on the phone and its Session screen in `ledge tui`, a routine waiting for approval on its page and in the Routines screens.
 
 ## Architecture
 
@@ -61,7 +59,7 @@ flowchart LR
 
   subgraph wsl["WSL2"]
     direction TB
-    daemon["ledge daemon<br/>store + reducer, poller, chat, WebSocket server<br/>127.0.0.1:47831"]
+    daemon["ledge daemon<br/>store + reducer, poller, tasks, WebSocket server<br/>127.0.0.1:47831"]
     launcher["ledge claude<br/>(launcher)"]
     hook["ledge hook Event<br/>(one message, then exit)"]
     subgraph tmux["tmux server -L ledge"]
@@ -70,7 +68,7 @@ flowchart LR
     journal[("~/.ledge/sessions.json<br/>daemon.log · daemon.pid")]
   end
 
-  ov <-- "WebSocket: snapshot, session.updated,<br/>session.preview / reply, decide, chat…" --> daemon
+  ov <-- "WebSocket: snapshot, session.updated,<br/>session.preview / reply, decide, tasks…" --> daemon
   launcher -- "session.register / unregister" --> daemon
   launcher -- "new-session, attach" --> pane
   wt -- "terminal attached to" --> pane
@@ -119,12 +117,11 @@ One binary, `ledge`, with fourteen commands. Source under `src/`:
 | `daemon/state.ts` | The pure reducer `reduce(session, event)`: the whole state machine, including helper (subagent) routing, the hook-over-pane priority, the session topic (`PaneTitle`, `Renamed`, first `UserPromptSubmit`) and `lastReply` from a `Stop`. |
 | `daemon/git.ts` | One `git rev-parse` per session: repository name and path, checked-out branch, and whether `cwd` is a linked worktree. |
 | `daemon/poller.ts` | Every 1 s captures each live pane (200 lines), hashes it to detect activity, broadcasts a 30-line preview when it changed, runs the adapter's prompt detection on the last 60 lines, reads Claude Code's conversation title (`PaneTitle`), refreshes git fields on the life check (every 5 s), and archives exited sessions 10 min after they end (see [Projects, archive and models](#projects-archive-and-models)). |
-| `daemon/server.ts` | The WebSocket server on `127.0.0.1:47831`: snapshot on connect (then `chat.history`), broadcast of every store change and preview, and the command handlers. A decision is injected with the adapter's key plan, then verified. `session.launch` checks the folder, spawns the agent with the login shell's environment (see `shell-path.ts`) and answers `session.launched`. With a chat card's `qid`, it launches the proposal once and marks the turn. `session.rename` sets the topic. Chat commands go to `chat/`. |
+| `daemon/server.ts` | The WebSocket server on `127.0.0.1:47831`: snapshot on connect (then the remembered previews and the island's notices, `operator.state`), broadcast of every store change and preview, and the command handlers. A decision is injected with the adapter's key plan, then verified. `session.launch` checks the folder, spawns the agent with the login shell's environment (see `shell-path.ts`) and answers `session.launched`. With a chat card's `qid`, it launches the proposal once and marks the turn. `session.rename` sets the topic. Chat commands go to `chat/`. |
 | `daemon/folders.ts` | `resolveFolder` (`~` expanded, absolute, existing) and the folder browser's `listFolder` and `createFolder`, which answer with a `folder.listing`. |
-| `chat/` | Ask Ledge: `service.ts` keeps one conversation a day per harness (50 turns, 180 s cap), writes `~/.ledge/chat/context/`, and runs `claude.ts` (`claude -p --restricted`), `codex.ts` (`codex exec --sandbox read-only`) or `cursor.ts` (`cursor-agent -p --mode ask`). `LEDGE_CHAT=1` so Ledge's own hooks ignore the run; no API key is inherited. |
 | `adapters/` | One adapter per tool (`Adapter` in `types.ts`): prompt detection in the pane, `promptStillVisible`, key plans for accept/deny/reply/interrupt, and preview cleaning. `claude.ts`, `codex.ts` and `cursor.ts` are all implemented. Claude Code's adapter also answers a multi-question `AskUserQuestion` (one tab after another, then the review that has no footer). |
 | `tmux.ts` | Thin wrapper over the dedicated server `tmux -L ledge -f ~/.ledge/tmux.conf`. `newSession` runs the tmux client with the pane's PATH: tmux gives a detached session's pane the client's PATH, over `-e`. |
-| `shell-path.ts` | The environment a login shell (`$SHELL -l`) starts with. Under systemd the daemon has the bare system environment: `claude` (`~/.local/bin`) does not resolve and no proxy variable is set; an agent launched from the overlay (or Ask Ledge) gets the terminal's on top of the daemon's, or the daemon's alone (logged) when the shell fails. |
+| `shell-path.ts` | The environment a login shell (`$SHELL -l`) starts with. Under systemd the daemon has the bare system environment: `claude` (`~/.local/bin`) does not resolve and no proxy variable is set; an agent launched from the overlay gets the terminal's on top of the daemon's, or the daemon's alone (logged) when the shell fails. |
 | `update/` | The daemon's half of the auto-update: `self.ts` (version, install kind `npm`/`git`/`unknown`, systemd or not, sent in the snapshot), `guard.ts` (refuses when a restart would close live sessions) and `run-update.ts` (`update.daemon`: `npm i -g @paradow/ledge@<version>`, then restarts the service, reporting `update.progress` or `update.failed`). |
 | `client.ts`, `names.ts`, `paths.ts`, `log.ts` | WebSocket client for the CLI modes, the list of 64 bot names, `~/.ledge` paths (`LEDGE_HOME` overrides), the daemon log. |
 
@@ -135,13 +132,13 @@ The UI is plain web code under `src/`, developed and unit-tested in WSL; the Rus
 | Path | Role |
 | --- | --- |
 | `src/daemon/client.ts`, `store.ts` | Reconnecting WebSocket client (backoff 2 s to 30 s) and a `useSyncExternalStore` store: sessions by id, previews, status, last error, recent folders, the launcher command, the last `session.launched` and `folder.listing`, and the day's chat turns (plus the live stream). |
-| `src/surface/machine.ts`, `controller.ts` | The surface state machine: modes `handle` (the island at rest, compact or as the discreet strip), `bubble`, `list`, `session`, `settings`, `help`, `launch`, `chat`; timers (dwell 180 ms, leave 500 ms, bubble 4 s, hold 900 ms, unfold 540 ms); a queue of pending asks. Pure reducer with effects, tested without the DOM. |
+| `src/surface/machine.ts`, `controller.ts` | The surface state machine: modes `handle` (the island at rest, compact or as the discreet strip), `bubble`, `list`, `session`, `settings`, `help`, `launch`; timers (dwell 180 ms, leave 500 ms, bubble 4 s, hold 900 ms, unfold 540 ms); a queue of pending asks. Pure reducer with effects, tested without the DOM. |
 | `src/surface/useDaemonAsks.ts` | Turns daemon updates into machine events and locks each decision until the daemon confirms it, fails it, or the connection drops. No timer ever resolves a decision. |
-| `src/surface/*.tsx` | Handle (the island: resident mascot, a separator, then the session bots in a row, six at most then a "+n" pill; a 10 px strip with one dot per session under a maximised window), Shoulders (the concave fillets on each side of the island), Bubble (the island stretched to 440 px), SessionList (grouped by repository, ask field above the rows), SessionView (permission, question, last reply, terminal preview), ChatView, AskField, LaunchView and its FolderBrowser, SettingsView, HelpView, ReplyCard. |
+| `src/surface/*.tsx` | Handle (the island: resident mascot, a separator, then the session bots in a row, six at most then a "+n" pill; a 10 px strip with one dot per session under a maximised window), Shoulders (the concave fillets on each side of the island), Bubble (the island stretched to 440 px), SessionList (grouped by repository, ask field above the rows), SessionView (permission, question, last reply, terminal preview), LaunchView and its FolderBrowser, SettingsView, HelpView, ReplyCard. |
 | `src/surface/groups.ts`, `src/ui/BranchChip.tsx` | List grouping by `repoPath ?? cwd`, and the branch chip (dotted border on a linked worktree). |
-| `src/surface/geometry.ts`, `frame.ts`, `scale.ts` | Layout of the island (a 38 px row of 22 px slots, centred on the top edge of the chosen screen or a quarter of the way in) and of the native window frame (`left`, `top`, width, height), with the island and window scale handled as a CSS zoom on their own layer. Every view keeps its top on the screen edge and grows downwards: the list is 380 px; a session and the chat are 480 px (560 px when reading the raw reply). |
+| `src/surface/geometry.ts`, `frame.ts`, `scale.ts` | Layout of the island (a 38 px row of 22 px slots, centred on the top edge of the chosen screen or a quarter of the way in) and of the native window frame (`left`, `top`, width, height), with the island and window scale handled as a CSS zoom on their own layer. Every view keeps its top on the screen edge and grows downwards: the list is 380 px; a session is 480 px (560 px when reading the raw reply). |
 | `packages/ui/src/reply/parse.ts` (shared with the phone app) | Turns the agent's last markdown message into a title, a lead, classified sections and questions with options. Ordinary lists keep the markdown's bullets or numbers; done / verified / question blocks stay cards. |
-| `src/defaultTool.ts` | The default harness (`ledge.defaultTool`): new sessions and the Ledge chat start on it. Claude Code when nothing valid is stored. |
+| `src/defaultTool.ts` | The default harness (`ledge.defaultTool`): new sessions start on it. Claude Code when nothing valid is stored. |
 | `src/bots/` | Façades over the mascots, which live in `packages/ui/src/bots/`: material, pose per state, halo in the state colour, breathing while waiting. |
 | `src/keyboard/` | Keyboard navigation (j/k, Alt ←/→ to the previous or next session, y/n, digits for a question's options, Esc) and the first-use coachmark. |
 | `src/i18n/` | One typed catalogue, French (default) and English, same keys enforced by the type checker. |
@@ -208,27 +205,7 @@ Points worth knowing:
 
 OMP is the one harness Ledge does not type into. The daemon starts `omp --mode rpc-ui` (always-ask approvals, a session directory of its own per Ledge session, `--resume <exact file>` to continue) and talks JSONL to it: protocol 2 when announced (`rpc_chunk` reassembled strictly), `set_ask_dialog`, `set_subagent_subscription events`. Its frames become the same `SessionEvent`s the hooks of the others send (`daemon/omp/project.ts`), so state, thread, notch and helpers need no special case: a turn is `working` until `session_settled`, messages are cards that grow while OMP writes them, a write or edit lists its file only once its result says so, OMP's dialogs are a pending question answered on its request id (`session.reply`, or `session.answer` for the several questions of one `ask`), the plan of its `todo` feeds the work-plan bar, its subagents are helpers, its queue is shown and can be taken back. A session has `backend: 'omp-rpc'` and no pane: the terminal pane holds shells only, `ledge attach` says there is nothing to attach to.
 
-The daemon owns the processes: a restart ends its OMP sessions (resumable from their journal), the auto-update waits while one is live, and a process a dead daemon left is ended before its session is resumed. Models are OMP's own (`provider/id`, from `get_available_models`); the model and effort change in place. Ask Ledge runs on OMP with `omp -p --mode json --tools read,grep,glob` and nothing loaded from outside. Design: `docs/superpowers/specs/2026-10-20-omp-rpc-integration-design.md`.
-
-## Asking Ledge
-
-The list's "Ask Ledge" field sits above the sessions, matching the island's mascot ahead of the bots. `/` focuses it, `Enter` on a question sends it, `Enter` on the empty field (or a click on the field's mascot) opens today's conversation without asking. A `+` in the chat header starts a new conversation (`chat.reset`): the day's turns are cleared and the next question opens a fresh harness session.
-
-The overlay sends `chat.ask { qid, text, tool? }`. `tool` is the default harness from Settings (Claude Code, Codex, Cursor Agent or OMP). The daemon:
-
-1. writes `~/.ledge/chat/context/` (`sessions.md`, `pane-<id>.txt`, `reply-<id>.md`, `git-<id>.txt`) and adds each session's repository with `--add-dir`;
-2. runs one headless, read-only process: `claude -p --restricted` (tools `Read,Grep,Glob` only), `codex exec --sandbox read-only`, or `cursor-agent -p --mode ask`;
-3. streams `chat.step` (what it reads), `chat.delta` (the answer as it comes), then `chat.done` or `chat.error`.
-
-One question at a time (a second one gets `chat.error`). A turn that takes more than 180 s is stopped and reported as a timeout, with no retry. A failed resume of the day's session is retried once with a fresh id. The question goes on stdin, never in argv. `LEDGE_CHAT=1` so Ledge's own hooks ignore the run; an inherited `ANTHROPIC_API_KEY` is dropped so the CLI's own login is used. The context folder is deleted when the turn ends. `~/.ledge/chat.json` remembers the day's session id and which harness it belongs to.
-
-Bot names in the answer are links that open that session.
-
-Ledge never sends an instruction to a pane, or starts anything, by itself: the user clicks the card. Asked to open or start a session ("open a session in ledge to fix the build"), it answers with a card when the folder is certain — an absolute path from `sessions.md`, from `folders.md` (the recent folders, written beside the other context files) or typed by the user — and asks which folder otherwise. The harness ends its answer with a ```` ```ledge-session ```` block holding `{"cwd", "prompt"?}`; the daemon takes the block out of the text, checks the folder, and attaches a `proposal` to the turn. The card's "Start the session" sends `session.launch { qid }`: the daemon launches the proposal's own folder, harness (the question's) and instruction, once, and marks the card started or failed for every client. The terminal tab opens as the launch form's switch says.
-
-Ask it to pass something on — "tell Otto to run the overlay tests" — and, when exactly one tracked session matches and Ledge can type into it, the answer ends with a card: the session, its state, and the exact instruction. **Send** types it into the session the way a reply from the overlay does. If the session is busy, the card waits ("Otto is working; I'll send it as soon as it's done", **Cancel**) and the daemon sends it the next time the session is free, one instruction per free moment, oldest first, even with the overlay closed. Sessions started outside Ledge (hook only) are read-only and never get a card. A reset, a new day or a daemon restart drops the waiting instructions with the history; nothing is sent.
-
-Ask it to close sessions — "close Arlo and Bram" — and, for each session it can name without doubt (tracked, not hook only, not already ended), the answer ends with a close card: one row per session (eight at most) with **Close** and **Close all**. Ledge itself closes nothing: the click does. The daemon clears the prompt (it sends the interrupt keys and waits up to 10 s for a free prompt) and, once it is free, types the agent's exit command (`/exit`) and waits for the session to end. A pending request is only ever interrupted, never answered or typed into: when it came from a hook for the main thread, the thread records a permission as "Denied by the close" and a question as "Dismissed by the close"; a request read off the screen, or a helper's, is interrupted with nothing recorded (a helper's request keeps the prompt busy, so that close ends in the kill below). The tmux session is killed as a last resort, in either of two cases: the prompt is still not free after 10 s (nothing is typed), or the agent is still running 15 s after the exit command. The row then says "Force closed". Rows close in parallel and only once, even after a double click or from a second client. Two cards that name the same session (one on the phone, one on the PC) share its close: the second waits for the first, and both rows end the same way ("Closed", "Force closed", or both failed if that close fails). The session ends `exited`, not archived: it stays in the list and can be resumed (`session.resume`). The phone's chat shows the same card ("Sessions à fermer", with **Fermer** per row and **Fermer tout (n)**), and a close from the phone needs your passkey, as a launch does: the phone asks for an assertion made for the close (one made for a launch or a decision is refused). Without a passkey, the card says "Protégez d'abord vos accords depuis Connexion." and nothing is closed. The row reads "Fermeture…", then "Fermée", "Fermée de force" or "Terminée" (already ended), or "Échec de la fermeture". A cancelled or expired passkey check says so on the card, and nothing is sent. A close from the phone is not replayed after a page reload: tapped again while the first close is still under way, it is accepted at once rather than failing, and the row settles when that close ends. There is no `ledge close` for agents: only Ledge's chat closes sessions.
+The daemon owns the processes: a restart ends its OMP sessions (resumable from their journal), the auto-update waits while one is live, and a process a dead daemon left is ended before its session is resumed. Models are OMP's own (`provider/id`, from `get_available_models`); the model and effort change in place. Design: `docs/superpowers/specs/2026-10-20-omp-rpc-integration-design.md`.
 
 ## Messages between sessions
 
@@ -238,7 +215,7 @@ Sessions Ledge launched can write to each other. Code: `cli/send.ts`, `cli/who.t
 - **Directory.** `ledge who` lists the live sessions: name, tool, state, project, branch, topic.
 - **Claude Code** writes with its own `SendMessage`, addressed by Ledge name. The `PreToolUse` hook intercepts it: to another Claude, it rewrites the name to the target's live address (`uds:` from `~/.claude/sessions/*.json`) and names the sender; to a Codex, the daemon types the message. An unknown name is left to Claude's own tool.
 - **Codex** runs `ledge send <name> "<message>"` and `ledge read <id>`. Its sandbox cannot reach the daemon, so the hook runs the command itself, only when it is one plain command (no `&&`, `|`, `$()`, redirection or glob), and hands the result back as the hook's deny reason.
-- **Delivery.** The daemon acknowledges at once (`accepted`, `queued` or `refused`) and types what waits for the target at its next free moment, oldest first: up to 6 messages together on one line, so a busy lead is not handed one turn per report. A notice goes alone, and the request for a relief brief goes before anything waiting. A batch refused for good is retried one message at a time. A name whose session was relieved stays held while its seat lives, and a message to it reaches the relief. A queued chat relay goes first; the typing lock is shared with it. A `rid` drops duplicates. `hook_only` sessions cannot receive. 20 000 characters at most (a Claude's longer message to a Codex, a Cursor or an OMP is refused with its length).
+- **Delivery.** The daemon acknowledges at once (`accepted`, `queued` or `refused`) and types what waits for the target at its next free moment, oldest first: up to 6 messages together on one line, so a busy lead is not handed one turn per report. A notice goes alone, and the request for a relief brief goes before anything waiting. A batch refused for good is retried one message at a time. A name whose session was relieved stays held while its seat lives, and a message to it reaches the relief. The typing lock is shared with it. A `rid` drops duplicates. `hook_only` sessions cannot receive. 20 000 characters at most (a Claude's longer message to a Codex, a Cursor or an OMP is refused with its length).
 - **Durability.** The queue and the long bodies are journaled in `~/.ledge/mail.json`: a message waiting for a busy session survives a daemon restart (an update included). Long bodies stay readable for 7 days (200 at most).
 - **Failures.** A message to a session that exits, is closed or is removed before its free moment fails. Its sender, when Ledge can type into it, then gets one line at its own next free moment: `<ledge-notice to="…">Ledge n'a pas pu remettre ton message à … (« … ») : raison</ledge-notice>`. A notice that fails is not told again. The thread shows it as a refused delivery `notice`.
 - **Framing.** The text arrives as `<ledge-message from="…" tool="…" id="m…">`, opening with a note that it comes from another session, not the user, and how to answer (`SendMessage` for a Claude, `ledge send` for any other). `<` becomes `‹` and control bytes are removed, so a body can neither close the frame nor send keys through tmux. A body over 800 characters or 8 lines is typed as its summary (else its first line) and a pointer, `[message de N caractères, L lignes : lis-le en entier avec ledge read m…]`. `ledge read` prints it as written, newlines and `<` kept, to its receiver or its sender only.
@@ -267,11 +244,12 @@ Run from a session (`LEDGE_SESSION`), it is allowed only when it closes that ses
 
 `ledge tui` follows and answers the sessions from any terminal where the daemon runs: a WSL tab, a Linux or macOS machine, a server over SSH, a tmux pane. It is a client of the same daemon as the island, Desktop and the phone, and reaches the remote machines the daemon lists the same way Desktop does (`@ledge/fleet` over `ws`, the daemon token from `~/.ledge`). Nothing changes in the daemon. Source under `packages/ledge/src/tui/`.
 
-- **Overview** (`1`): « À toi » first (the requests waiting for you, oldest first), the projects by branch, the selected session's card with its request and the keys that answer it, the last lines of its terminal and the latest messages between sessions. `j`/`k` move, `tab` jumps to the next session waiting, `y`/`n`/`A` and `1`…`9` answer, `a` attaches.
-- **Session** (`2`, or `↵`): the thread, past turns folded on one line (`space` unfolds), diffs under `d`, the terminal under `t`, a reply or a refusal with a note under `r`, the model under `m`, `i` interrupts.
-- **Ask Ledge** (`3`, or `/`): the question, what Ledge reads, the answer as it comes, and its cards (launch, relay, close); `tab` focuses a card, `↵` acts on it, nothing happens otherwise.
-- **New session** (`4`, or `+`): instruction, agent, model and effort, project, machine, repositories or a folder, the drawn name; `ctrl+s` launches.
-- **Settings** (`5`, or `,`): the language, French or English. The default follows the locale (`LC_ALL`, `LC_MESSAGES`, `LANG`); the choice is kept in `~/.ledge/tui.json`.
+- **Overview** (`1`): the projects by branch, then the rigs and the kernel; the selected session's card with its request and the keys that answer it, the last lines of its terminal and the latest messages between sessions. `j`/`k` move, `tab` jumps to the next session waiting (or with a decision for you, marked `?`), `y`/`n`/`A` and `1`…`9` answer, `D` answers the selected session's decision, `a` attaches. The footer's usage line carries the limits and, past the threshold, the alert.
+- **Session** (`2`, or `↵`): the thread, past turns folded on one line (`space` unfolds), diffs under `d`, the terminal under `t`, a reply or a refusal with a note under `r`, the model under `m`, `i` interrupts. A decision the session put to you shows in amber under the crumb, `D` answers it; a failed handover shows in red, `H` retries.
+- **New session** (`3`, or `+`): instruction, agent, model and effort, project, machine, repositories or a folder, the drawn name; `ctrl+s` launches.
+- **Settings** (`4`, or `,`): the language, French or English. The default follows the locale (`LC_ALL`, `LC_MESSAGES`, `LANG`); the choice is kept in `~/.ledge/tui.json`.
+- **OpenRig** (`5`): the daemon, the kernel and the rigs, their seats and roles.
+- **Routines** (`6`): every routine and its next or last firing; `a` activates a routine waiting for your approval (or the change a session asks for it), `x` refuses it.
 
 `a` hands the terminal to `ledge attach` (through `ssh -t` for a remote machine) and comes back to the TUI when tmux detaches; it works from inside tmux too. A new request rings the terminal's bell, or sends an OSC 9 notification with `--notify osc9` (wrapped for tmux), or nothing with `--notify off`; the title says how many sessions wait. `LEDGE_TUI_ASCII=1` draws with ASCII only. The decisions go through the same code as Desktop's (`@ledge/fleet/decisions`): one in flight per session, refused by the daemon if the request changed meanwhile. Design: `docs/superpowers/plans/2026-10-25-ledge-tui.md`.
 
@@ -289,21 +267,15 @@ Daemon to clients:
 
 | Message | Meaning |
 | --- | --- |
-| `snapshot { sessions, recents?, launcher? }` | Sent on connect and on request. Followed by the remembered `session.preview` of each session, then `chat.history`. `recents`: the folders of past sessions (`{ cwd, project, lastAt }`, twelve at most, most recent first). `launcher`: the command that runs `ledge` inside WSL (`[node, cli]`), which the overlay extends with `attach <id>` to open a terminal tab. |
+| `snapshot { sessions, recents?, launcher? }` | Sent on connect and on request. Followed by the remembered `session.preview` of each session, then the island's notices (`operator.state`). `recents`: the folders of past sessions (`{ cwd, project, lastAt }`, twelve at most, most recent first). `launcher`: the command that runs `ledge` inside WSL (`[node, cli]`), which the overlay extends with `attach <id>` to open a terminal tab. |
 | `session.updated { session }` | Any change to a session. |
 | `session.removed { id }` | The session left the list (retired or dismissed). |
 | `session.preview { id, lines }` | The last 30 cleaned lines of the pane, sent only when they changed. |
 | `session.thread { id, items }` | A session's thread, answered to a `session.thread` request. |
 | `session.thread.item { id, item }` | One thread item created or updated, broadcast as it happens. |
-| `session.closed { qid, row, id, how }` | (`qid` and `id` qualified by the machine through a fleet.) To the requester of a `session.close` only, once per row closed: `how` is `exit` (the agent left) or `killed` (it did not, the tmux session was killed). |
 | `session.launched { id }` | To the requester of a `session.launch` only: the session exists (its `session.updated` was broadcast just before). |
 | `recents { recents }` | The recent folders changed. |
 | `folder.listing { path, parent, entries, error? }` | To the requester of a `folder.list` or `folder.create` only: the folder (resolved, `~` expanded), its parent (`null` at the root) and its subfolders by name, hidden ones left out. A refusal says why in `error`, never in an `error` message. |
-| `chat.step { qid, step }` | What Ledge is reading: `sessions`, `pane`, `reply`, `git` or `repo` (`id` / `name` / `path` when they apply). |
-| `chat.delta { qid, text }` | The next slice of the answer, as the harness writes it. |
-| `chat.done { qid, text, at, proposal?, relay?, closes? }` | The finished answer; `proposal` the session card, `relay` the instruction card, `closes` the close card's rows (`id`, `name`, `tool`), if any. |
-| `chat.error { qid, message }` | The question could not be answered (busy, timeout, cancel, harness missing). |
-| `chat.history { turns }` | The day's turns (50 at most), after each snapshot and after each ask or reset. A turn still running has no `answer`. A turn's `proposal` carries `launchedId` once started and `error` if the start failed; its `relay` carries `status` (`queued` or `sent`), `sentAt` and `error`; each of its `closes` carries `closedAt` and `how` once closed, or `error`. |
 | `error { message, id? }` | A rejected command. With `id`, the overlay shows it on that session; without one, a refused launch or relay (`session.relay`, `session.relay.cancel`). |
 
 Clients to daemon:
@@ -320,19 +292,13 @@ Clients to daemon:
 | `session.kill { id }` | overlay | Kill the tmux session. |
 | `session.dismiss { id }` | overlay | Remove a finished or read-only session from the list. |
 | `session.focus { id }` | overlay | Acknowledged only; the overlay focuses the terminal itself. |
-| `session.launch { tool, cwd, name?, prompt?, continue?, qid? }` | overlay | Start a session: `cwd` a WSL folder (`~` allowed, must exist), `name` a preferred bot name, `prompt` the first instruction, `continue` resumes the folder's last conversation. The daemon spawns the agent exactly like `ledge <tool>` would (minus the exit-code wrapper: the poller sees the pane end) and answers `session.launched`. With `qid`, it starts that chat turn's proposal (the other fields are ignored), refused once started. |
-| `session.close { qid, rows? }` | overlay | Close the chat card's sessions, once each: `rows` (0..7, unique) picks some, all otherwise. Refused when no row can go. |
-| `session.relay { qid }` | overlay | Sends the chat card's instruction now, or queues it until the session is free. Refusals: `unknown relay`, `already sent`, `already queued`. |
-| `session.relay.cancel { qid }` | overlay | Takes the card's instruction back out of the queue (`nothing queued` otherwise). |
+| `session.launch { tool, cwd, name?, prompt?, continue? }` | overlay | Start a session: `cwd` a WSL folder (`~` allowed, must exist), `name` a preferred bot name, `prompt` the first instruction, `continue` resumes the folder's last conversation. The daemon spawns the agent exactly like `ledge <tool>` would (minus the exit-code wrapper: the poller sees the pane end) and answers `session.launched`. With `qid`, it starts that chat turn's proposal (the other fields are ignored), refused once started. |
 | `folder.list { path? }` | overlay | The launch form's folder browser: list a WSL folder's subfolders (home without `path`). |
 | `folder.create { parent, name }` | overlay | Make a folder named `name` (no `/`, not `.` or `..`) inside `parent`, then list it. |
-| `chat.ask { qid, text, tool? }` | overlay | Ask Ledge. `tool` is the overlay's default harness (`claude` when omitted). |
-| `chat.cancel { qid }` | overlay | Stop the running question. |
-| `chat.reset` | overlay | Clear the day's turns and start a new harness session on the next question. Refused while a question is running. |
 | `session.thread { id }` | overlay | Ask for a session's thread; it is not in the snapshot. |
 | `snapshot.request` | any | Ask for a fresh snapshot. |
 
-Not listed above, see `packages/protocol/src`: `models.list` / `models.listing`, `repos.scan` / `repos.found`, `repos.inspect` / `repos.info`, `document.read` / `document.content`, `chat.route` / `chat.routed` (multi-machine chat), `session.answer` (OMP dialogs), `session.archive` / `restore` / `resume` / `delete` / `model`, `session.message` / `message.ack`, `session.queue.restored`, `projects.set` / `projects`, `machines.set` / `machines`, `island.set` / `island`, `update.daemon` / `update.progress` / `update.failed`, `mobile.terminal` / `terminal.release` / `terminal.holders` (the phone's terminal), and the phone link (`mobile.*`, `term.*`, `packages/protocol/src/phone.ts`).
+Not listed above, see `packages/protocol/src`: `models.list` / `models.listing`, `repos.scan` / `repos.found`, `repos.inspect` / `repos.info`, `document.read` / `document.content`, `session.answer` (OMP dialogs), `session.archive` / `restore` / `resume` / `delete` / `model`, `session.message` / `message.ack`, `session.queue.restored`, `projects.set` / `projects`, `machines.set` / `machines`, `island.set` / `island`, `update.daemon` / `update.progress` / `update.failed`, `mobile.terminal` / `terminal.release` / `terminal.holders` (the phone's terminal), and the phone link (`mobile.*`, `term.*`, `packages/protocol/src/phone.ts`).
 
 The handshake is checked before any message is read; anything else gets HTTP 401:
 
@@ -396,8 +362,6 @@ WSL side, under `~/.ledge` (or `$LEDGE_HOME`):
 | `sessions.json` | The journal, saved 200 ms after each change and reloaded on restart. |
 | `daemon.log` | Dropped hooks, refused origins, failed injections, poll errors. |
 | `daemon.pid` | PID of the running daemon, removed on a clean stop. |
-| `chat.json` | The day's Ledge conversation: its date, harness session id and which tool it belongs to. A new day, a reset, or a change of harness starts a new one. |
-| `chat/context/` | Files the chat reads, rewritten before each question and deleted when it ends (`sessions.md`, `pane-*`, `reply-*`, `git-*`). |
 | `exit-<id>` | Transient: the agent's exit code, written by the launcher's wrapper and consumed by `ledge claude`. |
 | `tui.json` | `ledge tui`'s settings: `lang` (`fr` or `en`). Keys it does not know are kept. |
 
@@ -411,7 +375,7 @@ When `~/.cursor` exists, it appends one `ledge hook cursor <event>` hook (5 s ti
 
 The journal also keeps `recents`, the folders of the last twelve sessions, for the overlay's launch form.
 
-Windows side, the overlay keeps its preferences in the WebView's `localStorage`: `ledge.lang`, `ledge.theme`, `ledge.accent` (the brand colour, `#rrggbb`; absent is the factory coral), `ledge.dnd`, `ledge.monitor`, `ledge.islandPosition` (the island's axis on the top edge: `center`, `left` or `right`, a quarter of the way in; default `center`), `ledge.discreet` (`'1'` or `'0'`, the strip under a maximised window; default `'1'`), `ledge.reducedMotion`, `ledge.handleScale` (the island size; the key keeps its historical name), `ledge.panelScale`, `ledge.coachmarks`, `ledge.defaultTool` (the harness for new sessions and the Ledge chat), `ledge.finished` (bubble / sound when a bot finishes) and `ledge.sounds`.
+Windows side, the overlay keeps its preferences in the WebView's `localStorage`: `ledge.lang`, `ledge.theme`, `ledge.accent` (the brand colour, `#rrggbb`; absent is the factory coral), `ledge.dnd`, `ledge.monitor`, `ledge.islandPosition` (the island's axis on the top edge: `center`, `left` or `right`, a quarter of the way in; default `center`), `ledge.discreet` (`'1'` or `'0'`, the strip under a maximised window; default `'1'`), `ledge.reducedMotion`, `ledge.handleScale` (the island size; the key keeps its historical name), `ledge.panelScale`, `ledge.coachmarks`, `ledge.defaultTool` (the harness for new sessions), `ledge.finished` (bubble / sound when a bot finishes) and `ledge.sounds`.
 
 ## Security and failure model
 
@@ -424,7 +388,7 @@ Windows side, the overlay keeps its preferences in the WebView's `localStorage`:
 - The Windows app updates itself through Tauri's updater. Each release is signed with a minisign key, and the app checks the signature against the public key it ships with before installing anything. Releases are fetched from GitHub over HTTPS.
 - The daemon and the app update separately, each on your click in Ledge Desktop's settings. For the daemon, Ledge Desktop asks it to run `npm i -g`, then restart the service, and compares the sessions before and after. If one is missing, or if the restart would close live sessions, it says why.
 - The daemon refuses to update itself when it runs from a git clone or without systemd, and shows the manual command instead.
-- The phone's terminal ([spec](docs/superpowers/specs/2026-11-02-mobile-terminal-design.md)) streams an agent's pane through a tmux control client that is read-only and never sizes the window (`-f ignore-size,read-only`), over the same end-to-end channel as the rest. Typing needs three things: the PC's « Taper dans les terminaux depuis le téléphone » (off by default, in `mobile.json`), a passkey assertion made for that session (purpose `terminal`), and no other phone holding it. A hold ends after 5 minutes without a key, 30 minutes in all, when the app goes to the background, when the link drops, or from Desktop's « Reprendre la main ». While it lasts, what the phone types reaches the pane as it is, a permission prompt included: that is what the passkey is for. Its keys wait for, and take, the typing lock deliveries and the chat relay share. Output leaves in batches (at most one frame per 100 ms, one waiting at a time), and a terminal behind by 2 s or 256 KiB gets a fresh screen instead, so the stream never pushes the PC's socket past the relay's limits. Logs carry counts and reasons, never a byte; nothing is written to disk. Sessions started outside Ledge and OpenRig seats are refused.
+- The phone's terminal ([spec](docs/superpowers/specs/2026-11-02-mobile-terminal-design.md)) streams an agent's pane through a tmux control client that is read-only and never sizes the window (`-f ignore-size,read-only`), over the same end-to-end channel as the rest. Typing needs three things: the PC's « Taper dans les terminaux depuis le téléphone » (off by default, in `mobile.json`), a passkey assertion made for that session (purpose `terminal`), and no other phone holding it. A hold ends after 5 minutes without a key, 30 minutes in all, when the app goes to the background, when the link drops, or from Desktop's « Reprendre la main ». While it lasts, what the phone types reaches the pane as it is, a permission prompt included: that is what the passkey is for. Its keys wait for, and take, the typing lock deliveries share. Output leaves in batches (at most one frame per 100 ms, one waiting at a time), and a terminal behind by 2 s or 256 KiB gets a fresh screen instead, so the stream never pushes the PC's socket past the relay's limits. Logs carry counts and reasons, never a byte; nothing is written to disk. Sessions started outside Ledge and OpenRig seats are refused.
 
 ## How to install?
 
@@ -550,8 +514,8 @@ pnpm --filter desktop tauri dev     # Windows only: Ledge Desktop with the notch
 Layout:
 
 ```
-packages/protocol/   zod schemas, PROTOCOL_PORT, topic helpers, chat turns
-packages/ledge/      src/cli, src/daemon, src/adapters, src/chat, test/ (fixtures/panes: captured dialogs)
+packages/protocol/   zod schemas, PROTOCOL_PORT, topic helpers, tasks and actions
+packages/ledge/      src/cli, src/daemon, src/adapters, src/brain, src/tui, test/ (fixtures/panes: captured dialogs)
 packages/ui/         shared React UI: mascots, i18n, accent, scale, motion, sounds
 packages/fleet/      shared multi-machine daemon client (fleet)
 crates/ledge-native/ shared Rust: terminal focus/open, URL opening, autostart marker
@@ -563,7 +527,7 @@ docs/                design specs, implementation plans, mockups, the approved p
 
 ### Ledge Desktop
 
-`apps/desktop` is the Windows app: its main window (an IDE-like workspace: tab groups, detached windows, the terminals panel, Ledge's chat on the right), the notch as a second window (`apps/overlay`, built into `dist/notch/`), the tray and the updater. Run it with `pnpm --filter desktop dev` (UI) or `pnpm --filter desktop tauri dev` (Windows only), against a daemon in WSL.
+`apps/desktop` is the Windows app: its main window (an IDE-like workspace: tab groups, detached windows, the terminals panel), the notch as a second window (`apps/overlay`, built into `dist/notch/`), the tray and the updater. Run it with `pnpm --filter desktop dev` (UI) or `pnpm --filter desktop tauri dev` (Windows only), against a daemon in WSL.
 Its installer, `Ledge.Desktop_<version>_x64-setup.exe`, is the only one on a release, with its updater manifest (`latest-desktop.json`).
 The Desktop and overlay packages, the two crates and the npm package always carry the same version: `pnpm version:set <x.y.z>` stamps all of them, and the release workflow does it from the tag.
 
@@ -571,11 +535,11 @@ The Desktop and overlay packages, the two crates and the npm package always carr
 
 - Ideas from the two latest Claude Code sessions (features and bot motion): [next steps](docs/ideas/2026-10-11-next-steps.md).
 - Design spec: [docs/superpowers/specs/2026-10-09-ledge-design.md](docs/superpowers/specs/2026-10-09-ledge-design.md)
-- Session topics, repository grouping and the Ledge chat: [spec](docs/superpowers/specs/2026-10-11-sessions-identity-and-chat-design.md), [plan](docs/superpowers/plans/2026-10-11-sessions-identity-and-chat.md) and [mockup](docs/mockups/ledge-sessions-chat.html).
+- Session topics, repository grouping and the Ledge chat (the chat removed in #40, archived): [spec](docs/archive/superpowers/specs/2026-10-11-sessions-identity-and-chat-design.md), [plan](docs/archive/superpowers/plans/2026-10-11-sessions-identity-and-chat.md) and [mockup](docs/archive/mockups/ledge-sessions-chat.html).
 - Last-reply lists as real markdown lists: [spec](docs/superpowers/specs/2026-10-11-session-reply-lists-design.md).
 - Markdown document reader — **implemented in the overlay and WSL daemon**: [spec](docs/superpowers/specs/2026-10-11-markdown-reader-design.md), [implementation plan](docs/superpowers/plans/2026-10-11-markdown-reader.md), and [approved mockup](docs/mockups/ledge-reader-existing.html). Opens cited plans, designs and skills in the same 560 px panel, supports an 800 px expanded view, and returns to the conversation with its draft and scroll position preserved. Browser integration is tested; native Windows validation is still pending.
 - Starting a session from Ledge: [spec](docs/superpowers/specs/2026-10-10-launch-from-ledge-design.md) and [mockups](https://claude.ai/artifact/YBX4UV7Z2eBRNKAwNh3876)
-- Relaying an instruction from the chat to a session: [spec](docs/superpowers/specs/2026-10-12-relay-from-chat-design.md).
+- Relaying an instruction from the chat to a session (removed in #40, archived): [spec](docs/archive/superpowers/specs/2026-10-12-relay-from-chat-design.md).
 - Messages between agents: [spec](docs/superpowers/specs/2026-10-18-agent-messages-design.md) and [plan](docs/superpowers/plans/2026-10-18-agent-messages.md). Following a conversation between two agents in the session page's « Conversation » side tab, both threads merged and live: [spec](docs/superpowers/specs/2026-10-21-agent-conversation-design.md), [plan](docs/superpowers/plans/2026-10-21-agent-conversation.md) and [approved mockup](docs/mockups/ledge-agent-conversation.html).
 - Design canvas (mockups and playable prototype): https://claude.ai/artifact/57oDjsKdabQBmPgAXn15mc
 - Design system "Shadcn Red": https://claude.ai/artifact/QBv4bfYYVqV2aAfDjPW3JV
@@ -588,7 +552,7 @@ The Desktop and overlay packages, the two crates and the npm package always carr
 
 ## Status and known limits
 
-- Claude Code, Codex and Cursor Agent have tmux adapters; OMP is driven over its own protocol (see « OMP »). All four can answer Ask Ledge (Settings › Default harness).
+- Claude Code, Codex and Cursor Agent have tmux adapters; OMP is driven over its own protocol (see « OMP »). Settings › Default harness picks the one offered at launch.
 - An `AskUserQuestion` with several questions can be answered from Ledge, one dialog at a time, including the review screen.
 - Cursor Agent (verified on 2026.10.01): hooks give the turn (prompt, tools, `stop`) and the last reply (`afterAgentResponse`, rebuilt from the transcript so the turn's text blocks stay apart). They never report an approval, a question or a plan, so the pane gives them: the shell approval ("Run this command?", `y` runs once, `n` then an empty Enter skips), the workspace trust (`a` trusts, `q` quits), AskQuestion (an option number moves to it, ticks it with Space and goes on with Enter; Esc skips; a question that follows is a new prompt, not a failed answer) and Plan mode's "Ready to build?" (`b` builds locally, never in the cloud; refusing opens "Describe how to revise the plan", which reads as your turn: the next reply goes there). Keys that must not reach the agent in one read wait for the screen they are meant for (`until` steps). Ctrl-C interrupts (`stop` aborted, then a stray `error` that is ignored). Subagents fire no hook of their own kind: the parent's Task call names a helper, the subagent's hooks (its own `session_id`, but the parent's transcript in `CURSOR_TRANSCRIPT_PATH`) take it over, and the parent's next step ends it. Not covered: the "Other" free-text answer of a question, and the cloud build.
 - Codex (verified on 0.162): hooks give the state, approvals (`y` runs once, Esc refuses), `request_user_input` questions and the last reply; the pane gives the Plan mode approval ("Implement this plan?", which has no hook) and the startup hooks review. Codex may run hooks in a shared app-server daemon that keeps the environment of the `codex` that started it, so a launched session names itself to its hooks through `-c shell_environment_policy.set.LEDGE_CODEX_HOOK_SESSION=<id>`, and `LEDGE_CODEX_SESSION` in the environment is trusted only when no app-server runs the hook. Plan mode itself is switched in the terminal (Shift+Tab).

@@ -1,5 +1,7 @@
 # Refonte IDE de Ledge Desktop — plan d'implémentation
 
+> Note (#40) : le chat de Ledge, « le point » et « À toi » ont été retirés depuis ce plan. Le panneau de droite n'existe plus ; « Tâches » est une vue de la barre d'activité, les demandes d'OpenRig un bloc « Demandes » en tête de la vue Rigs. Ce document reste tel quel pour l'historique ; l'état actuel est dans `docs/ide-workspace.md` et `docs/ledge-guide.md`.
+
 Plan rédigé le 2026-11-06 (v2, sur la maquette qui a évolué), à valider par l'utilisateur avant toute tâche d'implémentation.
 
 - **Référence :** [`docs/mockups/ledge-ide-interactive.html`](mockups/ledge-ide-interactive.html), version 26 du prototype en ligne (https://claude.ai/artifact/GFWW4nhGxs2DLSxFW5R62B), **validée par l'utilisateur le 2026-11-06**. Le design est décrit dans [`docs/ide-workspace.md`](ide-workspace.md), mis à jour sur cette version.

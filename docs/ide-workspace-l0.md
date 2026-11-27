@@ -1,5 +1,7 @@
 # Refonte IDE — lot 0 : résultats et reprise
 
+> Note (#40) : le chat de Ledge, « le point » et « À toi » ont été retirés depuis ce plan. Le panneau de droite n'existe plus ; « Tâches » est une vue de la barre d'activité, les demandes d'OpenRig un bloc « Demandes » en tête de la vue Rigs. Ce document reste tel quel pour l'historique ; l'état actuel est dans `docs/ide-workspace.md` et `docs/ledge-guide.md`.
+
 Lot 0 du plan [`docs/ide-workspace-plan.md`](https://github.com/kl-ledge/ledge/blob/docs/ide-workspace-plan/docs/ide-workspace-plan.md), sur la branche `docs/ide-workspace-plan`. Le design validé (v26) est sur la même branche. État au 2026-11-06.
 
 ## Verdict
