@@ -12,7 +12,7 @@ import '../styles/operator-cards.css';
 /**
  * #54: the kernel operator's thread, « Missions » then « Échanges », in the « Résumé de la session » column
  * (docs/mockups/ledge-operator-rigs-panel.html, Missions in version C). What OpenRig keeps, read by the daemon (openrig.missions).
- * The texts the mockup does not show (states, delivery, variants) are the recommendations awaiting the owner (t…q54).
+ * The texts the mockup does not show (states, delivery, variants) are in t…q54, validated by the owner (« AA Oui »).
  */
 
 /** The kernel's operator seat (`operator.agent`): only its thread carries the two cards. */

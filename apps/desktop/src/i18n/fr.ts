@@ -1137,8 +1137,7 @@ export const fr = {
         given: 'confie à', handed: 'passe à', done: 'termine', blocksOn: 'se bloque sur',
         older: 'Voir plus ancien'
       },
-      // #54 : les textes absents de la maquette, en attente de l'utilisateur (state/pr/q54-texts.md) ; les recommandations,
-      // isolées ici pour changer d'un coup.
+      // #54 : les textes absents de la maquette (state/pr/q54-texts.md), validés par l'utilisateur le 2026-11-27 (« AA Oui »).
       q54: {
         blocked: 'bloquée',
         delivery: {
