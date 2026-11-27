@@ -544,3 +544,84 @@ export type OpenRigGoalSent = z.infer<typeof OpenRigGoalSentSchema>;
 export type OpenRigGoalsChanged = z.infer<typeof OpenRigGoalsChangedSchema>;
 export type OpenRigGoalReply = z.infer<typeof OpenRigGoalReplySchema>;
 export type OpenRigGoalReplied = z.infer<typeof OpenRigGoalRepliedSchema>;
+
+// ── #54: the operator's thread, « Missions » and « Échanges » (docs/mockups/ledge-operator-rigs-panel.html, version C) ──
+
+/** An open row's state. */
+export const MissionRowStateSchema = z.enum(['pending', 'in-progress', 'blocked']);
+export type MissionRowState = z.infer<typeof MissionRowStateSchema>;
+
+/** A row a mission's holder created, at the end of its own chain of handoffs: who holds it now and since when. Attached by deduction,
+ *  and only when sure (`by`): `blocked_on` the mission waits on it; `cited` its id is in the holder's notes on the mission; `created` the
+ *  holder made it while this was the only mission it held. A row that fits none of them is not shown. */
+export const MissionChildSchema = z.object({
+  qitemId: z.string(), title: z.string(), holder: z.string(), state: MissionRowStateSchema, since: z.string(),
+  by: z.enum(['blocked_on', 'cited', 'created'])
+});
+export type MissionChild = z.infer<typeof MissionChildSchema>;
+
+/** What a blocked mission waits on: another row (its title, holder and state when it was read, null otherwise), or something outside
+ *  OpenRig (`rig queue update --blocked-on external:<text>`). */
+export const MissionWaitSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('row'), qitemId: z.string(), title: z.string().nullable(), holder: z.string().nullable(), state: z.string().nullable() }),
+  z.object({ kind: z.literal('external'), text: z.string() })
+]);
+export type MissionWait = z.infer<typeof MissionWaitSchema>;
+
+/** A mission: a row the operator gave a seat of another rig, followed down its handoffs to the open row at the end. Read as OpenRig keeps
+ *  it, with no convention asked of the operator or the rigs. */
+export const MissionSchema = z.object({
+  /** The open row, at the end of the chain. */ qitemId: z.string(),
+  /** The operator's own row, where the chain starts (`qitemId` when it was not handed on). */ rootQitemId: z.string(),
+  rig: z.string(), state: MissionRowStateSchema,
+  /** Since when it is in that state: the open row's last change of state. */ since: z.string(),
+  /** The row's summary, else its body's first line. */ title: z.string(),
+  /** Who gave the open row, who holds it. */ from: z.string(), to: z.string(),
+  waitsOn: MissionWaitSchema.nullable(),
+  /** The holder's last note on the open row (`rig queue update --note`, a block's note…), the queue's own notes left out. */
+  lastNote: z.object({ at: z.string(), by: z.string(), text: z.string() }).nullable(),
+  /** The holders' rows still open, the oldest first. */ children: z.array(MissionChildSchema),
+  /** The holders' rows that ended (the same attachment): their count and titles, the most recent first. */
+  closed: z.object({ count: z.number().int().nonnegative(), titles: z.array(z.string()) }),
+  /** Part of this mission could not be read (its journal, a successor, the holder's rows): what is shown is what was read. */
+  partial: z.boolean().optional()
+});
+export type Mission = z.infer<typeof MissionSchema>;
+
+/** OpenRig's delivery state of a message (or of the wake of a row given or handed): only `delivered` is a delivery. */
+export const ExchangeDeliverySchema = z.enum(['delivered', 'indeterminate', 'failed', 'pending']);
+export type ExchangeDelivery = z.infer<typeof ExchangeDeliverySchema>;
+
+/** One entry of « Échanges »: a message between members (`rig send`; one entry for a send to several seats), a row given (`given`) or
+ *  handed on (`handed`), a block, or an end (`done`, with how it ended). `text` is one line: the message's, else the row's title. */
+export const ExchangeSchema = z.object({
+  id: z.string(), at: z.string(),
+  kind: z.enum(['message', 'given', 'handed', 'blocked', 'done']),
+  /** `blocked`: the seat that blocks, and in `to` the holder of what it waits on (empty when outside OpenRig or not read). */
+  from: z.string(), to: z.array(z.string()),
+  /** The rigs of its seats, for the « par rig » filter. */ rigs: z.array(z.string()),
+  text: z.string(),
+  qitemId: z.string().optional(),
+  delivery: ExchangeDeliverySchema.optional(),
+  urgent: z.boolean().optional(),
+  outcome: z.enum(['done', 'canceled', 'failed', 'denied']).optional()
+});
+export type Exchange = z.infer<typeof ExchangeSchema>;
+
+/** The operator's thread asks for its two cards; the answer is pushed again when they change, to every front that asked.
+ *  `exchanges`: how many entries « Échanges » wants (« Voir plus ancien » asks again with more). */
+export const OpenRigMissionsSchema = z.object({
+  type: z.literal('openrig.missions'), requestId: z.string().min(1).max(100), machineId: z.string().optional(),
+  exchanges: z.number().int().min(1).max(500).optional()
+});
+/** `openrig`: `ok`, or why nothing could be read (`absent` not installed, `stopped`, `unreachable`); `operator`: the kernel's operator
+ *  seat, null when none runs (missions are then not known, the exchanges still are). Empty lists with `ok` and no `partial` are empty.
+ *  `exchangesMore`: older entries exist. `partial`: some read failed or was cut; what is shown is what was read. */
+export const OpenRigMissionsChangedSchema = z.object({
+  type: z.literal('openrig.missionsChanged'), requestId: z.string().optional(), machineId: z.string().optional(),
+  openrig: z.enum(['ok', 'absent', 'stopped', 'unreachable']), operator: z.string().nullable(),
+  missions: z.array(MissionSchema), exchanges: z.array(ExchangeSchema), exchangesMore: z.boolean(),
+  partial: z.boolean().optional(), error: z.enum(['offline', 'outdated']).optional()
+});
+export type OpenRigMissions = z.infer<typeof OpenRigMissionsSchema>;
+export type OpenRigMissionsChanged = z.infer<typeof OpenRigMissionsChangedSchema>;
