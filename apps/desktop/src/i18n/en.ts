@@ -1062,6 +1062,42 @@ export const en: Messages = {
       // The « Cowork » thread (#41): the texts of the mockup and its complement, approved by the owner on 2026-11-27.
       work: 'Work',
       side: { label: 'Session summary', progress: 'Progress', files: 'Changed files', helpers: 'Subagents' },
+      missions: {
+        title: 'Missions',
+        state: { pending: 'waiting', 'in-progress': 'in progress' } as Record<string, string>,
+        since: (at: string) => `since ${at}`,
+        waits: (title: string, holder: string) => `waits on ${title} from ${holder}`,
+        working: 'at work',
+        closed: (n: number) => `${n} closed ${n > 1 ? 'rows' : 'row'}`
+      },
+      exchanges: {
+        title: 'Exchanges',
+        all: 'All', messages: 'Messages', handoffs: 'Handoffs', rig: 'Rig', allRigs: 'All rigs',
+        given: 'gives', handed: 'hands to', done: 'finishes', blocksOn: 'blocks on',
+        older: 'See older'
+      },
+      q54: {
+        blocked: 'blocked',
+        delivery: {
+          delivered: { mark: '✓', word: 'delivered' },
+          indeterminate: { mark: '?', word: 'delivery unsure', hint: 'OpenRig doesn’t know whether the seat got the message.' },
+          failed: { mark: '✕', word: 'not delivered', hint: 'OpenRig couldn’t wake this seat.' },
+          pending: { mark: '◷', word: 'waiting to send' }
+        } as Record<string, { mark: string; word: string; hint?: string }>,
+        openrig: { stopped: 'OpenRig is stopped.', absent: 'OpenRig isn’t installed.', unreachable: 'OpenRig isn’t answering.' } as Record<string, string>,
+        noOperator: 'The kernel’s operator isn’t running: missions aren’t known.',
+        noMission: 'No mission in progress.',
+        noExchange: 'No exchange.',
+        noMatch: 'Nothing for this filter.',
+        partial: 'List may be incomplete: OpenRig did not answer the last read.',
+        missionPartial: 'Incomplete read: some rows may be missing.',
+        waitsUnreadable: 'waits on an unreadable row',
+        waitsExternal: (text: string) => `waits on ${text}`,
+        outcome: { done: 'finishes', canceled: 'cancels', failed: 'fails', denied: 'refuses' } as Record<string, string>,
+        blocks: 'blocks',
+        urgent: 'urgent',
+        more: (n: number) => `+${n}`
+      },
       thinks: (n) => `${n} is thinking…`,
       aside: {
         tag: 'btw', head: (n) => `Aside · outside the thread, ${n} keeps working`, close: 'Close the aside',

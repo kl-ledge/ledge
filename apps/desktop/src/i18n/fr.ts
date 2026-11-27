@@ -1122,6 +1122,45 @@ export const fr = {
       // Le fil « Cowork » (#41) : textes de la maquette et de son complément, validés par jde le 2026-11-27.
       work: 'Travail',
       side: { label: 'Résumé de la session', progress: 'Progression', files: 'Fichiers modifiés', helpers: 'Sous-agents' },
+      // #54, le fil de l'opérateur : les cartes « Missions » et « Échanges » (docs/mockups/ledge-operator-rigs-panel.html, version C).
+      missions: {
+        title: 'Missions',
+        state: { pending: 'en attente', 'in-progress': 'en cours' } as Record<string, string>,
+        since: (at: string) => `depuis ${at}`,
+        waits: (title: string, holder: string) => `attend ${title} de ${holder}`,
+        working: 'au travail',
+        closed: (n: number) => `${n} ${n > 1 ? 'lignes fermées' : 'ligne fermée'}`
+      },
+      exchanges: {
+        title: 'Échanges',
+        all: 'Tout', messages: 'Messages', handoffs: 'Passages', rig: 'Rig', allRigs: 'Tous les rigs',
+        given: 'confie à', handed: 'passe à', done: 'termine', blocksOn: 'se bloque sur',
+        older: 'Voir plus ancien'
+      },
+      // #54 : les textes absents de la maquette, en attente de l'utilisateur (state/pr/q54-texts.md) ; les recommandations,
+      // isolées ici pour changer d'un coup.
+      q54: {
+        blocked: 'bloquée',
+        delivery: {
+          delivered: { mark: '✓', word: 'remis' },
+          indeterminate: { mark: '?', word: 'remise incertaine', hint: 'OpenRig ne sait pas si le siège a reçu le message.' },
+          failed: { mark: '✕', word: 'non remis', hint: 'OpenRig n’a pas pu réveiller ce siège.' },
+          pending: { mark: '◷', word: 'en attente d’envoi' }
+        } as Record<string, { mark: string; word: string; hint?: string }>,
+        openrig: { stopped: 'OpenRig est arrêté.', absent: 'OpenRig n’est pas installé.', unreachable: 'OpenRig ne répond pas.' } as Record<string, string>,
+        noOperator: 'L’opérateur du kernel ne tourne pas : les missions ne sont pas connues.',
+        noMission: 'Aucune mission en cours.',
+        noExchange: 'Aucun échange.',
+        noMatch: 'Rien pour ce filtre.',
+        partial: 'Liste peut-être incomplète : OpenRig n’a pas répondu à la dernière lecture.',
+        missionPartial: 'Lecture incomplète : des lignes manquent peut-être.',
+        waitsUnreadable: 'attend une ligne illisible',
+        waitsExternal: (text: string) => `attend ${text}`,
+        outcome: { done: 'termine', canceled: 'annule', failed: 'échoue', denied: 'refuse' } as Record<string, string>,
+        blocks: 'se bloque',
+        urgent: 'urgent',
+        more: (n: number) => `+${n}`
+      },
       thinks: (n: string) => `${n} réfléchit…`,
       aside: {
         tag: 'btw', head: (n: string) => `En aparté · hors du fil, ${n} continue son travail`, close: 'Fermer l’aparté',
