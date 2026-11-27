@@ -6,10 +6,9 @@
 
 .oc-pill { font-size: 10px; border-radius: 7px; padding: 0 5px; border: 1px solid var(--at-line2); color: var(--at-ink2); white-space: nowrap; line-height: 15px; margin-left: 4px; }
 .oc-mm > .oc-pill:first-child { margin-left: 0; }
-.oc-pill.run { color: var(--success); border-color: color-mix(in srgb, var(--success) 50%, transparent); }
-.oc-pill.wait { color: var(--info); border-color: color-mix(in srgb, var(--info) 50%, transparent); }
-.oc-pill.blk { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
-.oc-pill.u { color: var(--danger-text); border-color: color-mix(in srgb, var(--danger-text) 50%, transparent); }
+.oc-pill.oc-run { color: var(--success); border-color: color-mix(in srgb, var(--success) 50%, transparent); }
+.oc-pill.oc-blk { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
+.oc-pill.oc-u { color: var(--danger-text); border-color: color-mix(in srgb, var(--danger-text) 50%, transparent); }
 .oc-rt { font: 10px 'Geist Mono', ui-monospace, monospace; color: var(--at-ink2); border: 1px solid var(--at-line2); border-radius: 5px; padding: 0 4px; margin-left: 4px; }
 .oc-mm > .oc-rt { margin-left: 0; }
 
@@ -26,9 +25,9 @@
 .oc-stp:last-child::before { display: none; }
 .oc-stp:last-child { padding-bottom: 0; }
 .oc-m { width: 13px; height: 13px; border-radius: 50%; margin-top: 2px; background: var(--at-pane); box-shadow: inset 0 0 0 1.5px var(--at-ink2); display: grid; place-items: center; font-size: 8px; color: var(--at-pane); }
-.oc-stp.d .oc-m { background: var(--success); box-shadow: none; }
-.oc-stp.r .oc-m { background: var(--info); box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 25%, transparent); }
-.oc-stp.b .oc-m { background: var(--warning); box-shadow: none; }
+.oc-stp.oc-d .oc-m { background: var(--success); box-shadow: none; }
+.oc-stp.oc-r .oc-m { background: var(--info); box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 25%, transparent); }
+.oc-stp.oc-b .oc-m { background: var(--warning); box-shadow: none; }
 .oc-s { color: var(--at-ink2); min-width: 0; }
 .oc-s b { color: var(--at-ink); font-weight: 500; }
 .oc-tm { font: 10.5px 'Geist Mono', ui-monospace, monospace; color: var(--at-ink2); white-space: nowrap; }
@@ -36,21 +35,21 @@
 /* Échanges. */
 .oc-filters { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .oc-chip { height: 21px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--at-line2); background: none; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color: var(--at-ink2); white-space: nowrap; cursor: pointer; }
-.oc-chip.on { background: var(--at-raise); color: var(--at-ink); border-color: transparent; }
+.oc-chip.oc-on { background: var(--at-raise); color: var(--at-ink); border-color: transparent; }
 select.oc-chip { appearance: auto; font: inherit; font-size: 11px; }
 .oc-ev { display: grid; grid-template-columns: 16px 1fr auto; gap: 1px 7px; align-items: start; padding: 3px 0; font-size: 11.5px; }
 .oc-gl { width: 16px; height: 16px; margin-top: 2px; color: var(--at-ink2); fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.oc-ev.hand .oc-gl { color: var(--ide-link-violet, #a78bfa); }
-.oc-ev.warn .oc-gl { color: var(--warning); }
-.oc-ev.fail .oc-gl, .oc-ev.fail .oc-w { color: var(--danger-text); }
+.oc-ev.oc-hand .oc-gl { color: var(--ide-link-violet, #a78bfa); }
+.oc-ev.oc-warn-ev .oc-gl { color: var(--warning); }
+.oc-ev.oc-fail .oc-gl, .oc-ev.oc-fail .oc-w { color: var(--danger-text); }
 .oc-w { color: var(--at-ink2); min-width: 0; }
 .oc-w b { color: var(--at-ink); font-weight: 500; }
 .oc-x { grid-column: 2 / 4; color: var(--at-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.oc-x.with-dl { grid-column: 2 / 3; }
-.oc-x.q { color: var(--at-ink2); }
+.oc-x.oc-with-dl { grid-column: 2 / 3; }
+.oc-x.oc-q { color: var(--at-ink2); }
 .oc-dl { font-size: 10.5px; white-space: nowrap; color: var(--at-ink2); }
-.oc-dl.delivered { color: var(--success); }
-.oc-dl.indeterminate { color: var(--warning); }
-.oc-dl.failed { color: var(--danger-text); }
+.oc-dl.oc-dl-delivered { color: var(--success); }
+.oc-dl.oc-dl-indeterminate { color: var(--warning); }
+.oc-dl.oc-dl-failed { color: var(--danger-text); }
 .oc-older { align-self: center; background: none; border: none; color: var(--at-ink2); font-size: 11.5px; padding: 1px 5px; cursor: pointer; }
 .oc-older:hover { color: var(--at-ink); }

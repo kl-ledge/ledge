@@ -70,7 +70,8 @@ function MissionRow({ m, machine, now }: { m: Mission; machine: string; now: num
     : m.waitsOn.kind === 'external' ? q.waitsExternal(m.waitsOn.text)
     : m.waitsOn.title === null ? q.waitsUnreadable
     : tm.waits(m.waitsOn.title, name(m.waitsOn.holder ?? ''));
-  const pill = m.state === 'blocked' ? 'blk' : m.state === 'in-progress' ? 'run' : 'wait';
+  // The mockup's colours: « en cours » green, « en attente » amber (as its #40 card), « bloquée » amber too.
+  const pill = m.state === 'in-progress' ? 'oc-run' : 'oc-blk';
   return (
     <div className="oc-mis">
       <div className="oc-mm">
@@ -88,7 +89,7 @@ function MissionRow({ m, machine, now }: { m: Mission; machine: string; now: num
         <div className="oc-steps">
           {m.children.map(c => <ChildRow key={c.qitemId} c={c} machine={machine} now={now} />)}
           {m.closed.count > 0 && (
-            <div className="oc-stp d">
+            <div className="oc-stp oc-d">
               <span className="oc-m" aria-hidden="true">✓</span>
               <span className="oc-s"><b>{tm.closed(m.closed.count)}</b>{m.closed.titles.length > 0 && <> · {m.closed.titles.join(', ')}</>}</span>
               <span className="oc-tm" />
@@ -104,7 +105,7 @@ function ChildRow({ c, machine, now }: { c: MissionChild; machine: string; now: 
   const { lang } = useI18n();
   const name = useSeatName(machine);
   return (
-    <div className={cls('oc-stp', c.state === 'blocked' ? 'b' : c.state === 'in-progress' ? 'r' : 'p')}>
+    <div className={cls('oc-stp', c.state === 'blocked' ? 'oc-b' : c.state === 'in-progress' ? 'oc-r' : 'oc-p')}>
       <span className="oc-m" aria-hidden="true" />
       <span className="oc-s"><b>{c.title}</b> · {name(c.holder)}</span>
       <span className="oc-tm">{age(c.since, now, lang)}</span>
@@ -144,10 +145,10 @@ function ExchangesCard({ read, stale, machine, now, onOlder }: { read: Read; sta
         {read.openrig === 'ok' && (
           <div className="oc-filters" role="group" aria-label={tx.title}>
             {(['all', 'messages', 'handoffs'] as const).map(f => (
-              <button key={f} type="button" className={cls('oc-chip', filter === f && 'on')} aria-pressed={filter === f} onClick={() => setFilter(f)}>{tx[f]}</button>
+              <button key={f} type="button" className={cls('oc-chip', filter === f && 'oc-on')} aria-pressed={filter === f} onClick={() => setFilter(f)}>{tx[f]}</button>
             ))}
             {rigs.length > 0 && (
-              <select className={cls('oc-chip', rig && 'on')} value={rig} aria-label={tx.rig} onChange={e => setRig(e.target.value)}>
+              <select className={cls('oc-chip', rig && 'oc-on')} value={rig} aria-label={tx.rig} onChange={e => setRig(e.target.value)}>
                 <option value="">{tx.rig}</option>
                 {rigs.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
@@ -180,12 +181,12 @@ function ExchangeRow({ e, machine, now, usual }: { e: Exchange; machine: string;
   const glyph = e.kind === 'message' ? MESSAGE : e.kind === 'blocked' ? WARN : e.kind === 'done' ? DONE : HAND;
   const d = e.delivery ? q.delivery[e.delivery] : undefined;
   return (
-    <div className={cls('oc-ev', (e.kind === 'given' || e.kind === 'handed') && 'hand', e.kind === 'blocked' && 'warn', e.outcome === 'failed' && 'fail')}>
+    <div className={cls('oc-ev', (e.kind === 'given' || e.kind === 'handed') && 'oc-hand', e.kind === 'blocked' && 'oc-warn-ev', e.outcome === 'failed' && 'oc-fail')}>
       {glyph}
-      <span className="oc-w">{who}{e.urgent && <span className="oc-pill u">{q.urgent}</span>}{tag && <span className="oc-rt">{tag}</span>}</span>
+      <span className="oc-w">{who}{e.urgent && <span className="oc-pill oc-u">{q.urgent}</span>}{tag && <span className="oc-rt">{tag}</span>}</span>
       <span className="oc-tm">{timeMark(e.at, now, lang)}</span>
-      <span className={cls('oc-x', e.kind === 'done' && 'q', d && 'with-dl')}>{e.text}</span>
-      {d && e.delivery && <span className={cls('oc-dl', e.delivery)} title={d.hint}>{d.mark} {d.word}</span>}
+      <span className={cls('oc-x', e.kind === 'done' && 'oc-q', d && 'oc-with-dl')}>{e.text}</span>
+      {d && e.delivery && <span className={cls('oc-dl', `oc-dl-${e.delivery}`)} title={d.hint}>{d.mark} {d.word}</span>}
     </div>
   );
 }
