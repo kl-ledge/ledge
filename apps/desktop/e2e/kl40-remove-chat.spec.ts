@@ -28,7 +28,6 @@ for (const lang of ['fr', 'en'] as const) for (const theme of ['dark', 'light'] 
     await expect(page.getByRole('complementary', { name: 'Chat Ledge' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: fr ? 'Panneau de droite' : 'Right panel' })).toHaveCount(0);
     await page.screenshot({ path: `${OUT}/no-chat-${theme}-${lang}.png` });
-    await page.locator('body').click({ position: { x: 900, y: 500 } });
     await page.keyboard.press('/');
     await expect(page.getByRole('complementary', { name: fr ? 'Tâches' : 'Tasks' })).toHaveCount(0);
     await page.keyboard.press('Control+/');
