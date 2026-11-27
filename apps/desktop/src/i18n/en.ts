@@ -1,5 +1,3 @@
-import { actionCopy } from '@ledge/ui/chat/actionCopy';
-import { pointCopy } from '@ledge/ui/chat/pointCopy';
 import type { Messages } from './messages';
 import type { DeviceWord } from '../settings/recovery';
 
@@ -54,7 +52,7 @@ export const en: Messages = {
     },
     rigs: 'Rigs', kernel: 'Kernel', rigOf: (name) => `The rig ${name} on the OpenRig page`, rigAsks: (n) => `${n} ${pluralEn(n, 'request', 'requests')}`, 
     label: 'Sidebar', newSession: 'New session', searchLabel: 'Search a session',
-    views: 'Views', atelier: 'Atelier', chat: 'Chat Ledge', projects: 'Projects', newProject: 'New project', unassigned: 'No project',
+    views: 'Views', atelier: 'Atelier', projects: 'Projects', newProject: 'New project', unassigned: 'No project',
     machines: 'Machines', agents: (n) => pluralEn(n, `${n} agent`, `${n} agents`), offline: 'offline', seatStopped: 'stopped', daemonUpdating: 'daemon updating', settings: 'Settings', shortcuts: 'Keyboard shortcuts',
     empty: {
       sessions: 'No session yet.', sessionsBody: 'A session runs an agent in a folder or a project.', newSession: 'Create a session',
@@ -288,7 +286,7 @@ export const en: Messages = {
   top: {
     grouping: 'Group OpenRig’s seats', groupingBy: { projects: 'Projects', rigs: 'Rigs' }, groupingHint: { projects: 'Your projects’ sessions, without OpenRig’s seats', rigs: 'OpenRig’s seats: each rig, the kernel apart' }, 
     helpersHide: 'Hide subagents', helpersShow: 'Show subagents', pause: 'Freeze animations', play: 'Animate',
-    chat: 'Chat Ledge', shortcuts: 'Keyboard shortcuts (?)',
+    shortcuts: 'Keyboard shortcuts (?)',
     panelHide: 'Hide the panel', panelHideTitle: 'Hide the panel (O)', terminalGone: 'Seat stopped: no terminal'
   },
   usage: {
@@ -331,7 +329,7 @@ export const en: Messages = {
       machines: 'This machine and your SSH servers. One list for the notch and Ledge Desktop.',
       mobile: 'Drive your agents from your phone, through the relay server. The content is end-to-end encrypted: the server can neither read nor change it.',
       projects: 'Projects, repositories and remembered folders.',
-      notes: 'What Ledge knows of your environment: your notes, for the chat and the sessions.',
+      notes: 'What Ledge knows about your environment: your notes, for the sessions.',
       shortcuts: 'In the app, and anywhere in Windows.',
       about: 'Versions and updates.'
     },
@@ -612,7 +610,7 @@ export const en: Messages = {
       note: 'Y and N act only on the pinned request of the open session, never while typing.'
     },
     notes: {
-      title: 'Notes', intro: 'The chat reads them at every question. A session Ledge launched gets the index of its project’s notes and reads one with `ledge brain <name>`.',
+      title: 'Notes', intro: 'A session Ledge launched gets the index of its project’s notes, and reads one with `ledge brain <name>`.',
       count: (n: number) => (n === 1 ? '1 note' : `${n} notes`), openFolder: 'Open the folder', openFolderHint: 'A terminal opens in the notes folder.',
       loading: 'Reading the notes…', failed: 'Ledge could not read the notes.', none: 'No notes. Add Markdown files to this folder, with a `title` and `when` header if you like.',
       when: (w: string) => `When to read it: ${w}`, firstLine: (l: string) => `First line: ${l}`,
@@ -620,7 +618,7 @@ export const en: Messages = {
       allProjects: 'Every project', projects: (list: string) => `Projects: ${list}`,
       checked: (d: string) => `checked ${d}`, modified: (d: string) => `modified ${d}`, old: 'old', additions: (n: number) => (n === 1 ? '1 addition' : `${n} additions`), truncated: 'long: only its start is read',
       open: 'Open', close: 'Close', checkToday: 'Checked today', flagged: 'To check', flagBy: (by: string, d: string) => `${by}, ${d}`, unflag: 'Clear the flag',
-      readFailed: 'Ledge could not read this note.', footer: '“Chat only”, the projects and the date are set in the note’s header (`scope`, `projects`, `checked`). A note becomes “old” after 60 days without a check or a change.',
+      readFailed: 'Ledge could not read this note.', footer: 'The projects and the date are set in the note’s header (`projects`, `checked`). A note becomes “old” after 60 days without a check or a change.',
       done: { checked: (name: string) => `${name}: checked today`, unflag: (name: string) => `${name}: flag cleared` }
     },
     about: {
@@ -691,7 +689,7 @@ export const en: Messages = {
     title: 'Keyboard shortcuts',
     intro: 'Active while the window has focus. Navigation keys stay available for typing and the terminal when they have focus.',
     outro: 'Ctrl / ⌘ K opens the search from any view. Y and N only act on the pinned request of the open session, never while typing.',
-    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['Alt ↑ / ↓','Move the session or the project up / down (sidebar)'],['Alt Home','To the top of the project, or of the list (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (chat field, task detail, atelier filter)'],['?','Show these shortcuts']],
+    rows: [['Ctrl / ⌘ K','Search and open a session'],['Ctrl ,','Open the settings'],['Alt 1…9','Jump to the main sessions'],['Alt ← / →','Previous / next session'],['J / K or ↓ / ↑','Walk through the sessions (atelier)'],['Enter','Open the selected session'],['← / →','Fold / unfold a project (sidebar)'],['Alt ↑ / ↓','Move the session or the project up / down (sidebar)'],['Alt Home','To the top of the project, or of the list (sidebar)'],['E','Archive the selected session'],['H','Only projects with a live agent, or all (sidebar)'],['Ctrl ⇧ E','Focus the sidebar'],['N','New session'],['+ / −','Zoom the atelier in / out'],['0','Fit the atelier to the screen'],['Ctrl + wheel / pinch','Zoom under the pointer or the fingers'],['Space + drag','Pan the view'],['R','Write a reply to the agent'],['Y / N','Allow / deny the pending request'],['1…9','Pick a suggested answer'],['J / K','Next / previous file (Changes tab)'],['Ctrl `','Switch between the thread and the agent’s screen, the keyboard follows'],['Shift + drag, then Ctrl C','Copy from a terminal'],['Esc','Close the menu or dialog, or step back (task detail, atelier filter)'],['?','Show these shortcuts']],
     ide: { title: 'Tabs and groups', rows: [['Ctrl W','Close the tab, or the empty group'],['Ctrl ⇧ T','Reopen the last closed tab'],['Ctrl Tab / Ctrl ⇧ Tab','Next / previous tab of the group'],['Ctrl PgDn / PgUp','Next / previous tab of the group'],['Ctrl 1…9','Go to group N, from a terminal too'],['Ctrl ⇧ `','Leave the terminal for its tab (← / → walk the tabs), or go back into it'],['Ctrl Alt ← / →','Move the tab to the group on the left / right'],['Ctrl \\','Split right'],['Ctrl B','Show / hide the sidebar'],['Ctrl J','Show / hide the bottom panel (terminals)'],['Ctrl /','Open or close Tasks']] }
   },
   tray: { open: 'Open Ledge Desktop', newSession: 'New session', dnd: 'Do not disturb', dndOff: 'Resume alerts', quit: 'Quit Ledge Desktop' },
@@ -740,9 +738,7 @@ export const en: Messages = {
     }[op]}. See the task`,
     messageTo: (n) => `to ${n}`,
     messageLabel: (sender, n, summary) => `${sender} writes to ${n}: ${summary}. Open the conversation`,
-    desk: 'Talk to Ledge',
     watching: (n) => pluralEn(n, `I'm watching over ${n} agent.`, `I'm watching over ${n} agents.`),
-    listening: "I'm listening.",
     assistant: 'Your assistant',
     unassignedHint: 'Ledge links these sessions to no project. Drag them onto a table, or use “Move to…”.',
     empty: {
@@ -763,29 +759,6 @@ export const en: Messages = {
     invalid: (name) => `${name} could not be moved: Ledge cannot remember this folder.`,
     unconfirmed: (name) => `${name} was not moved: Ledge did not confirm. Try again.`
   },
-  home: {
-    operator: (sessions: number, machines: number) => `Operator · sees ${sessions} ${sessions === 1 ? 'session' : 'sessions'}, ${machines} ${machines === 1 ? 'machine' : 'machines'} · read only`,
-    tabsLabel: 'Ledge views',
-    tabs: { conversation: 'Conversation', tasks: (n: number) => `Tasks · ${n}`, history: 'History' },
-    point: {
-      title: 'The point', yours: 'Yours', given: 'Given by Ledge',
-      summarize: 'Summarise the day', summarizeQuestion: 'Summarise the day: what moved, what waits for my decision, what is stuck.',
-      nothingYours: 'Nothing waits for you.', noTask: 'Ledge gave no task today.',
-      allow: 'Yes', deny: 'No', see: 'See', dismiss: 'Dismiss',
-      closed: (owner: string, title: string, state: 'done' | 'refused' | 'dropped') => state === 'done' ? `${owner} finished “${title}”` : state === 'refused' ? `${owner} refused “${title}”` : `${owner} dropped “${title}”`,
-      ofLedge: 'Ledge’s task', owner: (owner: string, state: string) => `${owner} · ${state}`
-    },
-    suggestions: ['Give a task to…', 'Who needs me?'],
-    readOnly: 'read only · nothing without your click',
-    tasks: {
-      filters: 'Filters', all: 'All', open: 'Open', closed: 'Closed', giver: 'Giver', anyGiver: 'Anyone', ledge: 'Ledge', sessions: 'The sessions', decisions: 'Decisions',
-      none: 'No task.', result: 'Result', reason: 'Reason', log: 'History', from: (giver: string, owner: string) => `from ${giver} to ${owner}`, close: 'Close',
-      // The IDE's right panel (lot 12, docs/mockups/ledge-ide-tasks-history.html): the detail's way back, the filtered and the waiting lists.
-      back: 'Tasks', noneFiltered: 'No task matches these filters.', clearFilters: 'Clear filters',
-      connecting: 'Connecting to the local daemon…', offline: 'Local daemon offline: this is the last list received.'
-    },
-    history: { none: 'No conversation today.', open: 'See in the conversation' }
-  },
   decision: {
     asks: (giver: string) => `${giver} needs your decision`, answer: 'Answer',
     form: (title: string) => `Answer to “${title}”`, field: 'Your answer', placeholder: 'Write your answer, or pick an option…', options: 'Options offered',
@@ -799,6 +772,16 @@ export const en: Messages = {
       yes: 'Add', edit: 'Edit', no: 'Refuse', mark: 'Mark to check', ignore: 'Ignore', createYes: 'Create the note', editYes: 'Add this text', cancel: 'Cancel',
       field: 'The text added under “Ajouts”', titleField: 'Title', whenField: 'When to read it', sending: 'Sending…', failed: (reason: string) => `Refused: ${reason}`
     }
+  },
+  /** The Tasks view (#40 D3): the former right panel's « Tâches » texts, and a task's state. */
+  tasks: {
+    filters: 'Filters', all: 'All', open: 'Open', closed: 'Closed', giver: 'Giver', anyGiver: 'Anyone', ledge: 'Ledge', sessions: 'The sessions', decisions: 'Decisions',
+    none: 'No task.', result: 'Result', reason: 'Reason', log: 'History', from: (giver: string, owner: string) => `from ${giver} to ${owner}`, close: 'Close',
+    // The IDE's right panel (lot 12, docs/mockups/ledge-ide-tasks-history.html): the detail's way back, the filtered and the waiting lists.
+    back: 'Tasks', noneFiltered: 'No task matches these filters.', clearFilters: 'Clear filters',
+    connecting: 'Connecting to the local daemon…', offline: 'Local daemon offline: this is the last list received.',
+    // A task's state (the chat's « task.state » of before), in the Tasks view and a session's pinned task.
+    state: { open: 'to take', taken: 'taken', done: 'done', refused: 'refused', dropped: 'dropped' }
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · context ${pct} %`, nearHint: 'near its limit', failedShort: (name: string) => `Relief of ${name} failed`, retry: 'Retry',
@@ -1397,52 +1380,12 @@ export const en: Messages = {
       createTimeout: (m) => `${m} did not answer: check the folder before trying again.`, createFailed: (why) => `The folder was not created: ${why}`
     }
   },
-  chat: {
-    title: 'Ledge', subtitle: (n: number, repos: number) => `Sees ${n} ${pluralEn(n, 'session', 'sessions')} · ${repos} ${pluralEn(repos, 'repository', 'repositories')} · read only`,
-    ask: 'Ask Ledge', askPlaceholder: 'Ask Ledge…', open: 'Open the conversation with Ledge', send: 'Send', stop: 'Stop', reset: 'New conversation', back: 'Back to sessions', close: 'Close',
-    emptyTitle: 'Ask me how things are going.',
-    emptyHint: (n: number) => `${n === 0 ? 'I see no session yet.' : n === 1 ? 'I see 1 session, its terminal and its repository.' : `I see ${n} sessions, the terminals and the repositories.`} I read, I touch nothing.`,
-    starters: 'To start with',
-    chips: ['How are the others doing?', 'What is waiting for my decision?', 'Which branches can be merged?'],
-    thinking: 'Ledge is looking…',
-    step: { sessions: 'Reads the sessions', pane: (name: string) => `Reads ${name}'s terminal`, reply: (name: string) => `Reads ${name}'s last reply`, git: (name: string) => `git in ${name}'s folder`, repo: (path: string) => `Reads ${path}` },
-    source: { sessions: 'the sessions', pane: (name: string) => `${name}'s terminal`, reply: (name: string) => `${name}'s last reply`, git: (name: string) => `git in ${name}'s folder`, repo: (path: string) => path },
-    sources: 'Sources', sourcesNone: 'nothing read', ago: (when: string) => `${when} ago`,
-    error: (why: string) => `Ledge could not answer: ${why}`,
-    interrupted: 'Ledge could not answer: the daemon stopped before the answer.',
-    stopped: 'Stopped.',
-    card: {
-      label: 'Proposed session', folder: 'Folder', tool: 'Harness', byDefault: (tool: string) => `${tool} · default`, prompt: 'Instruction', noPrompt: 'None, empty session',
-      launch: 'Start the session', launching: 'Starting…', retry: 'Retry', orRephrase: 'or rephrase your request', orFolder: 'or give me another folder',
-      failed: (why: string) => `Could not start: ${why}`, started: 'has started', startedUnknown: 'Session started', terminal: 'Terminal'
-    },
-    // #24: several sessions in one answer.
-    group: { label: (n: number) => `${n} proposed sessions`, launchAll: (n: number) => `Start all (${n})`, launchRow: 'Start', pick: (project: string) => `Start ${project}` },
-    closeGroup: { label: (n: number) => n === 1 ? 'Session to close' : `${n} sessions to close`, row: 'Close', all: (n: number) => `Close all (${n})`, closing: 'Closing…', closed: 'Closed', killed: 'Force closed', ended: 'Ended', retry: 'Retry', failed: (m: string) => `Failed: ${m}` },
-    relay: {
-      label: 'Instruction to send', session: 'Session', instruction: 'Instruction',
-      send: 'Send', sending: 'Sending…', cancel: 'Cancel', retry: 'Retry', orRephrase: 'or rephrase your request',
-      queued: "is working; I'll send it as soon as it's done", sentTo: 'Sent to', failed: (why: string) => `Could not send: ${why}`,
-      pill: { yours: 'your turn', working: 'working', waiting: 'waiting for you', stopped: 'stopped' }
-    },
-    task: {
-      label: (n: number) => n === 1 ? 'Task to give' : `${n} tasks to give`, to: 'to', give: 'Give', giving: 'Sending…', retry: 'Retry',
-      given: (owner: string, id: string, state: string) => `Given to ${owner} · ${id} · ${state}`,
-      state: { open: 'to take', taken: 'taken', done: 'done', refused: 'refused', dropped: 'dropped' }, failed: (why: string) => `Refused: ${why}`
-    },
-    // #94: the generic card, a row per action, a plan past one (docs/mockups/ledge-action-card.html).
-    action: actionCopy.en, point: pointCopy.en,
-    project: {
-      label: 'Project proposal', title: (name: string) => `Project proposal · ${name}`, complete: (name: string) => `Complete ${name}`,
-      repos: (n: number) => `${n} ${n === 1 ? 'repository' : 'repositories'}`, review: 'Review the proposal'
-    },
-  },
   images: {
     remove: 'Remove image', tooLarge: 'Image too large, even reduced', notImage: 'This file is not an image', max: '5 images per message at most',
     dialog: 'Answer the question first, the image will go after', lost: "This message's images were lost", failed: 'Image not sent',
     capture: 'Capture', unavailable: 'Image unavailable', close: 'Close', prev: 'Previous image', next: 'Next image', copy: 'Copy', copied: 'Copied', save: 'Save…'
   },
-  machines: { clarification: 'You can also answer in the chat.', destination: 'Destination', choose: (name: string) => `On ${name}.`, local: 'This machine', offline: 'Offline' },
+  machines: { destination: 'Destination', choose: (name: string) => `On ${name}.`, local: 'This machine', offline: 'Offline' },
   whatsNew: {
     title: (v: string) => `What’s new in Ledge ${v}`, updated: (v: string) => `Ledge was updated to ${v}`,
     none: 'This version’s notes are not on this machine. They are on its GitHub release.',
@@ -1639,7 +1582,7 @@ export const en: Messages = {
     },
     welcome: {
       brand: 'Ledge', start: 'Start', recent: 'Recent', terminal: (name) => `Terminal · ${name}`, capture: (name) => `Capture · ${name}`,
-      newSession: 'New session', search: 'Go to a session', askLedge: 'Ask Ledge', nextAsk: 'Next request',
+      newSession: 'New session', search: 'Go to a session', nextAsk: 'Next request',
       openrig: 'OpenRig', atelier: 'Atelier', shell: 'Terminal', settings: 'Settings', allSessions: 'All sessions…',
       tip: 'Tip: link this group (the square left of the tabs) with the session’s: it will follow the chosen session.',
       reopenTip: 'Drag a session here from the explorer, or reopen the last closed tab:'

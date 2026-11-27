@@ -10,7 +10,7 @@
 :root[data-theme="dark"] { --ide-tab-front: #ea6a58; --ide-link-violet: #a78bfa; --ide-link-teal: #2dd4bf; --ide-link-rose: #f472b6; --ide-link-lime: #a3e635; --ide-link-fuchsia: #d946ef; --ide-link-sand: #e2b07a; }
 .ide { --ide-strip: var(--well); --ide-pane: var(--sidebar); }
 .ide { height: 100vh; display: grid; grid-template-rows: 34px 1fr 24px; background: var(--background); color: var(--foreground); overflow: hidden; }
-.ide-body { display: grid; grid-template-columns: 48px var(--ide-side, 248px) 1fr var(--ide-right, 300px); min-height: 0; }
+.ide-body { display: grid; grid-template-columns: 48px var(--ide-side, 248px) 1fr; min-height: 0; }
 
 .ide-titlebar { display: flex; align-items: center; gap: 14px; padding: 0 0 0 14px; border-bottom: 1px solid var(--sidebar-border); background: var(--sidebar); user-select: none; }
 .ide-titlebar .titlebar-caps { align-self: stretch; margin-left: 0; }

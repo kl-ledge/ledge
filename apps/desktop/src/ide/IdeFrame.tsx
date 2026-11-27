@@ -65,7 +65,6 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
   const { layout, onLayout } = p;
   const columns = {
     '--ide-side': layout.sideOpen ? `${layout.sideWidth}px` : '0px',
-    '--ide-right': '0px',
     '--ide-bottom': `${layout.bottomHeight}px`
   } as CSSProperties;
   return (
