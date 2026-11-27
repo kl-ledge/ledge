@@ -82,9 +82,7 @@ test('the Atelier tab: its bar, « Projects | Rigs », the subagents, the filter
 
 test('Ledge’s desk no longer opens the chat: without OpenRig requests it is no button (#40, page 1, question 3)', async ({ page }) => {
   await boot(page);
-  await expect(page.locator('.ide-right')).toBeVisible();
-  await page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ }).click();
-  await expect(page.locator('.ide-right')).toHaveCount(0);
+  await expect(page.locator('.ide-right')).toHaveCount(0);   // no chat panel at all (#40 PR 4)
   await expect(page.locator('.ide-atelier .ledge-desk')).toBeVisible();
   await expect(page.locator('.ide-atelier button.ledge-desk')).toHaveCount(0);
   await page.locator('.ide-atelier .ledge-desk').click();

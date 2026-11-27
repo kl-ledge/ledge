@@ -102,34 +102,6 @@ test('Settings › Projects › Ledge, suggest projects: the cards; Review and a
   await expect(fresh).toBeVisible();
 });
 
-test('The chat proposes a project: Review the proposal opens the editor prefilled, Cancel: nothing changed', async ({ page }) => {
-  const chat: ChatReply = {
-    text: 'These three belong together.',
-    projectProposal: { name: 'Paper', description: 'The paper pipeline', repos: [{ path: '/w/paper-fonts', why: 'same prefix' }, { path: '/w/paper-render', why: 'renders the fonts' }] }
-  };
-  const daemon = await fakeDaemon(page, eight, { projects, chat });
-  await boot(page);
-  // The IDE's chat is open on the right from the start (Ctrl / would fold it).
-  const ask = page.getByRole('complementary', { name: 'Chat Ledge' }).getByPlaceholder('Ask Ledge…');
-  await ask.click();
-  await ask.fill('Group my paper repositories');
-  await ask.press('Enter');
-  const panel = page.getByRole('complementary', { name: 'Chat Ledge' });
-  const card = panel.getByRole('region', { name: 'Project proposal' });
-  await expect(card).toContainText('Project proposal · Paper');
-  await expect(card).toContainText('2 repositories');
-  await card.getByRole('button', { name: 'Review the proposal' }).click();
-  const editor = page.getByRole('dialog', { name: 'Ledge proposal' });
-  await expect(editor).toBeVisible();
-  await expect(editor.getByLabel('Name', { exact: true })).toHaveValue('Paper');
-  await expect(editor.getByRole('checkbox', { name: 'Keep paper-fonts (Local)' })).toBeChecked();
-  await expect(editor.locator('.pe-why').first()).toContainText('same prefix');
-  await editor.getByRole('button', { name: 'Cancel' }).click();
-  await expect(editor).toBeHidden();
-  expect(sets(daemon.received)).toHaveLength(0);
-  await expect(sidebarProjects(page).getByRole('button', { name: /^Paper/ })).toHaveCount(0);
-});
-
 test('At 900 px the scan view and the Settings cards fit with no side scroll', async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 600 });
   const long: FoundRepo[] = [...paperDisk, { path: '/home/me/workspaces/clients/a-rather-long-client-name/projects/paper-a-very-long-repository-name-for-the-narrow-layout', branch: 'feature/a-quite-long-branch-name' }];
