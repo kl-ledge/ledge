@@ -72,22 +72,6 @@ describe('images in the session thread', () => {
   });
 });
 
-describe('images in a chat turn', () => {
-  it('a turn with attachments asks that machine for its images, above the question', async () => {
-    const { d, user, client } = await boot({ sessions: listSessions(), list: true });
-    answerGets(d);
-    // What the app hands the fleet. The fleet stamps each turn with the machine its daemon is (here the one fake daemon, `local`) and routes by it.
-    const send = vi.spyOn(client, 'send');
-    // The IDE's right panel is the chat; its title-bar toggle shows it if hidden (Ctrl+/ opens Tasks, #40 D3).
-    if (!screen.queryByRole('complementary', { name: 'Chat Ledge' })) await user.click(screen.getByRole('button', { name: 'Right panel' }));
-    await screen.findByRole('complementary', { name: 'Chat Ledge' });
-    // Asked now: the fleet keeps only the day's chat turns, so a fixed date would only pass on that day.
-    d.push({ type: 'chat.history', turns: [{ qid: 'q-img', question: 'What do you see?', askedAt: new Date().toISOString(), steps: [], attachments: [C], machineId: 'elsewhere' }] });
-    await waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'attachment.get', attachment: C.id, machine: 'local', preview: true })));
-    await waitFor(() => expect(document.querySelector('[data-turn] [data-thumb="ready"]')).not.toBeNull());
-  });
-});
-
 describe('the same image attached twice', () => {
   it('shows two thumbnails without a duplicate-key warning, and each opens its own slot', async () => {
     const F = ref('f');

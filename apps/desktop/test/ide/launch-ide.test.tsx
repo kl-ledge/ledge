@@ -7,7 +7,6 @@ import { createDesktopFleet } from '../../src/fleet/useFleet';
 import { App } from '../../src/App';
 import { loadWorkspace } from '../../src/session/lazy';
 import { loadSettings } from '../../src/settings/lazy';
-import { loadChat } from '../../src/chat/lazy';
 import { loadIde } from '../../src/ide/lazy';
 import { loadComposer } from '../../src/launch/lazy';
 import { saveOpenSession } from '../../src/workspace/openPrefs';
@@ -22,7 +21,7 @@ beforeEach(() => { localStorage.clear(); localStorage.setItem('desktop.lang', 'f
 afterEach(async () => { cleanup(); for (const d of daemons.splice(0)) await d.close(); localStorage.clear(); });
 
 async function mount({ layout }: { layout?: Workspace } = {}) {
-  await Promise.all([loadWorkspace(), loadSettings(), loadChat(), loadIde(), loadComposer()]);
+  await Promise.all([loadWorkspace(), loadSettings(), loadIde(), loadComposer()]);
   if (layout) localStorage.setItem(WORKSPACE_KEY, JSON.stringify(serialize(layout)));
   const d = await createMockDaemon(); daemons.push(d);
   d.options.autoLaunch = true;
@@ -108,15 +107,12 @@ describe('the IDE’s New session', () => {
     expect(launches(d)).toHaveLength(0);
   });
 
-  it('at start, the IDE on: the chat field is not focused, N opens the modal', async () => {
+  it('at start, the IDE on: N opens the modal (no chat any more, #40 PR 4)', async () => {
     const { user } = await mount({ layout: open(empty(), { kind: 'session', ref: 'local:otto' }) });
-    const chat = await screen.findByRole('complementary', { name: 'Chat Ledge' });
-    const field = await within(chat).findByRole('textbox');
-    await waitFor(() => expect(field).toBeEnabled());
-    expect(chat.contains(document.activeElement)).toBe(false);
+    await screen.findAllByRole('tab');
+    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
     await user.keyboard('n');
     expect(await screen.findByRole('dialog', { name: 'Nouvelle session' })).toBeVisible();
-    expect(field).toHaveValue('');
   });
 
   it('another dialog stays open when the front tab changes under it; Enter on a session closes it and opens that tab', async () => {

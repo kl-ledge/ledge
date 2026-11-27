@@ -38,7 +38,6 @@ describe('global shortcuts', () => {
     await user.keyboard('n/?');
     expect(screen.getByRole('combobox')).toHaveValue('n/?');
     expect(screen.queryByRole('dialog', { name: 'New session' })).toBeNull();
-    expect(screen.getByRole('complementary', { name: 'Chat Ledge' }).contains(document.activeElement)).toBe(false);
     await user.keyboard('{Alt>}1{/Alt}');
     expect(screen.getByRole('dialog', { name: PALETTE })).toBeVisible();   // Alt 1 does nothing inside the search
     expect(frontName()).toBe('Atelier');
@@ -60,14 +59,13 @@ describe('global shortcuts', () => {
 
   it('#40: / does nothing; Ctrl / opens the Tasks view, and again goes back to the view before it', async () => {
     const { user } = await boot({ projects: TWO_PROJECTS });
-    const chat = await screen.findByRole('complementary', { name: 'Chat Ledge' });
+    await screen.findByRole('region', { name: 'Projects' });
     await user.keyboard('/');
-    expect(chat.contains(document.activeElement)).toBe(false);
     expect(screen.queryByRole('complementary', { name: 'Tasks' })).toBeNull();
     await user.keyboard('{Control>}/{/Control}');
     expect(await screen.findByRole('complementary', { name: 'Tasks' })).toBeVisible();
-    // The right panel (the chat, until #40 PR 4) is left as it was.
-    expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
+    // No chat, no right panel any more (#40 PR 4).
+    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
     await user.keyboard('{Control>}/{/Control}');
     await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Tasks' })).toBeNull());
     expect(screen.getByRole('region', { name: 'Projects' })).toBeVisible();
@@ -252,18 +250,19 @@ describe('the terminal and the keyboard', () => {
 });
 
 describe('IDE shortcuts (the ide option)', () => {
-  function Probe(p: { ide?: { toggle(panel: 'side' | 'bottom' | 'right'): void; split?(): void }; dispatch?: (a: unknown) => void; modal?: boolean }) {
+  function Probe(p: { ide?: { toggle(panel: 'side' | 'bottom'): void; tasks?(): void; split?(): void }; dispatch?: (a: unknown) => void; modal?: boolean }) {
     const base = initialNav({ helpers: [], paused: false } as never);
     useKeys((p.dispatch ?? (() => {})) as never, { state: p.modal ? { ...base, modal: { kind: 'search' } } : base, order: [], screen: { current: null }, undo: () => false, ...(p.ide ? { ide: p.ide } : {}) } as never);
     return <div><textarea aria-label="champ" /><div data-terminal><button>term</button></div></div>;
   }
   const press = (key: string, el: Element | Window = window) => fireEvent.keyDown(el, { key, ctrlKey: true });
 
-  it('Ctrl+B, Ctrl+J and Ctrl+/ toggle the panels', () => {
-    const toggle = vi.fn(), dispatch = vi.fn();
-    render(<Probe ide={{ toggle }} dispatch={dispatch} />);
+  it('Ctrl+B and Ctrl+J toggle the panels, Ctrl+/ shows the Tasks view (#40 D3)', () => {
+    const toggle = vi.fn(), tasks = vi.fn(), dispatch = vi.fn();
+    render(<Probe ide={{ toggle, tasks }} dispatch={dispatch} />);
     press('b'); press('J'); press('/');
-    expect(toggle.mock.calls).toEqual([['side'], ['bottom'], ['right']]);
+    expect(toggle.mock.calls).toEqual([['side'], ['bottom']]);
+    expect(tasks).toHaveBeenCalledTimes(1);
     expect(dispatch).not.toHaveBeenCalled();
   });
 
@@ -320,13 +319,12 @@ describe('IDE shortcuts (the ide option)', () => {
     expect(split).toHaveBeenCalledTimes(1);
   });
 
-  it('without ide, Ctrl+B does nothing and Ctrl+/ opens the chat', () => {
+  it('without ide, Ctrl+B and Ctrl+/ do nothing (the chat left, #40 PR 4)', () => {
     const dispatch = vi.fn();
     render(<Probe dispatch={dispatch} />);
     press('b');
-    expect(dispatch).not.toHaveBeenCalled();
     press('/');
-    expect(dispatch).toHaveBeenCalledWith({ type: 'chat', open: true });
+    expect(dispatch).not.toHaveBeenCalled();
   });
 });
 
@@ -350,7 +348,7 @@ describe('the shortcuts help names the tab keys (lot 3 follow-up)', () => {
 });
 
 describe('IDE tab shortcuts (lot 3 follow-up)', () => {
-  type Tabs = { toggle(panel: 'side' | 'bottom' | 'right'): void; closeTab?(): void; reopenTab?(): void; cycleTab?(step: 1 | -1): void; focusGroup?(n: number): void; moveTab?(step: 1 | -1): void };
+  type Tabs = { toggle(panel: 'side' | 'bottom'): void; closeTab?(): void; reopenTab?(): void; cycleTab?(step: 1 | -1): void; focusGroup?(n: number): void; moveTab?(step: 1 | -1): void };
   function Probe(p: { ide?: Tabs; dispatch?: (a: unknown) => void; modal?: boolean }) {
     const base = initialNav({ helpers: [], paused: false } as never);
     useKeys((p.dispatch ?? (() => {})) as never, { state: p.modal ? { ...base, modal: { kind: 'search' } } : base, order: [], screen: { current: null }, undo: () => false, ...(p.ide ? { ide: p.ide } : {}) } as never);

@@ -36,17 +36,15 @@ describe('island geometry', () => {
     expect(layout({ bots: bots(2), mode: 'session', screenH: H, screenW: W, sessionH: 500, reading: true }).w).toBe(1152); // 60% of W
     expect(layout({ bots: bots(2), mode: 'launch', screenH: 1440, screenW: W })).toMatchObject({ w: SIZES.listW, h: SIZES.launchH });
     expect(layout({ bots: bots(2), mode: 'launch', screenH: 1440, screenW: W, detailH: 700 }).h).toBe(700);
-    expect(layout({ bots: [], mode: 'chat', screenH: 1000, screenW: W, detailH: 500 })).toMatchObject({ w: SIZES.sessionW, h: 500 });
-    expect(layout({ bots: [], mode: 'chat', screenH: 1200, screenW: W }).h).toBe(SIZES.chatH);
     expect(layout({ bots: [], mode: 'list', screenH: H, screenW: W }).h).toBe(SIZES.headerH + SIZES.emptyH + SIZES.footerH + SURFACE_CHROME_Y);
   });
   it('an open view takes half the work area at most (the closed notch is not concerned)', () => {
     expect(OPEN_MAX_SHARE).toBe(0.5);
-    // A long chat: 540 px on a 1080 work area, 720 on a 1440 one; its thread scrolls past that.
-    expect(layout({ bots: [], mode: 'chat', screenH: 1080, screenW: W, detailH: 2000 }).h).toBe(540);
-    expect(layout({ bots: [], mode: 'chat', screenH: 1440, screenW: 2560, detailH: 2000 }).h).toBe(720);
+    // A long session view (the chat's mode left with #40 PR 4): 540 px on a 1080 work area, 720 on a 1440 one; it scrolls past that.
+    expect(layout({ bots: [], mode: 'session', screenH: 1080, screenW: W, sessionH: 2000 }).h).toBe(540);
+    expect(layout({ bots: [], mode: 'session', screenH: 1440, screenW: 2560, sessionH: 2000 }).h).toBe(720);
     // Under a 150 % window size the cap stays half of the real screen.
-    expect(scaledLayout({ bots: [], mode: 'chat', screenH: 1440, screenW: 2560, detailH: 2000 }, { handle: 1, panel: 1.5 }).h).toBeCloseTo(720, 0);
+    expect(scaledLayout({ bots: [], mode: 'session', screenH: 1440, screenW: 2560, sessionH: 2000 }, { handle: 1, panel: 1.5 }).h).toBeCloseTo(720, 0);
     // The reader, 760 px tall before the cap: 540 on a 1080 work area, expanded or not; its page scrolls (document-view.test).
     expect(layout({ bots: [], mode: 'reader', screenH: 1080, screenW: W })).toMatchObject({ w: SIZES.readerW, h: 540 });
     expect(layout({ bots: [], mode: 'reader', screenH: 1080, screenW: W, readerExpanded: true }).h).toBe(540);
