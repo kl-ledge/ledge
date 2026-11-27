@@ -66,15 +66,16 @@ test('at fit nothing scrolls; Ctrl + wheel zooms under the pointer; + - 0', asyn
 
 // At 1280 × 800 the floor does not fit at the zoom's 40 % floor, which is wanted (design-ux, 2026-11-10): what matters is that
 // the zoom bar stays on screen and the floor can be reached by zooming and dragging.
+// Since the chat's right panel left (#40 PR 4) the editing area is 300 px wider: 980 × 800 gives the floor the room 1280 × 800 did.
 test('at 1280 × 800 the floor stays at 40 %: the zoom bar on screen, the floor zooms and pans', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 980, height: 800 });
   await fakeDaemon(page, [...eight, kit], { projects: twoProjects });
   await page.goto('/'); await booted(page);
   await expect(page.getByRole('region', { name: 'Ledge table' })).toBeVisible();
   await expect.poll(() => pct(page)).toBe(40);
   const bar = (await page.getByRole('toolbar', { name: 'Atelier zoom' }).boundingBox())!;
   expect(bar.y + bar.height).toBeLessThanOrEqual(800);
-  expect(bar.x + bar.width).toBeLessThanOrEqual(1280);
+  expect(bar.x + bar.width).toBeLessThanOrEqual(980);
   await page.keyboard.press('+');
   await expect.poll(() => pct(page)).toBeGreaterThan(40);
   const v = (await scroller(page).boundingBox())!;
@@ -114,6 +115,8 @@ test('two fingers pinch the floor, not the window: the zoom follows them, the pa
 });
 
 test('double-click frames a table, the floor fits again; legend and zoom bar stay put; dragging the floor pans', async ({ page }) => {
+  // The room the floor had beside the chat's right panel, gone with #40 PR 4.
+  await page.setViewportSize({ width: 1620, height: 1080 });
   await fakeDaemon(page, [...eight, kit], { projects: twoProjects });
   await page.goto('/'); await booted(page);
   const legend = page.locator('.workspace-legend');

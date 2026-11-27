@@ -186,7 +186,8 @@ test('state 2: the chip « PR ? » when the session\'s forge cannot be read; sta
 });
 
 test.describe('state 11: under 1280 px', () => {
-  test.use({ viewport: { width: 1100, height: 800 } });
+  // 300 px under the 1100 it was: the chat's right panel left with #40 PR 4, and the page stacks on its own width.
+  test.use({ viewport: { width: 800, height: 800 } });
   test('Description and Détails stack, the four views and the review\'s buttons wrap, nothing is hidden', async ({ page }) => {
     await boot(page);
     await activity(page).getByRole('button', { name: 'MR et PR', exact: true }).click();
