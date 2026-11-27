@@ -107,12 +107,11 @@ Une routine unique, Iris la crée elle-même à partir de l'agenda (la veille d'
 ## Ledge Desktop
 
 La fenêtre principale est un espace de travail à la manière de VS Code : des onglets en groupes côte à côte, des panneaux et plusieurs fenêtres. De haut en bas et de gauche à droite :
-- **La barre de titre :** le champ de recherche, qui ouvre la palette (`Ctrl+K`), et les boutons qui affichent ou masquent la barre latérale, le panneau du bas et le panneau de droite.
+- **La barre de titre :** le champ de recherche, qui ouvre la palette (`Ctrl+K`), et les boutons qui affichent ou masquent la barre latérale et le panneau du bas.
 - **La barre d'activité**, tout à gauche : « Projets » (un badge rouge pour une autorisation, ambre pour une question), « Rigs » (un badge ambre pour les demandes d'OpenRig), « MR et PR » (un badge pour les pipelines échoués), « Routines », « Tâches » (un badge ambre pour les décisions), puis « Atelier » et, en bas, « Réglages », qui s'ouvrent en onglets. Un second clic sur la vue affichée replie la barre latérale.
 - **La barre latérale :** la vue choisie dans la barre d'activité. Elle se redimensionne en glissant son bord ; un double-clic lui rend sa largeur.
-- **La zone d'édition :** des groupes d'onglets côte à côte. Un groupe vide propose « Nouvelle session », « Aller à une session », « Demander à Ledge », « Prochaine demande », OpenRig, l'atelier, un terminal, les réglages et les sessions récentes.
+- **La zone d'édition :** des groupes d'onglets côte à côte. Un groupe vide propose « Nouvelle session », « Aller à une session », « Prochaine demande », OpenRig, l'atelier, un terminal, les réglages et les sessions récentes.
 - **Le panneau du bas** (`Ctrl+J`) : les terminaux et la sortie (les commandes `rig` lancées par Ledge).
-- **Le panneau de droite** (son bouton dans la barre de titre) : le chat de Ledge, avec ses onglets « Conversation » et « Historique ».
 - **La barre d'état :** le daemon, OpenRig, les demandes en attente (un clic mène à la suivante), les MR et PR, les limites d'usage des comptes et la disposition en cours.
 
 **Ouvrir.** Un clic sur une session, dans l'explorateur, l'atelier, la palette ou l'encoche, l'ouvre selon Réglages › Espace de travail : dans le groupe actif ou à droite. `Ctrl`+clic l'ouvre toujours à droite. Un onglet déjà ouvert est mis au premier plan, jamais dupliqué.
@@ -137,7 +136,7 @@ Raccourcis principaux :
 - `` Ctrl+` `` bascule l'onglet d'une session entre son fil et son terminal ; `` Ctrl+Maj+` `` sort du terminal sans changer de vue ;
 - `Ctrl+,` ouvre les réglages ;
 - `?` liste les raccourcis ;
-- Échap ferme une fenêtre modale, un menu, une confirmation ou le chat, ou retire un filtre.
+- Échap ferme une fenêtre modale, un menu ou une confirmation, ou retire un filtre.
 
 ### Barre latérale
 
@@ -258,7 +257,7 @@ Y renvoyer l'utilisateur pour régler OpenRig sur une machine, voir ses rôles, 
 
 #### Atelier (`atelier`)
 
-Chaque projet est une table, avec ses agents assis autour et leurs sous-agents en petits bots ; les rigs ont leurs salles. Un clic sur un agent ouvre sa session, `Ctrl`+clic à droite. On range une session en la glissant sur une table. Le zoom se règle au clavier (+, −, 0) ou avec `Ctrl` + molette. La barre de l'onglet propose « Masquer les sous-agents », « Figer les animations » et « Détacher », qui l'envoie dans une fenêtre détachée (« Ramener » l'en fait revenir). Le bureau de Ledge ouvre le chat.
+Chaque projet est une table, avec ses agents assis autour et leurs sous-agents en petits bots ; les rigs ont leurs salles. Un clic sur un agent ouvre sa session, `Ctrl`+clic à droite. On range une session en la glissant sur une table. Le zoom se règle au clavier (+, −, 0) ou avec `Ctrl` + molette. La barre de l'onglet propose « Masquer les sous-agents », « Figer les animations » et « Détacher », qui l'envoie dans une fenêtre détachée (« Ramener » l'en fait revenir). Le bureau de Ledge dit combien de demandes d'OpenRig attendent ; un clic ouvre la vue Rigs sur elles.
 
 Y renvoyer l'utilisateur pour avoir une vue d'ensemble de qui travaille où.
 
@@ -271,7 +270,7 @@ Un onglet, ouvert par `Ctrl+,` ou par « Réglages » en bas de la barre d'activ
 - Langue.
 - Lancement au démarrage de Windows.
 - « Au démarrage, reprendre les sessions ouvertes ».
-- **Agent par défaut :** le harnais qui fait tourner le chat de Ledge et les sessions proposées.
+- **Agent par défaut :** le harnais proposé au lancement d'une nouvelle session.
 - **Contexte max :** le seuil de passation de relais.
 - **Alerte de limite d'usage :** au-delà de ce seuil, Ledge Desktop prévient une seule fois qu'une fenêtre d'usage d'un harnais (5 h, semaine, par modèle) approche de sa limite.
 - Vérification des mises à jour.
@@ -320,7 +319,7 @@ Activer l'accès mobile, choisir le serveur relais, se connecter avec GitHub, vo
 
 ##### Notes (`notes`)
 
-Les notes de l'utilisateur (`~/.ledge/context`) : chacune avec son titre, « quand la lire », sa portée (chat et sessions, chat seulement, sessions seulement), ses projets, sa date et le nombre de ses ajouts ; « ancienne » après 60 jours sans vérification ni modification, « À revoir » quand un signalement a été validé. « Ouvrir » affiche la note ; « Vérifiée aujourd'hui » met `checked` à la date du jour ; « Effacer le signalement » retire « À revoir » ; « Ouvrir le dossier » ouvre un terminal dans le dossier. Le texte d'une note se change dans son fichier.
+Les notes de l'utilisateur (`~/.ledge/context`) : chacune avec son titre, « quand la lire », « Plus lue » pour une ancienne note réservée au chat (les sessions ne la lisent pas), ses projets, sa date et le nombre de ses ajouts ; « ancienne » après 60 jours sans vérification ni modification, « À revoir » quand un signalement a été validé. « Ouvrir » affiche la note ; « Vérifiée aujourd'hui » met `checked` à la date du jour ; « Effacer le signalement » retire « À revoir » ; « Ouvrir le dossier » ouvre un terminal dans le dossier. Le texte d'une note se change dans son fichier.
 
 ##### Raccourcis clavier (`shortcuts`)
 
@@ -329,20 +328,6 @@ Les raccourcis valables partout dans Windows. Le raccourci qui rouvre la plus an
 ##### À propos (`about`)
 
 Les versions de Ledge Desktop et de chaque daemon, la dernière version publiée, « Mettre à jour ». La mise à jour met à jour les serveurs, puis le daemon WSL, puis l'application, sans couper les sessions. Ledge ne se met jamais à jour sans un clic.
-
-### Le chat de Ledge, panneau de droite
-
-Le bouton « Panneau de droite » de la barre de titre l'ouvre, à droite de tout ce qui est affiché. Il a deux onglets (les tâches ont leur propre vue, « Tâches »). « Nouvelle conversation » repart de zéro ; les conversations sont quotidiennes.
-
-#### Conversation (`conversation`)
-
-On y pose des questions à Ledge, on mentionne une session, on valide les cartes que Ledge propose. Survoler un agent nommé dans une réponse l'allume dans l'atelier.
-
-Y renvoyer l'utilisateur pour une discussion avec Ledge.
-
-#### Historique (`history`)
-
-Les conversations du jour avec Ledge, chacune avec « Voir dans la conversation ».
 
 ### Fenêtres de dialogue
 

@@ -6,7 +6,6 @@ import type { DaemonInfo, RigInfo, ThreadItem } from '@ledge/protocol';
 import { createMockDaemon } from '@ledge/fleet/test/mockDaemon';
 import { App } from '../src/App';
 import { loadIde } from '../src/ide/lazy';
-import { loadChat } from '../src/chat/lazy';
 import { createDesktopFleet } from '../src/fleet/useFleet';
 import { loadWorkspace } from '../src/session/lazy';
 import { aboutLine } from '../src/session/RigItems';
@@ -26,7 +25,7 @@ const received = (id: string, s: number, text: string, extra: Partial<RigInfo> =
 const notice = (id: string, s: number, text: string, r: RigInfo, extra: Partial<Extract<ThreadItem, { kind: 'notice' }>> = {}): ThreadItem => ({ kind: 'notice', id, at: at(s), turn: 1, notice: 'other', text, rig: r, ...extra });
 
 async function openOtto(items: ThreadItem[], daemon: DaemonInfo | null = ROWS) {
-  await Promise.all([loadWorkspace(), loadIde(), loadChat()]);
+  await Promise.all([loadWorkspace(), loadIde()]);
   seedAtelier();
   localStorage.setItem('desktop.lang', 'fr');
   localStorage.setItem('desktop.overview', JSON.stringify({ view: 'list', helpers: true, paused: false }));

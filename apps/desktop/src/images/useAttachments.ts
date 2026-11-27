@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { AttachmentFailure, getImage, putImage, type DaemonClient } from '@ledge/fleet';
-import { ATTACHMENTS_MAX, type ImageUpload } from '@ledge/protocol';
+import { ATTACHMENTS_MAX } from '@ledge/protocol';
 import { encodeImage, type ChipItem } from '@ledge/ui/images';
 import { useI18n } from '../i18n/lang';
 
-/** `put`: each image is stored on the daemon of that session as soon as it is added (a reply sends the ids).
- *  `inline`: the images stay here and travel with the message (the Ledge chat's `chat.ask`). */
-export type AttachmentMode = { put: { id: string } } | { inline: true };
+/** `put`: each image is stored on the daemon of that session as soon as it is added (a reply sends the ids). The chat's
+ *  `inline` mode left with the chat (#40 PR 4). */
+export type AttachmentMode = { put: { id: string } };
 
-/** An image waiting under a field: the chip, plus what the send needs (its stored id, or its bytes in `inline` mode). */
-export interface Attachment { item: ChipItem; id?: string; upload?: ImageUpload }
+/** An image waiting under a field: the chip, plus what the send needs (its stored id). */
+export interface Attachment { item: ChipItem; id?: string }
 
 export interface Attachments {
   items: ChipItem[];
@@ -18,10 +18,8 @@ export interface Attachments {
   remove(key: string): void;
   /** No image still being encoded or uploaded, none refused. */
   ready: boolean;
-  /** The stored ids of the ready images (`put` mode). */
+  /** The stored ids of the ready images. */
   ids(): string[];
-  /** The ready images' bytes (`inline` mode). */
-  uploads(): ImageUpload[];
   /** Empties the field after a send and gives back what it held, for `putBack` if the send is refused. */
   clear(): Attachment[];
   putBack(taken: Attachment[]): void;
@@ -69,7 +67,6 @@ export function useAttachments(client: DaemonClient | undefined, mode: Attachmen
     const { image, width, height, bytes } = r.value;
     const key = `att-${counter++}`;
     const item: ChipItem = { key, url: dataUrl(image.preview ?? image), width, height, bytes, state: 'uploading' };
-    if ('inline' in m) { commit([...held.current, { item: { ...item, state: 'ready' }, upload: image }]); return; }
     commit([...held.current, { item }]);
     try {
       const ref = await putImage(c!, image, m.put);
@@ -82,7 +79,7 @@ export function useAttachments(client: DaemonClient | undefined, mode: Attachmen
   };
 
   const add = (files: File[]) => {
-    if (files.length === 0 || (!client && 'put' in mode)) return;
+    if (files.length === 0 || !client) return;
     setError(null);
     for (const file of files) {
       if (held.current.length + encodingNow.current >= ATTACHMENTS_MAX) { setError(copy.max); return; }
@@ -100,7 +97,7 @@ export function useAttachments(client: DaemonClient | undefined, mode: Attachmen
   // Restored images only know their id: their dimensions are 0×0 and only the bytes are shown.
   const restore = (ids: string[], dropped = false) => {
     setError(dropped ? copy.lost : null);
-    const route = 'put' in mode ? mode.put : {};
+    const route = mode.put;
     for (const id of ids) {
       if (!client || held.current.length + encodingNow.current >= ATTACHMENTS_MAX || held.current.some(a => a.id === id)) continue;
       const key = `att-${counter++}`;
@@ -120,7 +117,6 @@ export function useAttachments(client: DaemonClient | undefined, mode: Attachmen
   return {
     items, add, remove, restore, clear, putBack, error,
     ready: encoding === 0 && items.every(i => i.state === 'ready'),
-    ids: () => held.current.filter(a => a.item.state === 'ready' && a.id).map(a => a.id!),
-    uploads: () => held.current.filter(a => a.item.state === 'ready' && a.upload).map(a => a.upload!)
+    ids: () => held.current.filter(a => a.item.state === 'ready' && a.id).map(a => a.id!)
   };
 }

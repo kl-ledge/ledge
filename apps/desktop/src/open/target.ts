@@ -4,8 +4,6 @@ import type { NavAction } from '../nav/state';
 export type LedgeTarget =
   | { kind: 'session'; id: string } | { kind: 'terminal'; id: string } | { kind: 'document'; path: string }
   | { kind: 'settings' } | { kind: 'launch' } | { kind: 'update' } | { kind: 'machines' }
-  /** The operator's point (« Voir le point »): the chat panel, where the point is a turn. */
-  | { kind: 'point'; qid: string }
   /** A rig's question, by its OpenRig queue item: the Rigs view's « Demandes », that card ringed (#40 D1). */
   | { kind: 'ask'; id: string }
   /** OpenRig's requests, none in particular: the Rigs view's « Demandes » (#40 D1). */
@@ -26,7 +24,6 @@ export function parseTarget(raw: string): LedgeTarget | null {
     case 'session': case 'terminal': return str(o.id) ? { kind: o.kind, id: o.id } : null;
     case 'document': return str(o.path) ? { kind: 'document', path: o.path } : null;
     case 'settings': case 'launch': case 'update': case 'machines': return { kind: o.kind };
-    case 'point': return str(o.qid) ? { kind: 'point', qid: o.qid } : null;
     case 'ask': return str(o.id) ? { kind: 'ask', id: o.id } : null;
     case 'requests': return { kind: 'requests' };
     case 'task': return str(o.id) ? { kind: 'task', id: o.id } : null;
@@ -45,7 +42,6 @@ export function targetAction(t: Exclude<LedgeTarget, { kind: 'ask' | 'routine' |
     case 'machines': return { type: 'settings', section: 'machines' };
     case 'update': return { type: 'settings', section: 'about' };
     case 'launch': return { type: 'modal', modal: { kind: 'launch' } };
-    case 'point': return { type: 'chat', open: true };
-    case 'task': return { type: 'ledge', tab: 'tasks', task: t.id };
+    case 'task': return { type: 'tasks', task: t.id };
   }
 }

@@ -13,21 +13,14 @@ describe('nav state', () => {
   beforeEach(() => localStorage.clear());
 
   it('starts on the atelier (lot 12c: no home view), even when a list view was stored', () => {
-    expect(s0).toEqual({ place: { kind: 'overview', view: 'atelier', project: 'all' }, modal: null, chat: false, chatFocus: 0, helpers: true, paused: false });
+    expect(s0).toEqual({ place: { kind: 'overview', view: 'atelier', project: 'all' }, modal: null, helpers: true, paused: false });
     expect(initialNav({ ...o, view: 'list' as 'atelier' }).place).toEqual({ kind: 'overview', view: 'atelier', project: 'all' });
   });
-  it('« ledge » is the right panel\'s (workspace/route.ts): the reducer leaves the state as it is', () => {
+  it('« tasks » is the Tasks view\'s (workspace/route.ts): the reducer leaves the state as it is', () => {
     const inSession = navReducer(s0, { type: 'open', id: 'local:otto' });
-    expect(navReducer(inSession, { type: 'ledge', tab: 'tasks', task: 't-1' })).toBe(inSession);
+    expect(navReducer(inSession, { type: 'tasks', task: 't-1' })).toBe(inSession);
   });
-  it('asking for the chat when it is already open asks its field for the focus again; closing it does not', () => {
-    const opened = navReducer(s0, { type: 'chat', open: true });
-    expect(opened.chat).toBe(true);
-    const again = navReducer(opened, { type: 'chat', open: true });
-    expect(again.chat).toBe(true);
-    expect(again.chatFocus).toBeGreaterThan(opened.chatFocus);
-    expect(navReducer(again, { type: 'chat', open: false }).chatFocus).toBe(again.chatFocus);
-  });
+
   it('opens a session from a filtered overview and comes back to it', () => {
     let s = navReducer(s0, { type: 'home', project: 'ledge' });
     s = navReducer(s, { type: 'open', id: 'local:otto' });
@@ -61,19 +54,18 @@ describe('nav state', () => {
     expect(s.place).toMatchObject({ section: 'machines', back: inSession.place });
     expect(navReducer(s, { type: 'escape' }).place).toEqual(inSession.place);
   });
-  it('escape closes one layer at a time: modal, chat, settings, session, filter', () => {
+  it('escape closes one layer at a time: modal, settings, session, filter', () => {
     let s = navReducer(s0, { type: 'home', project: 'ledge' });
     s = navReducer(s, { type: 'open', id: 'local:otto' });
-    s = navReducer(navReducer(navReducer(s, { type: 'settings' }), { type: 'chat' }), { type: 'modal', modal: { kind: 'search' } });
+    s = navReducer(navReducer(s, { type: 'settings' }), { type: 'modal', modal: { kind: 'search' } });
     const steps: NavState[] = [];
-    for (let i = 0; i < 6; i++) { s = navReducer(s, { type: 'escape' }); steps.push(s); }
-    expect(steps.map(x => [x.modal, x.chat, x.place.kind, x.place.kind !== 'settings' ? x.place.project : '-'])).toEqual([
-      [null, true, 'settings', '-'],
-      [null, false, 'settings', '-'],
-      [null, false, 'session', 'ledge'],
-      [null, false, 'overview', 'ledge'],
-      [null, false, 'overview', 'all'],
-      [null, false, 'overview', 'all']
+    for (let i = 0; i < 5; i++) { s = navReducer(s, { type: 'escape' }); steps.push(s); }
+    expect(steps.map(x => [x.modal, x.place.kind, x.place.kind !== 'settings' ? x.place.project : '-'])).toEqual([
+      [null, 'settings', '-'],
+      [null, 'session', 'ledge'],
+      [null, 'overview', 'ledge'],
+      [null, 'overview', 'all'],
+      [null, 'overview', 'all']
     ]);
   });
   it('home returns to the atelier, on every project or on one', () => {

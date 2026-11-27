@@ -111,15 +111,6 @@ describe('the Atelier shell', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('Ledge\'s chat is the right panel: its toggle hides it, and shows it again (Ctrl+/ opens Tasks, #40 D3)', async () => {
-    const { user } = await boot({ projects: TWO_PROJECTS });
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Right panel' }));
-    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull());
-    await user.click(screen.getByRole('button', { name: 'Right panel' }));
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-  });
-
   it('an agent in error has its own mark in its project row', async () => {
     const { d, side } = await boot({ projects: TWO_PROJECTS });
     d.upsert(fakeSession('rio', { name: 'Rio', cwd: '/w/pay', state: 'error' }));

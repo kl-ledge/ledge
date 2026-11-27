@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { loadSettings } from '../../src/settings/lazy';
-import { loadChat } from '../../src/chat/lazy';
 import { loadIde } from '../../src/ide/lazy';
 import { boot, closeDaemons, recordToasts, savedNotices, TWO_PROJECTS } from '../helpers';
 
 let log: string[] = [];
-beforeEach(async () => { log = recordToasts(); localStorage.clear(); await loadChat(); });
+beforeEach(async () => { log = recordToasts(); localStorage.clear(); });
 afterEach(async () => { await closeDaemons(); });
 
 // Lot 12b: the IDE is the only interface; its switch is gone from Settings › General.

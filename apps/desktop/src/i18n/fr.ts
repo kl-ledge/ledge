@@ -1,5 +1,3 @@
-import { actionCopy } from '@ledge/ui/chat/actionCopy';
-import { pointCopy } from '@ledge/ui/chat/pointCopy';
 import type { BotState } from '@ledge/ui/bots/poseFor';
 import type { SectionId } from '../nav/state';
 import type { Bucket, GroupBy } from '../list/model';
@@ -75,7 +73,7 @@ export const fr = {
     },
     rigs: 'Rigs', kernel: 'Kernel', rigOf: (name: string) => `Le rig ${name} sur la page OpenRig`, rigAsks: (n: number) => `${n} ${n > 1 ? 'demandes' : 'demande'}`, 
     label: 'Barre latérale', newSession: 'Nouvelle session', searchLabel: 'Rechercher une session',
-    views: 'Vues', atelier: 'Atelier', chat: 'Chat Ledge', projects: 'Projets', newProject: 'Nouveau projet', unassigned: 'Sans projet',
+    views: 'Vues', atelier: 'Atelier', projects: 'Projets', newProject: 'Nouveau projet', unassigned: 'Sans projet',
     machines: 'Machines', agents: (n: number) => plural(n, `${n} agent`, `${n} agents`), offline: 'hors ligne', seatStopped: 'arrêté', daemonUpdating: 'mise à jour du daemon', settings: 'Réglages', shortcuts: 'Raccourcis clavier',
     empty: {
       sessions: 'Aucune session pour l’instant.', sessionsBody: 'Une session lance un agent dans un dossier ou un projet.', newSession: 'Créer une session',
@@ -321,7 +319,7 @@ export const fr = {
   top: {
     grouping: 'Regrouper les sièges OpenRig', groupingBy: { projects: 'Projets', rigs: 'Rigs' }, groupingHint: { projects: 'Les sessions de tes projets, sans les sièges OpenRig', rigs: 'Les sièges OpenRig : chaque rig, le kernel à part' }, 
     helpersHide: 'Masquer les sous-agents', helpersShow: 'Afficher les sous-agents', pause: 'Figer les animations', play: 'Animer',
-    chat: 'Chat Ledge', shortcuts: 'Raccourcis clavier (?)',
+    shortcuts: 'Raccourcis clavier (?)',
     panelHide: 'Masquer le panneau', panelHideTitle: 'Masquer le panneau (O)', terminalGone: 'Siège arrêté : plus de terminal'
   },
   usage: {
@@ -362,7 +360,7 @@ export const fr = {
       machines: 'Cette machine et vos serveurs SSH. Une seule liste pour l’encoche et Ledge Desktop.',
       mobile: 'Piloter vos agents depuis votre téléphone, via le serveur relais. Le contenu est chiffré de bout en bout : le serveur ne peut ni le lire ni le modifier.',
       projects: 'Projets, dépôts et dossiers mémorisés.',
-      notes: 'Ce que Ledge sait de ton environnement : tes notes, pour le chat et les sessions.',
+      notes: 'Ce que Ledge sait de votre environnement : vos notes, pour les sessions.',
       shortcuts: 'Dans l’application, et partout dans Windows.',
       about: 'Versions et mises à jour.'
     } as Record<SectionId, string>,
@@ -653,15 +651,16 @@ export const fr = {
       note: 'Y et N n’agissent que sur la demande épinglée de la session ouverte, jamais pendant la saisie.'
     },
     notes: {
-      title: 'Notes', intro: 'Le chat les lit à chaque question. Une session lancée par Ledge reçoit l’index de celles de son projet et en lit une avec `ledge brain <nom>`.',
+      title: 'Notes', intro: 'Une session lancée par Ledge reçoit l’index des notes de son projet, et en lit une avec `ledge brain <nom>`.',
       count: (n: number) => (n === 1 ? '1 note' : `${n} notes`), openFolder: 'Ouvrir le dossier', openFolderHint: 'Un terminal s’ouvre dans le dossier des notes.',
       loading: 'Lecture des notes…', failed: 'Ledge n’a pas pu lire les notes.', none: 'Aucune note. Ajoute des fichiers Markdown dans ce dossier, avec un en-tête `title` et `when` si tu veux.',
+      // #40 PR 4 (the owner's choice A, 11/27 19:25Z): a « chat only » note, which the sessions do not read.
+      noLongerRead: 'Plus lue',
       when: (w: string) => `Quand la lire : ${w}`, firstLine: (l: string) => `Première ligne : ${l}`,
-      scope: { all: 'Chat et sessions', chat: 'Chat seulement', sessions: 'Sessions seulement' } as Record<'all' | 'chat' | 'sessions', string>,
       allProjects: 'Tous les projets', projects: (list: string) => `Projets : ${list}`,
       checked: (d: string) => `vérifiée le ${d}`, modified: (d: string) => `modifiée le ${d}`, old: 'ancienne', additions: (n: number) => (n === 1 ? '1 ajout' : `${n} ajouts`), truncated: 'longue : seul le début est lu',
       open: 'Ouvrir', close: 'Fermer', checkToday: 'Vérifiée aujourd’hui', flagged: 'À revoir', flagBy: (by: string, d: string) => `${by}, le ${d}`, unflag: 'Effacer le signalement',
-      readFailed: 'Ledge n’a pas pu lire cette note.', footer: '« Chat seulement », les projets et la date se règlent dans l’en-tête de la note (`scope`, `projects`, `checked`). Une note devient « ancienne » après 60 jours sans vérification ni modification.',
+      readFailed: 'Ledge n’a pas pu lire cette note.', footer: 'Les projets et la date se règlent dans l’en-tête de la note (`projects`, `checked`). Une note devient « ancienne » après 60 jours sans vérification ni modification.',
       done: { checked: (name: string) => `${name} : vérifiée aujourd’hui`, unflag: (name: string) => `${name} : signalement effacé` }
     },
     about: {
@@ -734,7 +733,7 @@ export const fr = {
     title: 'Raccourcis clavier',
     intro: 'Actifs lorsque la fenêtre a le focus. Les touches de navigation restent disponibles pour la saisie et le terminal lorsqu’ils ont le focus.',
     outro: 'Ctrl / ⌘ K ouvre la recherche depuis n’importe quelle vue. Y et N n’agissent que sur la demande épinglée de la session ouverte, jamais pendant la saisie.',
-    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['Alt ↑ / ↓','Monter / descendre la session ou le projet (barre latérale)'],['Alt Début','En haut du projet, ou de la liste (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (champ du chat, détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
+    rows: [['Ctrl / ⌘ K','Rechercher et ouvrir une session'],['Ctrl ,','Ouvrir les réglages'],['Alt 1…9','Accès direct aux sessions principales'],['Alt ← / →','Session précédente / suivante'],['J / K ou ↓ / ↑','Parcourir les sessions (atelier)'],['Entrée','Ouvrir la session sélectionnée'],['← / →','Plier / déplier un projet (barre latérale)'],['Alt ↑ / ↓','Monter / descendre la session ou le projet (barre latérale)'],['Alt Début','En haut du projet, ou de la liste (barre latérale)'],['E','Archiver la session sélectionnée'],['H','Seulement les projets avec un agent actif, ou tous (barre latérale)'],['Ctrl ⇧ E','Aller à la barre latérale'],['N','Nouvelle session'],['+ / −','Zoomer / dézoomer l’atelier'],['0','Ajuster l’atelier à l’écran'],['Ctrl + molette / pincer','Zoomer sous le pointeur ou les doigts'],['Espace + glisser','Déplacer la vue'],['R','Écrire une réponse à l’agent'],['Y / N','Autoriser / refuser la demande en attente'],['1…9','Choisir une réponse proposée'],['J / K','Fichier suivant / précédent (onglet Modifications)'],['Ctrl `','Basculer entre le fil et l’écran de l’agent, le clavier suit'],['Maj + glisser, puis Ctrl C','Copier depuis un terminal'],['Échap','Fermer le menu ou la fenêtre, ou revenir en arrière (détail d’une tâche, filtre de l’atelier)'],['?','Afficher ces raccourcis']] as ReadonlyArray<readonly [string, string]>,
     /** Interface IDE only: the tab keys (VS Code's), after the others. */
     ide: { title: 'Onglets et groupes', rows: [['Ctrl W','Fermer l’onglet, ou le groupe vide'],['Ctrl ⇧ T','Rouvrir le dernier onglet fermé'],['Ctrl Tab / Ctrl ⇧ Tab','Onglet suivant / précédent du groupe'],['Ctrl Pg↓ / Pg↑','Onglet suivant / précédent du groupe'],['Ctrl 1…9','Aller au groupe N, depuis un terminal aussi'],['Ctrl ⇧ `','Sortir du terminal vers son onglet (← / → parcourent les onglets), ou y revenir'],['Ctrl Alt ← / →','Déplacer l’onglet vers le groupe de gauche / de droite'],['Ctrl \\','Diviser à droite'],['Ctrl B','Afficher / masquer la barre latérale'],['Ctrl J','Afficher / masquer le panneau du bas (terminaux)'],['Ctrl /','Ouvrir ou fermer Tâches']] as ReadonlyArray<readonly [string, string]> }
   },
@@ -788,9 +787,7 @@ export const fr = {
     }[op]}. Voir la tâche`,
     messageTo: (n: string) => `à ${n}`,
     messageLabel: (sender: string, n: string, summary: string) => `${sender} écrit à ${n} : ${summary}. Ouvrir l’échange`,
-    desk: 'Parler à Ledge',
     watching: (n: number) => plural(n, `Je veille sur ${n} agent.`, `Je veille sur ${n} agents.`),
-    listening: 'Je vous écoute.',
     assistant: 'Votre assistant',
     unassignedHint: 'Ledge ne relie ces sessions à aucun projet. Glissez-les vers une table, ou utilisez « Ranger dans… ».',
     empty: {
@@ -811,29 +808,6 @@ export const fr = {
     invalid: (name: string) => `Impossible de ranger ${name} : Ledge ne peut pas mémoriser ce dossier.`,
     unconfirmed: (name: string) => `${name} n'a pas été rangé : Ledge n'a pas confirmé. Réessayez.`
   },
-  home: {
-    operator: (sessions: number, machines: number) => `Opérateur · voit ${plural(sessions, `${sessions} session`, `${sessions} sessions`)}, ${plural(machines, `${machines} machine`, `${machines} machines`)} · lecture seule`,
-    tabsLabel: 'Vues de Ledge',
-    tabs: { conversation: 'Conversation', tasks: (n: number) => `Tâches · ${n}`, history: 'Historique' },
-    point: {
-      title: 'Le point', yours: 'À toi', given: 'Confiées par Ledge',
-      summarize: 'Résumer la journée', summarizeQuestion: 'Résume la journée : ce qui a avancé, ce qui attend ma décision, ce qui bloque.',
-      nothingYours: 'Rien ne t’attend.', noTask: 'Ledge n’a confié aucune tâche aujourd’hui.',
-      allow: 'Oui', deny: 'Non', see: 'Voir', dismiss: 'Ranger',
-      closed: (owner: string, title: string, state: 'done' | 'refused' | 'dropped') => state === 'done' ? `${owner} a fini « ${title} »` : state === 'refused' ? `${owner} a refusé « ${title} »` : `${owner} a abandonné « ${title} »`,
-      ofLedge: 'tâche de Ledge', owner: (owner: string, state: string) => `${owner} · ${state}`
-    },
-    suggestions: ['Confie une tâche à…', 'Qui a besoin de moi ?'],
-    readOnly: 'lecture seule · rien sans ton clic',
-    tasks: {
-      filters: 'Filtres', all: 'Toutes', open: 'Ouvertes', closed: 'Closes', giver: 'Donneur', anyGiver: 'Tous', ledge: 'Ledge', sessions: 'Les sessions', decisions: 'Décisions',
-      none: 'Aucune tâche.', result: 'Résultat', reason: 'Raison', log: 'Historique', from: (giver: string, owner: string) => `de ${giver} à ${owner}`, close: 'Fermer',
-      // Le panneau de droite de l'IDE (lot 12, docs/mockups/ledge-ide-tasks-history.html) : le retour du détail, les listes filtrée et en attente.
-      back: 'Tâches', noneFiltered: 'Aucune tâche avec ces filtres.', clearFilters: 'Effacer les filtres',
-      connecting: 'Connexion au daemon local…', offline: 'Daemon local hors ligne : la liste est celle du dernier relevé.'
-    },
-    history: { none: 'Aucune conversation aujourd’hui.', open: 'Voir dans la conversation' }
-  },
   /** A decision a session put to the user (`ledge task give ledge …`), answered from the Tasks view (task.answer). */
   decision: {
     asks: (giver: string) => `${giver} attend votre décision`, answer: 'Répondre',
@@ -848,6 +822,16 @@ export const fr = {
       yes: 'Ajouter', edit: 'Modifier', no: 'Refuser', mark: 'Marquer à revoir', ignore: 'Ignorer', createYes: 'Créer la note', editYes: 'Ajouter ce texte', cancel: 'Annuler',
       field: 'Le texte ajouté sous « Ajouts »', titleField: 'Titre', whenField: 'Quand la lire', sending: 'Envoi…', failed: (reason: string) => `Refusé : ${reason}`
     }
+  },
+  /** The Tasks view (#40 D3): the former right panel's « Tâches » texts, and a task's state. */
+  tasks: {
+    filters: 'Filtres', all: 'Toutes', open: 'Ouvertes', closed: 'Closes', giver: 'Donneur', anyGiver: 'Tous', ledge: 'Ledge', sessions: 'Les sessions', decisions: 'Décisions',
+    none: 'Aucune tâche.', result: 'Résultat', reason: 'Raison', log: 'Historique', from: (giver: string, owner: string) => `de ${giver} à ${owner}`, close: 'Fermer',
+    // Le panneau de droite de l'IDE (lot 12, docs/mockups/ledge-ide-tasks-history.html) : le retour du détail, les listes filtrée et en attente.
+    back: 'Tâches', noneFiltered: 'Aucune tâche avec ces filtres.', clearFilters: 'Effacer les filtres',
+    connecting: 'Connexion au daemon local…', offline: 'Daemon local hors ligne : la liste est celle du dernier relevé.',
+    // A task's state (the chat's « task.state » of before), in the Tasks view and a session's pinned task.
+    state: { open: 'à prendre', taken: 'prise', done: 'finie', refused: 'refusée', dropped: 'abandonnée' }
   },
   handover: {
     nearShort: (name: string, pct: number) => `${name} · contexte ${pct} %`, nearHint: 'limite proche', failedShort: (name: string) => `Relève de ${name} échouée`, retry: 'Réessayer',
@@ -1478,53 +1462,12 @@ export const fr = {
       createTimeout: (m: string) => `${m} n’a pas répondu : vérifiez le dossier avant de réessayer.`, createFailed: (why: string) => `Le dossier n’a pas été créé : ${why}`
     }
   },
-  /** The Ledge chat (shared ChatView): the notch's `chat`, `machines` (those its cards read) and `time` copy, word for word. */
-  chat: {
-    title: 'Ledge', subtitle: (n: number, repos: number) => `Voit ${n} ${plural(n, 'session', 'sessions')} · ${repos} ${plural(repos, 'dépôt', 'dépôts')} · lecture seule`,
-    ask: 'Demander à Ledge', askPlaceholder: 'Demander à Ledge…', open: 'Ouvrir la conversation avec Ledge', send: 'Envoyer', stop: 'Arrêter', reset: 'Nouvelle conversation', back: 'Retour aux sessions', close: 'Fermer',
-    emptyTitle: 'Demandez-moi des nouvelles.',
-    emptyHint: (n: number) => `${n === 0 ? 'Je ne vois aucune session pour l’instant.' : n === 1 ? 'Je vois 1 session, son terminal et son dépôt.' : `Je vois ${n} sessions, les terminaux et les dépôts.`} Je lis, je ne touche à rien.`,
-    starters: 'Pour commencer',
-    chips: ['Où en sont les autres ?', 'Qu’est-ce qui attend ma décision ?', 'Quelles branches peuvent être fusionnées ?'],
-    thinking: 'Ledge cherche…',
-    step: { sessions: 'Relit les sessions', pane: (name: string) => `Lit le terminal de ${name}`, reply: (name: string) => `Lit la dernière réponse de ${name}`, git: (name: string) => `git dans le dossier de ${name}`, repo: (path: string) => `Lit ${path}` },
-    source: { sessions: 'les sessions', pane: (name: string) => `le terminal de ${name}`, reply: (name: string) => `la dernière réponse de ${name}`, git: (name: string) => `git dans le dossier de ${name}`, repo: (path: string) => path },
-    sources: 'Sources', sourcesNone: 'aucune lecture', ago: (when: string) => `il y a ${when}`,
-    error: (why: string) => `Ledge n’a pas pu répondre : ${why}`,
-    interrupted: 'Ledge n’a pas pu répondre : le daemon s’est arrêté avant la réponse.',
-    stopped: 'Arrêté.',
-    card: {
-      label: 'Session proposée', folder: 'Dossier', tool: 'Harnais', byDefault: (tool: string) => `${tool} · par défaut`, prompt: 'Instruction', noPrompt: 'Aucune, session vide',
-      launch: 'Lancer la session', launching: 'Lancement…', retry: 'Réessayer', orRephrase: 'ou reformule ta demande', orFolder: 'ou donne-moi un autre dossier',
-      failed: (why: string) => `Échec du lancement : ${why}`, started: 'a démarré', startedUnknown: 'Session démarrée', terminal: 'Terminal'
-    },
-    // #24 : plusieurs sessions dans une réponse.
-    group: { label: (n: number) => `${n} sessions proposées`, launchAll: (n: number) => `Tout lancer (${n})`, launchRow: 'Lancer', pick: (project: string) => `Lancer ${project}` },
-    closeGroup: { label: (n: number) => n === 1 ? 'Session à fermer' : `${n} sessions à fermer`, row: 'Fermer', all: (n: number) => `Fermer tout (${n})`, closing: 'Fermeture…', closed: 'Fermée', killed: 'Fermée de force', ended: 'Terminée', retry: 'Réessayer', failed: (m: string) => `Échec : ${m}` },
-    relay: {
-      label: 'Instruction à envoyer', session: 'Session', instruction: 'Instruction',
-      send: 'Envoyer', sending: 'Envoi…', cancel: 'Annuler', retry: 'Réessayer', orRephrase: 'ou reformule ta demande',
-      queued: 'travaille, j’enverrai dès qu’il aura fini', sentTo: 'Envoyé à', failed: (why: string) => `Échec de l’envoi : ${why}`,
-      pill: { yours: 'à toi', working: 'travaille', waiting: 'attend ta réponse', stopped: 'arrêtée' }
-    },
-    task: {
-      label: (n: number) => n === 1 ? 'Tâche à confier' : `${n} tâches à confier`, to: 'à', give: 'Confier', giving: 'Envoi…', retry: 'Réessayer',
-      given: (owner: string, id: string, state: string) => `Confiée à ${owner} · ${id} · ${state}`,
-      state: { open: 'à prendre', taken: 'prise', done: 'finie', refused: 'refusée', dropped: 'abandonnée' }, failed: (why: string) => `Refusée : ${why}`
-    },
-    // #94 : la carte générique, une ligne par action, un plan au-delà d’une (docs/mockups/ledge-action-card.html).
-    action: actionCopy.fr, point: pointCopy.fr,
-    project: {
-      label: 'Proposition de projet', title: (name: string) => `Proposition de projet · ${name}`, complete: (name: string) => `Compléter ${name}`,
-      repos: (n: number) => `${n} dépôt${n > 1 ? 's' : ''}`, review: 'Vérifier la proposition'
-    },
-  },
   images: {
     remove: "Retirer l'image", tooLarge: 'Image trop lourde, même réduite', notImage: "Ce fichier n'est pas une image", max: '5 images au plus par message',
     dialog: "Répondez d'abord à la question, l'image partira après", lost: 'Les images de ce message ont été perdues', failed: 'Image non envoyée',
     capture: 'Capture', unavailable: 'Image indisponible', close: 'Fermer', prev: 'Image précédente', next: 'Image suivante', copy: 'Copier', copied: 'Copié', save: 'Enregistrer…'
   },
-  machines: { clarification: 'Vous pouvez aussi répondre dans le chat.', destination: 'Destination', choose: (name: string) => `Sur ${name}.`, local: 'Cette machine', offline: 'Hors ligne' },
+  machines: { destination: 'Destination', choose: (name: string) => `Sur ${name}.`, local: 'Cette machine', offline: 'Hors ligne' },
   whatsNew: {
     title: (v: string) => `Nouveautés de Ledge ${v}`, updated: (v: string) => `Ledge a été mis à jour en ${v}`,
     none: 'Les notes de cette version ne sont pas sur cette machine. Elles sont sur sa release GitHub.',
@@ -1538,7 +1481,7 @@ export const fr = {
     show: 'Afficher l’Atelier', attach: 'Rattacher ici', attachTitle: 'Remettre l’Atelier dans la fenêtre principale'
   },
   time: { seconds: (n: number) => `${n} s`, minutes: (n: number) => `${n} min`, hours: (n: number) => `${n} h`, locale: 'fr-FR' },
-  /** Why the chat cannot send while the local daemon is away. */
+  /** The local daemon is away. */
   offline: 'Le daemon local est hors ligne.',
   stateLabel: { approval: 'Votre accord', question: 'Une question', starting: 'Démarrage', idle: 'Disponible', working: 'Au travail', done: 'Terminée', error: 'Erreur', readonly: 'Lecture seule' } as Record<BotState, string>,
   botLabel: { starting: 'Démarrage', working: 'Au travail', approval: 'Attend votre accord', question: 'A une question', idle: 'Disponible', error: 'Erreur', done: 'Terminée', readonly: 'Lecture seule' } as Record<BotState, string>,
@@ -1660,7 +1603,7 @@ export const fr = {
       /** A dock tab dropped on the panel: a terminal comes back; anything else stays. */
       broughtBack: 'Terminal ramené dans le panneau du bas.', onlyTerms: 'Seuls les terminaux se rangent dans le panneau du bas.'
     },
-    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)', rightToggle: 'Panneau de droite',
+    sideToggle: 'Barre latérale (Ctrl+B)', bottomToggle: 'Panneau du bas (Ctrl+J)',
     activityLabel: 'Barre d’activité', projects: 'Projets', rigs: 'Rigs OpenRig',
     atelierTab: 'Atelier (onglet)', settingsTab: 'Réglages (onglet)',
     resizeEdge: 'Glisser pour redimensionner · double-clic : largeur par défaut', resizeBottom: 'Glisser pour redimensionner · double-clic : hauteur par défaut',
@@ -1734,7 +1677,7 @@ export const fr = {
     welcome: {
       brand: 'Ledge', start: 'Démarrer', recent: 'Récentes', terminal: (name: string) => `Terminal · ${name}`,
       /** A seat's: its terminal is a read-only capture (R3). */ capture: (name: string) => `Capture · ${name}`,
-      newSession: 'Nouvelle session', search: 'Aller à une session', askLedge: 'Demander à Ledge', nextAsk: 'Prochaine demande',
+      newSession: 'Nouvelle session', search: 'Aller à une session', nextAsk: 'Prochaine demande',
       openrig: 'OpenRig', atelier: 'Atelier', shell: 'Terminal', settings: 'Réglages', allSessions: 'Toutes les sessions…',
       tip: 'Astuce : lie ce groupe (carré à gauche des onglets) avec celui de la session : il suivra la session choisie.',
       reopenTip: 'Glisse une session de l’explorateur ici, ou rouvre le dernier onglet fermé :'

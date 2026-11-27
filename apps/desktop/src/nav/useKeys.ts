@@ -11,7 +11,7 @@ const typing = (el: Element | null): boolean => {
 
 /** The IDE shell's keys (flag on). */
 export interface IdeKeys {
-  toggle(panel: 'side' | 'bottom' | 'right'): void;
+  toggle(panel: 'side' | 'bottom'): void;
   /** Ctrl /: the Tasks view, or back to the view before it when it is already shown (#40 D3). */ tasks?(): void;
   /** Ctrl \: an empty group right of the focused one. */ split?(): void;
   /** N opens the launch dialog from any tab, not only the overview (the screen's keys run first: on an approval N denies). */ newSessionAnywhere?: true;
@@ -23,7 +23,7 @@ export interface IdeKeys {
   /** Ctrl Shift ²: the keyboard back into the front tab's terminal, without changing its view; false if it shows none. */ enterTerminal?(): boolean;
 }
 
-/** The window's keyboard shortcuts (the mockup's `onKey`): one `keydown` listener. Ctrl/⌘ K, Ctrl , and Escape always work (Ctrl/⌘ Z too, outside a field) (Escape after the dialog and the chat, offered to the screen before navigation),
+/** The window's keyboard shortcuts (the mockup's `onKey`): one `keydown` listener. Ctrl/⌘ K, Ctrl , and Escape always work (Ctrl/⌘ Z too, outside a field) (Escape after the dialog, offered to the screen before navigation),
  *  except in the terminal, which keeps every key for its shell; Ctrl + the key left of 1 takes the keyboard there, and with the IDE on the terminal itself forwards Ctrl+J to the bottom panel. The single keys stay out of the way of dialogs, fields and the chat. */
 export function useKeys(dispatch: (a: NavAction) => void, ctx: { state: NavState; order: readonly Session[]; screen: ScreenKeys; undo(): boolean; /** A confirmation is open (it is no `nav.modal`): it owns the keyboard, Escape cancels it and nothing else acts. */ confirming?: { cancel(): void } | null; /** Shows the terminal if hidden and focuses its tab; false off a session page. */ toTerminal?(): boolean; /** The IDE shell (flag on): Ctrl B / Ctrl J / Ctrl / show or hide its panels, even in a field (in the terminal, Ctrl+J is forwarded by the xterm). */ ide?: IdeKeys }): void {
   const latest = useRef({ dispatch, ctx });
@@ -46,24 +46,22 @@ export function useKeys(dispatch: (a: NavAction) => void, ctx: { state: NavState
       if (tk === 'thread') { if (!state.modal && toTerminal?.()) e.preventDefault(); return; }
       if (mod && !e.altKey && key === 'k') { e.preventDefault(); dispatch({ type: 'modal', modal: { kind: 'search' } }); return; }
       // The IDE's panels, VS Code's keys: they act inside a field too (the terminal returned above).
-      if (ide && !state.modal && mod && !e.altKey && (key === 'b' || key === 'j' || e.key === '/')) { e.preventDefault(); if (e.key === '/' && ide.tasks) ide.tasks(); else ide.toggle(key === 'b' ? 'side' : key === 'j' ? 'bottom' : 'right'); return; }
+      if (ide && !state.modal && mod && !e.altKey && (key === 'b' || key === 'j' || e.key === '/')) { e.preventDefault(); if (e.key === '/') ide.tasks?.(); else ide.toggle(key === 'b' ? 'side' : 'bottom'); return; }
       // Ctrl \ splits the focused group, as VS Code, in a field too. The key, not its place: AltGr (\ on AZERTY) reports Ctrl + Alt
       // on Windows, so Alt is allowed only as AltGr; a QWERTY Ctrl + Alt + \ is another chord.
       if (ide?.split && !state.modal && mod && e.key === '\\' && (!e.altKey || e.getModifierState('AltGraph'))) { e.preventDefault(); ide.split(); return; }
       if (ide && tabKeys(e, ide, mod, !state.modal)) return;
-      // Ctrl , opens Settings on General; inside Settings it keeps the section open (it only closes the dialog or the chat).
+      // Ctrl , opens Settings on General; inside Settings it keeps the section open (it only closes the dialog).
       // Ctrl Z takes back what the toast offers (« Annuler »); in a field it stays the field's own undo.
       if (mod && !e.altKey && !e.shiftKey && key === 'z' && !typing(document.activeElement)) { if (undo()) e.preventDefault(); return; }
       if (mod && !e.altKey && e.key === ',') { e.preventDefault(); dispatch(state.place.kind === 'settings' ? { type: 'settings', section: state.place.section } : { type: 'settings' }); return; }
       if (e.key === 'Escape') {
-        // A dialog, then the chat, close first; then the screen may take it (even while typing: it decides); else navigation.
-        if (!state.modal && !state.chat && screen.current?.(e)) { e.preventDefault(); return; }
+        // A dialog closes first; then the screen may take it (even while typing: it decides); else navigation.
+        if (!state.modal && screen.current?.(e)) { e.preventDefault(); return; }
         e.preventDefault(); dispatch({ type: 'escape' }); return;
       }
       if (state.modal?.kind === 'search') return;
-      // Without the IDE, Ctrl / asks Ledge beside what is shown, in the docked panel. « / » alone does nothing (#40, page 1, question 4).
-      if (!state.modal && e.key === '/' && mod && !e.altKey) { e.preventDefault(); dispatch({ type: 'chat', open: true }); return; }
-      if (state.modal || state.chat || typing(document.activeElement)) return;
+      if (state.modal || typing(document.activeElement)) return;
 
       const { place } = state;
       if (e.altKey && !mod) {

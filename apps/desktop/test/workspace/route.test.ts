@@ -47,17 +47,9 @@ describe('routeNav', () => {
     const n = applied({ type: 'home' });
     expect(n.r.nav).toBeUndefined(); expect(n.tab).toEqual(ATELIER_TAB);
   });
-  it('ledge: chat open, right panel shown, on Conversation', () => {
-    expect(routeNav({ type: 'ledge' }, ctx())).toEqual({ nav: { type: 'chat', open: true }, layout: { type: 'show', panel: 'right', on: true }, chat: { tab: 'conversation' } });
-  });
-  it('ledge on a task (« Voir dans Tâches »): the Tasks view shown (never toggled off) at its detail, the right panel left alone (#40 D3)', () => {
-    expect(routeNav({ type: 'ledge', tab: 'tasks', task: 't-12' }, ctx())).toEqual({ layout: { type: 'showView', view: 'tasks' }, chat: { tab: 'tasks', task: 't-12' } });
-    expect(routeNav({ type: 'ledge', tab: 'history' }, ctx())).toEqual({ layout: { type: 'show', panel: 'right', on: true }, chat: { tab: 'history' } });
-  });
-  it('chat closed hides the right panel, otherwise shows it', () => {
-    expect(routeNav({ type: 'chat', open: false }, ctx())).toEqual({ nav: { type: 'chat', open: false }, layout: { type: 'show', panel: 'right', on: false } });
-    expect(routeNav({ type: 'chat', open: true }, ctx()).layout).toEqual({ type: 'show', panel: 'right', on: true });
-    expect(routeNav({ type: 'chat' }, ctx()).layout).toEqual({ type: 'show', panel: 'right', on: true });
+  it('tasks (« Voir dans Tâches »): the Tasks view shown, never toggled off, on the task named, else its list (#40 D3)', () => {
+    expect(routeNav({ type: 'tasks', task: 't-12' }, ctx())).toEqual({ layout: { type: 'showView', view: 'tasks' }, tasks: { task: 't-12' } });
+    expect(routeNav({ type: 'tasks' }, ctx())).toEqual({ layout: { type: 'showView', view: 'tasks' }, tasks: { task: null } });
   });
   it('settings', () => {
     const a: NavAction = { type: 'settings', section: 'sounds' };
@@ -88,7 +80,7 @@ describe('routeNav', () => {
   });
 });
 
-const nav = (place: NavState['place']): NavState => ({ place, modal: null, chat: false, chatFocus: 0, helpers: false, paused: false });
+const nav = (place: NavState['place']): NavState => ({ place, modal: null, helpers: false, paused: false });
 describe('tabNav', () => {
   it('a session tab matching the place gets the real nav', () => {
     const n = nav({ kind: 'session', id: 's1', view: 'atelier', project: 'all' });

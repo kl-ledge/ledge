@@ -2,7 +2,7 @@
 export const OPEN_MAX_SHARE = 0.5;
 /** The tallest an open view may be on a work area `screenH` high (in the same units). */
 export const openMaxH = (screenH: number) => Math.min(screenH - SIZES.margin, Math.floor(screenH * OPEN_MAX_SHARE));
-export const SIZES = { bubbleW: 440, bubbleH: 128, listW: 380, sessionW: 480, readingW: 800, readerW: 560, readerExpandedW: 800, expandedMaxW: 1200, readerH: 760, rowH: 58, headerH: 72, footerH: 44, margin: 40, settingsH: 360, helpH: 420, launchH: 600, chatH: 560, emptyH: 200, groupH: 28, separatorH: 1 } as const;
+export const SIZES = { bubbleW: 440, bubbleH: 128, listW: 380, sessionW: 480, readingW: 800, readerW: 560, readerExpandedW: 800, expandedMaxW: 1200, readerH: 760, rowH: 58, headerH: 72, footerH: 44, margin: 40, settingsH: 360, helpH: 420, launchH: 600, emptyH: 200, groupH: 28, separatorH: 1 } as const;
 /** The compact island, a row along the top edge (spec 2026-10-12 §3): margins, the Ledge mascot, the separator, the
  *  companions, the "+n" pill past six, the DND moon; and the discreet strip with one dot per session. */
 export const ISLAND = { h: 38, padL: 12, padR: 14, resident: 22, sepGap: 8, companion: 22, gap: 8, max: 6, pill: 30, moon: 12, stripH: 10, stripPad: 10, dotW: 6, dotH: 4, dotGap: 4 } as const;
@@ -12,10 +12,10 @@ export const FILET = { h: 10, pad: 6, ledge: 9, sep: 7, dash: 5, gap: 2, pip: 5 
  *  the notch is borderless so it merges with the screen edge. */
 export const SURFACE_BORDER = 0;
 export const SURFACE_CHROME_Y = 2 * SURFACE_BORDER;
-export type Mode = 'handle' | 'bubble' | 'peek' | 'list' | 'session' | 'helper' | 'settings' | 'help' | 'launch' | 'chat' | 'reader';
+export type Mode = 'handle' | 'bubble' | 'peek' | 'list' | 'session' | 'helper' | 'settings' | 'help' | 'launch' | 'reader';
 /** Where the island's axis sits on the top edge: the centre, or a quarter of the width from the left or the right. */
 export type IslandPosition = 'center' | 'left' | 'right';
-/** The resident's finished-chat notice: not a session id. */
+/** The resident's own id in the island's queue: not a session id. */
 export const LEDGE_ID = 'ledge';
 /** The detail views that share the list's width and the DetailHeader: settings, help and the launch form. */
 export const DETAIL_VIEWS: readonly Mode[] = ['settings', 'help', 'launch'];
@@ -50,7 +50,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 export const expandedWidth = (screenW: number, min: number) => clamp(Math.round(screenW * 0.6), min, SIZES.expandedMaxW);
 
 /** `detailH` is the measured height of the settings or help view (the fixed sizes are fallbacks). `listExtraH` is the extra height of the list: an expanded (focused) row, the notice, the update card. `bubbleH` is the measured bubble height; `SIZES.bubbleH` is only the fallback before the first measurement. `strip` draws the discreet strip instead of the compact island (handle mode only). */
-export interface LayoutInput { bots: Array<{ id: string; pending: boolean; machine?: string }>; /** The closed notch's measured width (base px); absent or 0: estimated from `notch`. */ handleW?: number; notch?: NotchContent; mode: Mode; screenH: number; screenW: number; position?: IslandPosition; strip?: boolean; /** The update dash on the resting notch. */ pip?: boolean; /** The pointer is over the notch: the compact island instead of the filet (handle mode). */ awake?: boolean; dnd?: boolean; readerExpanded?: boolean; bubbleH?: number; sessionH?: number; /** Measured height of the open helper view. */ helperH?: number; reading?: boolean; listExtraH?: number; groups?: number; detailH?: number; /** Extra height of the ask field above the list rows (`ASK_H`). */ askH?: number }
+export interface LayoutInput { bots: Array<{ id: string; pending: boolean; machine?: string }>; /** The closed notch's measured width (base px); absent or 0: estimated from `notch`. */ handleW?: number; notch?: NotchContent; mode: Mode; screenH: number; screenW: number; position?: IslandPosition; strip?: boolean; /** The update dash on the resting notch. */ pip?: boolean; /** The pointer is over the notch: the compact island instead of the filet (handle mode). */ awake?: boolean; dnd?: boolean; readerExpanded?: boolean; bubbleH?: number; sessionH?: number; /** Measured height of the open helper view. */ helperH?: number; reading?: boolean; listExtraH?: number; groups?: number; detailH?: number; }
 
 /** Everything hangs from the top edge of the work area, centred on the island's axis; `left` is clamped into the screen. */
 export function layout(input: LayoutInput): Layout {
@@ -71,12 +71,11 @@ export function layout(input: LayoutInput): Layout {
   if (mode === 'peek') return view(360, input.bubbleH ?? 160);
   // The native frame adds a small shadow outside this width.
   if (mode === 'reader') return view(Math.min(input.readerExpanded ? expandedWidth(screenW, SIZES.readerExpandedW) : SIZES.readerW, Math.max(0, screenW - 24)), SIZES.readerH);
-  if (mode === 'chat') return view(SIZES.sessionW, input.detailH ?? SIZES.chatH);
   if (mode === 'settings' || mode === 'help' || mode === 'launch') return view(SIZES.listW, input.detailH ?? DETAIL_FALLBACK_H[mode]);
   // An empty list shows the empty state (a bot, two lines, a button) instead of rows; the extras (the update card,
   // the notice) still grow it.
   const rowsH = (n === 0 ? SIZES.emptyH : 16 + n * SIZES.rowH + (input.groups ?? 0) * SIZES.groupH) + (input.listExtraH ?? 0);
-  if (mode === 'list') return view(SIZES.listW, SIZES.headerH + rowsH + (input.askH ?? 0) + SIZES.footerH + SURFACE_CHROME_Y);
+  if (mode === 'list') return view(SIZES.listW, SIZES.headerH + rowsH + SIZES.footerH + SURFACE_CHROME_Y);
   if (mode === 'helper') return view(SIZES.sessionW, input.helperH ?? 480);
   return view(input.reading ? Math.min(expandedWidth(screenW, SIZES.readingW), Math.max(SIZES.sessionW, screenW - 24)) : SIZES.sessionW, input.sessionH ?? 480);
 }

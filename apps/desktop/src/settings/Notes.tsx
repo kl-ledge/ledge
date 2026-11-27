@@ -94,7 +94,8 @@ export function Notes({ ctx }: { ctx: SettingsContext }): JSX.Element {
                 <span className="set-label">{n.title} <code className="note-name">{n.name}</code></span>
                 <span className="set-hint">{n.when ? c.when(n.when) : c.firstLine(n.firstLine)}</span>
                 <div className="note-chips">
-                  <span className={n.scope === 'all' ? 'set-tag' : 'set-tag note-scope'}>{c.scope[n.scope]}</span>
+                  {/* A « chat only » note (the chat left, #40 PR 4): kept out of the sessions, said « Plus lue » (the owner's choice A). */}
+                  {n.scope === 'chat' && <span className="set-tag note-scope">{c.noLongerRead}</span>}
                   <span className="set-tag">{n.projects.length ? c.projects(n.projects.join(', ')) : c.allProjects}</span>
                   <span className={n.oldDays ? 'set-tag note-old' : 'set-tag'}>{n.checkedAt ? c.checked(day(n.checkedAt, locale)) : c.modified(day(n.modifiedAt, locale))}{n.oldDays ? ` · ${c.old}` : ''}</span>
                   {n.additions > 0 && <span className="set-tag">{c.additions(n.additions)}</span>}

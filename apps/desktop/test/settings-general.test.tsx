@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import WebSocket from 'ws';
-import type { ClientMessage } from '@ledge/protocol';
 import { createMockDaemon } from '@ledge/fleet/test/mockDaemon';
 import type { TrayLabels } from '../src/tauri/bridge';
 import type { UiScale } from '@ledge/ui/scale';
@@ -39,7 +38,6 @@ vi.mock('../src/settings/scale', async importOriginal => ({
 import { createDesktopFleet } from '../src/fleet/useFleet';
 import { App } from '../src/App';
 import { loadSettings } from '../src/settings/lazy';
-import { loadChat } from '../src/chat/lazy';
 import { applyUiScale, resetAppliedUiScaleForTests } from '../src/settings/scale';
 import { saveReduced } from '../src/motionPreferences';
 import { resetAppearanceForTests } from '../src/shell/theme';
@@ -57,7 +55,6 @@ beforeEach(async () => {
   bridge.labels = [];
   strings.fail = false;
   zoom.calls = []; zoom.resolved = 1.25; zoom.held = false; zoom.answers = []; zoom.native = false;
-  await loadChat();
 });
 const daemons: MockDaemon[] = [];
 afterEach(async () => { for (const d of daemons.splice(0)) await d.close(); await closeDaemons(); });
@@ -69,7 +66,6 @@ const saved = () => savedNotices(log);
 const sw = (name: string) => screen.getByRole('switch', { name });
 /** The Settings page: the IDE keeps an alert of its own elsewhere (the layouts' hint), so a page's alert is looked for here. */
 const inPage = () => within(document.querySelector<HTMLElement>('.settings-scroll') ?? document.body);
-const asks = (d: MockDaemon) => d.received.filter((m): m is Extract<ClientMessage, { type: 'chat.ask' }> => m.type === 'chat.ask');
 
 /** The app in French (`desktop.lang` = 'fr'), on one local machine, opened on Settings › Général. */
 async function bootFrench() {
@@ -192,33 +188,15 @@ describe('Settings › General: start with Windows', () => {
 });
 
 describe('Settings › General: the default agent', () => {
-  it('Codex chosen: the chat’s next question goes out with Codex; changed while the chat is open, it follows', async () => {
-    const { d, user } = await openSettings();
+  it('Codex chosen: kept and said; its hint speaks of the launch, no longer of the chat (#40 PR 4)', async () => {
+    const { user } = await openSettings();
     const group = screen.getByRole('radiogroup', { name: 'Default agent' });
     expect(within(group).getByRole('radio', { name: 'Claude Code' })).toBeChecked();
     await user.click(within(group).getByRole('radio', { name: 'Codex' }));
     expect(localStorage.getItem('desktop.tool')).toBe('"codex"');
     expect(saved()).toEqual(['Setting saved · Default agent: Codex']);
-    // The IDE's right panel: shown from the start; its toggle asked for only when the window's width folded it.
-    if (!screen.queryByRole('complementary', { name: 'Chat Ledge' })) await user.click(screen.getByRole('button', { name: 'Right panel' }));
-    await screen.findByRole('complementary', { name: 'Chat Ledge' });
-    const field = () => within(screen.getByRole('complementary', { name: 'Chat Ledge' })).getByRole('textbox', { name: 'Ask Ledge' });
-    await user.type(field(), 'Who reviews?{Enter}');
-    await waitFor(() => expect(asks(d)).toHaveLength(1));
-    expect(asks(d)[0]).toMatchObject({ text: 'Who reviews?', tool: 'codex' });
-    d.push({ type: 'chat.done', qid: asks(d)[0]!.qid, text: 'Otto.', at: new Date().toISOString() });   // the field takes a new question once the turn ends
-    await screen.findByText('Otto.');
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Default agent' })).getByRole('radio', { name: 'Cursor Agent' }));
-    await user.type(field(), 'And now?{Enter}');
-    await waitFor(() => expect(asks(d)).toHaveLength(2));
-    expect(asks(d)[1]).toMatchObject({ text: 'And now?', tool: 'cursor' });
-    d.push({ type: 'chat.done', qid: asks(d)[1]!.qid, text: 'Nova.', at: new Date().toISOString() });
-    await screen.findByText('Nova.');
-    await user.click(within(screen.getByRole('radiogroup', { name: 'Default agent' })).getByRole('radio', { name: 'OMP' }));
-    expect(localStorage.getItem('desktop.tool')).toBe('"omp"');
-    await user.type(field(), 'And with OMP?{Enter}');
-    await waitFor(() => expect(asks(d)).toHaveLength(3));
-    expect(asks(d)[2]).toMatchObject({ text: 'And with OMP?', tool: 'omp' });
+    expect(screen.getByText('Offered when you launch a new session.')).toBeVisible();
+    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
   });
 
   it('an unknown stored value falls back to Claude Code', async () => {

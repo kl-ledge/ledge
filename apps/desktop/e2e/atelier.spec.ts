@@ -66,15 +66,16 @@ test('at fit nothing scrolls; Ctrl + wheel zooms under the pointer; + - 0', asyn
 
 // At 1280 × 800 the floor does not fit at the zoom's 40 % floor, which is wanted (design-ux, 2026-11-10): what matters is that
 // the zoom bar stays on screen and the floor can be reached by zooming and dragging.
+// Since the chat's right panel left (#40 PR 4) the editing area is 300 px wider: 980 × 800 gives the floor the room 1280 × 800 did.
 test('at 1280 × 800 the floor stays at 40 %: the zoom bar on screen, the floor zooms and pans', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 980, height: 800 });
   await fakeDaemon(page, [...eight, kit], { projects: twoProjects });
   await page.goto('/'); await booted(page);
   await expect(page.getByRole('region', { name: 'Ledge table' })).toBeVisible();
   await expect.poll(() => pct(page)).toBe(40);
   const bar = (await page.getByRole('toolbar', { name: 'Atelier zoom' }).boundingBox())!;
   expect(bar.y + bar.height).toBeLessThanOrEqual(800);
-  expect(bar.x + bar.width).toBeLessThanOrEqual(1280);
+  expect(bar.x + bar.width).toBeLessThanOrEqual(980);
   await page.keyboard.press('+');
   await expect.poll(() => pct(page)).toBeGreaterThan(40);
   const v = (await scroller(page).boundingBox())!;
@@ -114,6 +115,8 @@ test('two fingers pinch the floor, not the window: the zoom follows them, the pa
 });
 
 test('double-click frames a table, the floor fits again; legend and zoom bar stay put; dragging the floor pans', async ({ page }) => {
+  // The room the floor had beside the chat's right panel, gone with #40 PR 4.
+  await page.setViewportSize({ width: 1620, height: 1080 });
   await fakeDaemon(page, [...eight, kit], { projects: twoProjects });
   await page.goto('/'); await booted(page);
   const legend = page.locator('.workspace-legend');
@@ -299,28 +302,22 @@ test('a message between agents: the bubble over Otto, an upright envelope flying
   await expect(envelope).toHaveCount(0);
 });
 
-test('the tiles start under Ledge\'s corner at every width, however tall its label grows (iPad, chat open)', async ({ page }) => {
-  test.setTimeout(90_000);   // five widths, each a fresh load of the IDE
+test('the tiles start under Ledge\'s corner at every width, however tall its label grows (iPad)', async ({ page }) => {
+  test.setTimeout(90_000);   // four widths, each a fresh load of the IDE
   const loose = ['ua', 'ub', 'uc'].map(id => session(id, { name: id.toUpperCase(), cwd: `/tmp/${id}`, project: `x-${id}` }));
   await fakeDaemon(page, [eight[0]!, eight[4]!, kit, ...loose], { projects: twoProjects });
   // A taller desk than Chromium's own fonts give, as Safari's do on an iPad: the mosaic must make room for it, not run into it.
   await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
     const style = document.createElement('style'); style.textContent = '.ledge-desk>small{font-size:16px;line-height:64px}'; document.head.append(style);
   }));
-  for (const [width, height, chat] of [[1600, 1000, true], [1600, 1000, false], [1180, 820, true], [820, 1180, false], [390, 844, false]] as const) {
+  for (const [width, height] of [[1600, 1000], [1180, 820], [820, 1180], [390, 844]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/'); await booted(page);
     await expect(page.locator('.unassigned-zone')).toBeVisible();
-    // The IDE's right panel is open from the start and its layout is kept across loads: its title-bar toggle flips it, so the
-    // state is set, then checked, rather than toggled blindly.
-    const right = page.locator('.ide-right');
-    if ((await right.isVisible()) !== chat) await page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ }).click();
-    if (chat) await expect(right, `${width}x${height}: the chat is open`).toBeVisible();
-    else await expect(right, `${width}x${height}: the chat is closed`).toBeHidden();
     await expect.poll(async () => page.evaluate(() => {
       const corner = document.querySelector('.ledge-corner')!.getBoundingClientRect();
       const tiles = [...document.querySelectorAll('.project-room,.unassigned-zone')].map(e => e.getBoundingClientRect());
       return tiles.filter(t => t.top < corner.bottom && t.left < corner.right && t.right > corner.left).length;
-    }), `${width}x${height}${chat ? ', chat open' : ''}: no tile under Ledge's label`).toBe(0);
+    }), `${width}x${height}: no tile under Ledge's label`).toBe(0);
   }
 });

@@ -53,18 +53,17 @@ for (const theme of ['dark', 'light'] as const) for (const lang of ['fr', 'en'] 
     expect((await box(page.locator('.ide-status'))).height).toBe(30);
     expect(await css(page.locator('.ide'), 'background-color')).toBe(await colour(page, '--at-bench'));
     expect(await css(page.locator('.ide-titlebar'), 'border-bottom-width')).toBe('0px');
-    // The cards: the explorer, each group, the bottom panel, the chat, 12 px round with a 1 px line border.
-    for (const card of [page.locator('.ide-explorer'), groups(page).nth(0), groups(page).nth(1), page.locator('.ide-bottom'), page.locator('.ide-right')]) {
+    // The cards: the explorer, each group, the bottom panel, 12 px round with a 1 px line border (the chat's panel left, #40 PR 4).
+    for (const card of [page.locator('.ide-explorer'), groups(page).nth(0), groups(page).nth(1), page.locator('.ide-bottom')]) {
       expect(await css(card, 'border-top-left-radius')).toBe('12px');
       expect(await css(card, 'border-top-width')).toBe('1px');
     }
-    // 6 px apart: the explorer and the first group, the two groups, the editing area and the bottom panel, the groups and the chat.
+    // 6 px apart: the explorer and the first group, the two groups, the editing area and the bottom panel.
     const ex = await box(page.locator('.ide-explorer')), g1 = await box(groups(page).nth(0)), g2 = await box(groups(page).nth(1));
-    const bottom = await box(page.locator('.ide-bottom')), right = await box(page.locator('.ide-right'));
+    const bottom = await box(page.locator('.ide-bottom'));
     expect(Math.round(g1.x - (ex.x + ex.width))).toBe(6);
     expect(Math.round(g2.x - (g1.x + g1.width))).toBe(6);
     expect(Math.round(bottom.y - (g1.y + g1.height))).toBe(6);
-    expect(Math.round(right.x - (g2.x + g2.width))).toBe(6);
     // The focused group's cue (option A): its card's border the ink at 32/38 %, its tab in front's title in full ink; the other
     // group's border the plain line, its tab in front in the secondary ink.
     const [line, line3, ink, ink2] = await Promise.all(['--at-line', '--at-line3', '--at-ink', '--at-ink2'].map(t => colour(page, t)));
