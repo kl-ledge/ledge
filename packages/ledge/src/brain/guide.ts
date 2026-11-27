@@ -4,7 +4,7 @@
 import { access, constants, readFile, writeFile } from 'node:fs/promises';
 import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CHAT_ACTIONS, NEVER_PROPOSED, ToolSchema, type ActionDef, type Tool } from '@ledge/protocol';
+import { CHAT_ACTIONS, NEVER_PROPOSED, ToolSchema, type ActionDef, type Projects, type Tool } from '@ledge/protocol';
 
 export const LEDGE_MD = 'ledge.md';
 
@@ -70,4 +70,13 @@ export function ledgeMd(info: LedgeInfo): string {
 
 export async function writeLedgeMd(dir: string, info: LedgeInfo): Promise<void> {
   await writeFile(join(dir, LEDGE_MD), ledgeMd(info));
+}
+
+const oneLine = (text: string): string => text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+
+/** The user's projects as `ledge brain @projects` gives them: each one's description and folders, then the filed folders. */
+export function projectsMd(projects: Projects): string {
+  const nameOf = new Map(projects.projects.map(p => [p.id, oneLine(p.name)]));
+  return ['# Projects', '', ...(projects.projects.length ? projects.projects.flatMap(p => [`## ${oneLine(p.name)}`, ...(p.description.trim() ? [oneLine(p.description)] : []), '', ...p.repos.map(r => `- ${r.machine}: ${r.path}`), '']) : ['No projects.', '']),
+    ...(projects.rules.length ? ['## Filed folders', '', ...projects.rules.map(r => `- ${r.machine}: ${r.path} → ${nameOf.get(r.project) ?? r.project}`), ''] : [])].join('\n');
 }

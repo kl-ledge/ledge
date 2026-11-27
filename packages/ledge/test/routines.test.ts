@@ -1,4 +1,3 @@
-import { fromRoutines } from '../src/operator/detect.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -119,13 +118,12 @@ describe('the recipient a firing names to « le point » (review of 17323905)', 
     store.upsert(mk('old', 'Iris', { state: 'exited', handover: { state: 'done', to: 'relief', at: T0 } as Session['handover'] }));
     store.upsert(mk('relief', 'Iris-2', { state: 'working', relieves: { id: 'old', name: 'Iris', at: T0 } }));
     await cmd(user, 'add', { spec: spec() });
-    const before = routines.all();
+
     await cmd(user, 'run', { routine: 'briefing' });
     await flush();
     expect(typed[0]!.to).toBe('relief');
     store.upsert(mk('new', 'Iris'));
     typedDone();
-    expect(fromRoutines(before, routines.all(), store.all())[0]!.payload.session).toBe('relief');
   });
 });
 

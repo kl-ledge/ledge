@@ -9,7 +9,6 @@ import { readNotes } from '../src/brain/notes.js';
 import { brainContext } from '../src/brain/index.js';
 import { brainWriteArgs } from '../src/brain/cli.js';
 import { parseLedgeCommand } from '../src/cli/send.js';
-import { writeNotes, NOTES_INDEX } from '../src/chat/notes.js';
 import { Store } from '../src/daemon/store.js';
 import { startServer } from '../src/daemon/server.js';
 import { connect, type Client } from '../src/client.js';
@@ -78,8 +77,6 @@ describe('applyProposal', () => {
     expect(applyProposal({ kind: 'flag', note: 'reseau', fact: 'la box a changé' }, 'oui', 'Nova', T0, from)).toBe('la note reseau est marquée « à revoir » : la box a changé');
     expect((await readNotes(from)).notes[0]!.flag).toBe('la box a changé');
     expect(brainContext((await readNotes(from)).notes)).toContain('— à revoir : la box a changé');
-    const dir = mkdtempSync(join(tmpdir(), 'ctx-')); await writeNotes(dir, from, new Map());
-    expect(readFileSync(join(dir, NOTES_INDEX), 'utf8')).toContain('TO CHECK (the user agreed it may be wrong): la box a changé');
     // Ledge appends a fact: still to check.
     applyProposal(add('reseau', 'Le DNS est sur le Pi'), 'oui', 'Nova', new Date(Date.parse(T0) + 60_000).toISOString(), from);
     expect((await readNotes(from)).notes[0]!.flag).toBe('la box a changé');

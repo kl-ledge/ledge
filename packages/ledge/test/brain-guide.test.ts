@@ -1,13 +1,11 @@
+// The guide `ledge brain @ledge` and `@projects` give (#40: it left the chat for brain/guide.ts, the chat being gone).
 import { describe, it, expect } from 'vitest';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ACTIONS as REGISTRY, CHAT_ACTIONS as ACTIONS, NEVER_PROPOSED } from '@ledge/protocol';
-import { installedAgents, ledgeMd, readGuide } from '../src/chat/guide.js';
-import { writeContext, stepFor } from '../src/chat/context.js';
-import { buildPersona } from '../src/chat/persona.js';
+import { installedAgents, ledgeMd, projectsMd, readGuide } from '../src/brain/guide.js';
 
-const T0 = '2026-10-11T10:00:00.000Z';
 const tmp = () => mkdtempSync(join(tmpdir(), 'guide-'));
 
 describe('ledge.md', () => {
@@ -35,16 +33,6 @@ describe('ledge.md', () => {
     expect(ledgeMd({ guide: 'g', agents: [] })).toContain('none found');
   });
 
-  it('writeContext writes it when asked, as a step', async () => {
-    const dir = tmp();
-    const ctx = await writeContext(dir, { sessions: [], now: T0, capture: async () => null, git: async () => null, ledge: { guide: '# G', version: '9.9.9' } });
-    expect(readFileSync(join(dir, 'ledge.md'), 'utf8')).toContain('9.9.9');
-    expect(stepFor(join(dir, 'ledge.md'), ctx)).toEqual({ kind: 'repo', name: 'Ledge', path: 'ledge.md' });
-    const none = tmp();
-    await writeContext(none, { sessions: [], now: T0, capture: async () => null, git: async () => null });
-    expect(existsSync(join(none, 'ledge.md'))).toBe(false);
-  });
-
   it('finds the agents whose executable is on the PATH, executable only', async () => {
     const a = tmp(); const b = tmp();
     writeFileSync(join(a, 'claude'), ''); chmodSync(join(a, 'claude'), 0o755);
@@ -55,10 +43,10 @@ describe('ledge.md', () => {
   });
 });
 
-describe('the persona', () => {
-  it('sends a question about Ledge to ledge.md and one about the user\'s environment to the notes index', () => {
-    const p = buildPersona('claude');
-    expect(p).toMatch(/question sur Ledge lui-même[^\n]*lis ledge\.md/);
-    expect(p).toMatch(/environnement de l'utilisateur[^\n]*lis context-index\.md[^\n]*seulement les notes pertinentes[^\n]*cite la note et sa date/);
+describe('projectsMd', () => {
+  it('each project with its description and folders, then the filed folders; a newline forges no heading', () => {
+    const md = projectsMd({ projects: [{ id: 'p1', name: 'Ledge\n# x', color: 'blue', description: 'Le notch.', repos: [{ machine: 'local', path: '/w/ledge' }] }], rules: [{ machine: 'local', path: '/w/x', project: 'p1' }] } as never);
+    expect(md).toBe('# Projects\n\n## Ledge # x\nLe notch.\n\n- local: /w/ledge\n\n## Filed folders\n\n- local: /w/x → Ledge # x\n');
+    expect(projectsMd({ projects: [], rules: [] })).toBe('# Projects\n\nNo projects.\n');
   });
 });

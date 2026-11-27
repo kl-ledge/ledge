@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { createECDH, randomBytes } from 'node:crypto';
 import { DEFAULT_DEVICE_PREFS, type DevicePrefs, type MobileState, type PushPayload, type PushSend, type PushSendResult } from '@ledge/protocol';
 import { createNotifier, wanted } from '../src/mobile/push/notifier.js';
-import { chatEndPayload, resolvedFor } from '../src/mobile/push/triggers.js';
-import { pointPush } from '../src/operator/notices.js';
+import { resolvedFor } from '../src/mobile/push/triggers.js';
+
+// The chat's and the point's pushes left the daemon with them (#40): the notifier still knows their kinds, which the protocol keeps
+// until the fronts drop them, so these payloads are written out.
+const pointPush = (body: string, badge: number): PushPayload => ({ v: 1, kind: 'point', title: 'Ledge', body, url: '/#/chat', badge, tag: 'point' });
+const chatEndPayload = (_code: undefined, badge: number): PushPayload => ({ v: 1, kind: 'chat', title: 'Ledge a répondu', body: 'Touchez pour lire la réponse.', url: '/#/chat', badge, tag: 'chat' });
 
 const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/SECRET-ENDPOINT-TOKEN';
 const TEXT = 'private-words-of-the-agent';
@@ -242,14 +246,6 @@ describe('push notifier', () => {
     await t.n.notify(chatEndPayload(undefined, 3), undefined, 'dev2');
     expect(t.sent).toHaveLength(2);
     expect(t.sent[1]!.endpoint).toBe(ENDPOINT + '-2');
-  });
-
-  it('chat payloads: the notification of the constraints, the text of the code on an error, a badge', () => {
-    expect(chatEndPayload(undefined, 2)).toEqual({ v: 1, kind: 'chat', title: 'Ledge a répondu', body: 'Touchez pour lire la réponse.', url: '/#/chat', badge: 2, tag: 'chat' });
-    expect(chatEndPayload('busy', 0).body).toBe('Ledge répond déjà à d\'autres questions. Réessayez dans un instant.');
-    expect(chatEndPayload('timeout', 0).body).toBe('Ledge n\'a pas répondu à temps.');
-    expect(chatEndPayload('failed', 0).body).toBe('Ledge n\'a pas pu répondre.');
-    expect(chatEndPayload('cancelled', 0).body).toBe('Question arrêtée.');
   });
 
   it('a chat end is not held back by the finished delay, and a device without a subscription gets nothing', async () => {

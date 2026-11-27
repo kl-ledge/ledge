@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import type { ModelChoice, OmpApproval, Session, Tool } from '@ledge/protocol';
 import { resolveFolder } from '../daemon/folders.js';
-import { folderTooWide } from '../chat/service.js';
+import { folderTooWide } from '../daemon/folders.js';
 import { PhoneLaunchRefused } from './gateway.js';
 
 export type PhoneLaunchReq = { tool: Tool; cwd: string; dirs?: string[]; prompt: string; model?: string; effort?: string; approval?: OmpApproval; name?: string };

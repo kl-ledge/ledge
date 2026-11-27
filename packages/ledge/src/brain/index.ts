@@ -3,8 +3,7 @@
 import { projectOf, type Machines, type Projects } from '@ledge/protocol';
 import { readMachines } from '../daemon/machines.js';
 import { readProjects } from '../daemon/projects.js';
-import { installedAgents, ledgeMd, readGuide } from '../chat/guide.js';
-import { projectsMd } from '../chat/context.js';
+import { installedAgents, ledgeMd, projectsMd, readGuide } from './guide.js';
 import { LEDGE_VERSION } from '../version.js';
 import { forSession, NOTE_MAX, noteDate, notesDir, oldFor, oneLine, readNotes, type Note } from './notes.js';
 
