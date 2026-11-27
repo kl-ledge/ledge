@@ -128,7 +128,7 @@ Il n'y a plus de chat avec Ledge ni de page « À toi » (#40, maquettes `docs/m
 - les **demandes d'OpenRig** (rigs, Max, l'opérateur du kernel) : le bloc **Demandes** en tête de la vue Rigs, les plus urgentes d'abord (badge de Rigs) ;
 - les **décisions** qu'une session pose à l'utilisateur (`ledge task give ledge`), les **propositions de notes** et les **signalements** (`ledge report`) : la vue **Tâches** (`Ctrl+/`, badge ambre), avec « Répondre » ;
 - une **routine** à activer : sa page et la vue Routines ;
-- une **relève** qui a échoué : « relève échouée » sur la ligne de la session et une bande avec « Réessayer » sur sa page.
+- une **relève** qui a échoué : le ◔ de sa ligne passe en rouge (la raison au survol) et une bande avec « Réessayer » sur sa page.
 
 ## Historique
 

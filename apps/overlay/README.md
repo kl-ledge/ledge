@@ -16,7 +16,7 @@ Reduced motion (the OS's, or `VITE_LEDGE_MOTION=0` in the unit tests): no trip t
 
 - **A session's notice**, 6 s, a ring around the logo that empties (the pointer holds it): a finished turn (the start of its last reply, two lines at most), an error (its message, in mono). A click opens the session in Ledge Desktop.
 - **A session's request**, open until answered or « Plus tard »: a permission (its command under its tool; Allow, Deny), a question (its proposed answers, a field, Reply), a plan or a diff (Review in Ledge). « Envoyé, en attente du terminal » until the terminal confirms a decision, then « Reçu » for 900 ms. A refusal says why and unlocks the buttons; offline or read only, only Open in Ledge and Later work. With the quick answers off in Desktop, a request only opens in Ledge or waits.
-- **Ledge's own** (`src/surface/useLedgeNotices.ts`), with Ledge's mark for a logo: a rig's question (its proposed answers, the suggested one first, through `point.act`), a decision put to the person (View opens « À toi »), a routine to activate or that could not run (through `routine.cmd`, an approval bound to the key it was shown with), and a machine that dropped (a 6 s notice). « Le point » stays in Desktop's chat.
+- **Ledge's own** (`src/surface/useLedgeNotices.ts`), with Ledge's mark for a logo: a rig's urgent question (its proposed answers, the suggested one first, answered through OpenRig with `openrig.answer`; Open shows it in the Rigs view's « Demandes » block), a decision put to the person (Open shows it in the Tasks view), a routine to activate or that could not run (through `routine.cmd`, an approval bound to the key it was shown with), and a machine that dropped (a 6 s notice). There is no « point » any more (#40).
 
 One at a time, requests (a session's or Ledge's, in their order) before notices; « +2 autres » after the branch, and « Plus tard » becomes « Plus tard, suivante ». Do not disturb opens nothing (the requests wait set aside); Desktop's « hidden » shows nothing until it is shown again.
 
@@ -45,7 +45,7 @@ The island ships inside Ledge Desktop: build, run and install it from `apps/desk
 | Y N | allow / deny the permission shown |
 | 1-9 | choose a proposed answer of the question shown |
 | Enter | send the answer typed in the field |
-| O | open the item shown in Ledge Desktop (a session, « À toi », a routine's page) |
+| O | open the item shown in Ledge Desktop (a session, a rig's question in Rigs, a decision in Tasks, a routine's page) |
 | Esc | « Plus tard » on a request; close a notice |
 | Ctrl+Alt+N | ask Ledge Desktop for a new session (global) |
 | Ctrl+Alt+T | toggle dark / light theme |

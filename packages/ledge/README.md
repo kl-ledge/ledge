@@ -70,7 +70,7 @@ systemctl --user disable --now ledge-daemon.service   # back to on-demand start 
 ~/.ledge/tmux.conf      dedicated tmux server config (status off, mouse on)
 ~/.ledge/sessions.json  journal, reloaded when the daemon restarts
 ~/.ledge/daemon.log     dropped hooks, failed injections, poll errors
-~/.ledge/*.bak-<date>   the removed chat's data and the operator's journal, set aside at start (#40), never deleted
+~/.ledge/{chat.json,chat,ledge.sqlite,mobile/chat}.bak-<date>   the removed chat's data and the operator's journal, set aside at start (#40), never deleted
 ~/.ledge/tui.json       ledge tui's settings (its language)
 ~/.ledge/daemon.pid     PID of the running daemon, removed when it stops cleanly
 ~/.config/systemd/user/ledge-daemon.service   user unit written by `ledge setup`
