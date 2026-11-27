@@ -613,8 +613,9 @@ export const en: Messages = {
       title: 'Notes', intro: 'A session Ledge launched gets the index of its project’s notes, and reads one with `ledge brain <name>`.',
       count: (n: number) => (n === 1 ? '1 note' : `${n} notes`), openFolder: 'Open the folder', openFolderHint: 'A terminal opens in the notes folder.',
       loading: 'Reading the notes…', failed: 'Ledge could not read the notes.', none: 'No notes. Add Markdown files to this folder, with a `title` and `when` header if you like.',
+      // #40 PR 4 (the owner's choice A, 11/27 19:25Z): a « chat only » note, which the sessions do not read.
+      noLongerRead: 'No longer read',
       when: (w: string) => `When to read it: ${w}`, firstLine: (l: string) => `First line: ${l}`,
-      scope: { all: 'Chat and sessions', chat: 'Chat only', sessions: 'Sessions only' } as Record<'all' | 'chat' | 'sessions', string>,
       allProjects: 'Every project', projects: (list: string) => `Projects: ${list}`,
       checked: (d: string) => `checked ${d}`, modified: (d: string) => `modified ${d}`, old: 'old', additions: (n: number) => (n === 1 ? '1 addition' : `${n} additions`), truncated: 'long: only its start is read',
       open: 'Open', close: 'Close', checkToday: 'Checked today', flagged: 'To check', flagBy: (by: string, d: string) => `${by}, ${d}`, unflag: 'Clear the flag',

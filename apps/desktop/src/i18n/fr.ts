@@ -654,8 +654,9 @@ export const fr = {
       title: 'Notes', intro: 'Une session lancée par Ledge reçoit l’index des notes de son projet, et en lit une avec `ledge brain <nom>`.',
       count: (n: number) => (n === 1 ? '1 note' : `${n} notes`), openFolder: 'Ouvrir le dossier', openFolderHint: 'Un terminal s’ouvre dans le dossier des notes.',
       loading: 'Lecture des notes…', failed: 'Ledge n’a pas pu lire les notes.', none: 'Aucune note. Ajoute des fichiers Markdown dans ce dossier, avec un en-tête `title` et `when` si tu veux.',
+      // #40 PR 4 (the owner's choice A, 11/27 19:25Z): a « chat only » note, which the sessions do not read.
+      noLongerRead: 'Plus lue',
       when: (w: string) => `Quand la lire : ${w}`, firstLine: (l: string) => `Première ligne : ${l}`,
-      scope: { all: 'Chat et sessions', chat: 'Chat seulement', sessions: 'Sessions seulement' } as Record<'all' | 'chat' | 'sessions', string>,
       allProjects: 'Tous les projets', projects: (list: string) => `Projets : ${list}`,
       checked: (d: string) => `vérifiée le ${d}`, modified: (d: string) => `modifiée le ${d}`, old: 'ancienne', additions: (n: number) => (n === 1 ? '1 ajout' : `${n} ajouts`), truncated: 'longue : seul le début est lu',
       open: 'Ouvrir', close: 'Fermer', checkToday: 'Vérifiée aujourd’hui', flagged: 'À revoir', flagBy: (by: string, d: string) => `${by}, le ${d}`, unflag: 'Effacer le signalement',
