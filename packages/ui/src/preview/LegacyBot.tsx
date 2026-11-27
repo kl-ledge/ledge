@@ -12,7 +12,7 @@ import { useUiCopy } from '../i18n/copy';
  * Kept for the historical gallery only (`/mascots.html`); it reuses the production motion hooks and is never rendered by the app.
  */
 
-const TOOL_NAMES: Record<BotProps['tool'], string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'omp' };
+const TOOL_NAMES: Record<BotProps['tool'], string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'omp', agy: 'Antigravity CLI' };
 
 type Eyes = 'open' | 'wide' | 'happy' | 'error' | 'sleep';
 interface Expression { eyes: Eyes; eye: string; tilt?: readonly [number, number, number]; lift?: number }
@@ -36,7 +36,9 @@ const SHINE: Record<BotProps['tool'], string> = {
   claude: 'M25 36Q27 28 38 28H59',
   codex: 'M25 32Q35 19 51 22',
   cursor: 'M27 41 34 24Q35 23 37 25',
-  omp: 'M22 42 30 28Q32 25 36 25H59'
+  omp: 'M22 42 30 28Q32 25 36 25H59',
+  // The historical gallery predates Antigravity CLI: it draws agy with the pebble's shine.
+  agy: 'M25 36Q27 28 38 28H59'
 };
 
 function Shell({ tool, fill }: { tool: BotProps['tool']; fill: string }) {

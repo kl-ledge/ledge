@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { filesOf, DIFF_LINES } from '../src/daemon/files.js';
 
 describe('filesOf', () => {
+  it('reads agy edits and writes', () => {
+    expect(filesOf('edit_file', { Path: '/a', Target: 'old\nline', Replacement: 'new' })).toEqual([{ path: '/a', change: 'edit', diff: '- old\n- line\n+ new' }]);
+    expect(filesOf('write_file', { Path: '/b', Content: 'one\ntwo' })).toEqual([{ path: '/b', change: 'write', diff: '+ one\n+ two' }]);
+  });
   it('reads a Claude Edit as a diff of the old and new strings', () => {
     expect(filesOf('Edit', { file_path: '/w/a.ts', old_string: 'const a = 1;', new_string: 'const a = 2;\nexport { a };' }))
       .toEqual([{ path: '/w/a.ts', change: 'edit', diff: '- const a = 1;\n+ const a = 2;\n+ export { a };' }]);

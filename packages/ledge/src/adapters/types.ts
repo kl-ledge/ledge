@@ -27,6 +27,12 @@ export interface Adapter {
   detectPrompt(pane: string): PanePromptMatch | null;
   promptStillVisible(pane: string): boolean;
   /**
+   * Whether a request is on screen before keys are sent, read from the whole capture (DETECT_LINES) rather than its last
+   * lines. Optional: without it, `promptStillVisible` on the bottom lines decides. For a harness whose request can sit
+   * above its own input box and footer (an agy subagent's).
+   */
+  promptVisible?(pane: string): boolean;
+  /**
    * `pane` is the bottom of the terminal right before the keys are sent, when the plan depends on the dialog. `always`
    * picks the dialog's own option that stops asking; `note` (with `deny`) is typed where the agent reads it. Either one
    * missing from the dialog on screen throws, for the client to answer in the terminal (NO_ALWAYS, NO_NOTE).

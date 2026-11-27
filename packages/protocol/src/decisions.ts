@@ -25,6 +25,9 @@ export const DECISION_OFFERS: Record<Tool, { always: readonly Pending['kind'][];
   claude: { always: ['permission', 'diff', 'plan'], note: ['permission', 'diff', 'plan'] },
   codex: { always: ['permission', 'diff'], note: ['permission', 'diff', 'plan'] },
   cursor: { always: [], note: ['permission', 'plan'] },
+  /** Antigravity CLI: a command's « always » holds for this conversation (option 2; option 3 would write the user's settings);
+   *  its file-edit dialog has neither, and it has no plan dialog (plan mode writes a file and rests). */
+  agy: { always: ['permission'], note: ['permission'] },
   /** OMP answers its own native requests (spec 2026-10-20 §3.3): no « always », no note until those are typed. */
   omp: { always: [], note: [] }
 };

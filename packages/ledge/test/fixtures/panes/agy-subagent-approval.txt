@@ -1,0 +1,50 @@
+  13. When reading a key via get, the cache first looks up the entry in the Map.
+  14. If no entry exists, get returns undefined immediately.
+  15. If an entry exists, the cache compares its expiration timestamp against the current time.
+  16. When the current time is greater than or equal to the expiration timestamp, the entry is expired.
+  17. An expired entry is deleted from the Map, and get returns undefined.
+  18. If the entry is still alive, get refreshes its recency by moving it to the tail of the Map.
+  19. Moving an entry in a Map is done by deleting the key and immediately re-inserting it.
+  20. A separate peek operation reads the live value without deleting or re-inserting the key.
+  21. Similarly, has, size, and keys inspect liveness without changing the recency order.
+  22. When writing a key via set, the cache computes the new expiration timestamp.
+  23. If the key already exists in the Map, it is deleted first so re-insertion moves it to the tail.
+  24. Updating an existing key therefore counts as a recent use and resets its TTL.
+  25. If the key is new and the cache is already at maximum capacity, eviction is required.
+  26. Before evicting a live entry, the cache scans and removes all currently expired entries.
+  27. Purging expired entries first avoids unnecessarily dropping valid data when stale items exist.
+  28. If the cache is still at capacity after purging expired entries, LRU eviction runs.
+  29. The cache reads the first key yielded by the Map iterator, which is the least recently used.
+  30. That oldest key is deleted from the Map to free one slot for the incoming entry.
+  31. Finally, the new key and its entry record are inserted at the tail of the Map.
+  32. Because expiration is checked lazily on access and before eviction, no background timers are needed.
+  33. Lazy expiration avoids timer overhead and prevents dangling handles from keeping processes alive.
+  34. However, size and keys must also purge expired entries before reporting their results.
+  35. Otherwise, callers would observe phantom expired keys in the reported count or key list.
+  36. Calling keys can return live keys in most-recently-used-first order by reversing the Map keys.
+  37. Deleting a key explicitly removes it from the Map regardless of its expiration status.
+  38. Per-entry TTL overrides allow hot or volatile items to expire sooner or later than the default.
+  39. Together, O(1) Map operations and lazy TTL checks keep common reads and writes fast.
+  40. This combination provides predictable memory usage, freshness guarantees, and simple semantics.
+
+  (Subagent launched to run date +%Y; waiting for its output.)
+
+────────────────────────────────────────────────────────────
+> Use the invoke_subagent tool again: the subagent must run the shell command date +%m and report its output.
+
+● Spawned 1 subagent (ctrl+o to expand)
+
+  Launched a subagent to run date +%m. Waiting for its output.
+
+ ┃ research needs approval for Bash
+ ┃ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ┃
+ ┃ ● Bash(date +%m)
+ ┃
+ ┃ ctrl+k approve · alt+j manage
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ● Agent(research: Month Runner) · Gemini 4 Hydrogen  Blocked · Bash · 4s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                                                                                                               Gemini 4 Hydrogen · medium · 1 subagent(s)

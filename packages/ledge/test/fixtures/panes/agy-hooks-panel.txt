@@ -1,0 +1,37 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.17
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> un this exact shell command and report its output: curl -sI https://example.com | head -1
+
+● Ran 2 commands (curl -sI https://example.com | head -1 ×2) (ctrl+o to expand)
+
+  The command curl -sI https://example.com | head -1 exited with code 0 and produced no output.
+
+────────────────────────────────────────────────────────────
+> Run this exact shell command and report its output: date +%Y
+
+● Ran (date +%Y) (ctrl+o to expand)
+
+  The command date +%Y exited with code 0 and output:
+
+    2026
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Hooks
+   5 hook types
+
+ > PreToolUse      Before tool execution
+   PostToolUse     After tool execution
+   PreInvocation   Before each LLM invocation
+   PostInvocation  After each LLM invocation
+   Stop            When agent tries to exit
+
+   ↑/↓ Navigate · enter Select
+                                                                                                                  Gemini 4 Hydrogen · medium

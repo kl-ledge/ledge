@@ -157,7 +157,7 @@ describe('LaunchComposer and its machines', () => {
     await user.click(screen.getByRole('radio', { name: 'Codex Code and tests' }));
     expect(document.querySelector('.composer-preview')!.textContent).toMatch(/^\w+ will join the Ledge table/);
     const bots = view.container.querySelectorAll('[data-paused]');
-    expect(bots).toHaveLength(6);                                          // the agent chosen, four tiles and the preview
+    expect(bots).toHaveLength(7);                                          // the agent chosen, five tiles and the preview
     bots.forEach(b => expect(b).toHaveAttribute('data-paused', 'true'));
     view.rerender(<LaunchComposer {...props(client, [local, nas])} />);
     view.container.querySelectorAll('[data-paused]').forEach(b => expect(b).toHaveAttribute('data-paused', 'false'));

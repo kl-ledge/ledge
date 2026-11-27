@@ -30,7 +30,7 @@ describe('modelProvider', () => {
     expect(modelProvider('Claude-Opus-5-5')).toBe('anthropic');
   });
   it('a model with no logo in our set, or none at all: null (the caller falls back to the tool\'s provider)', () => {
-    expect(modelProvider('gemini-3-pro')).toBeNull();
+    expect(modelProvider('gemini-3-pro')).toBe('google');
     expect(modelProvider('autopilot-x')).toBeNull();
     expect(modelProvider('o30-thing')).toBeNull();
     expect(modelProvider('')).toBeNull();

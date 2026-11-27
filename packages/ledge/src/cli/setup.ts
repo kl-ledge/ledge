@@ -127,6 +127,31 @@ export function mergeCursorHooks(config: unknown, command = 'ledge hook cursor')
   return { settings: { version: 1, ...base, hooks }, changed };
 }
 
+/** Antigravity CLI 1.5.17 hook events Ledge listens to (`/hooks` lists these six). PostInvocation brings nothing Ledge uses. */
+export const AGY_EVENTS = ['SessionStart', 'PreInvocation', 'PreToolUse', 'PostToolUse', 'Stop'] as const;
+/** agy's tool events take matchers; the others a plain list of commands. */
+const AGY_TOOL_EVENTS: ReadonlySet<string> = new Set(['PreToolUse', 'PostToolUse']);
+/** The named group Ledge owns in agy's hooks file: setup and uninstall touch nothing else. */
+export const AGY_GROUP = 'ledge';
+
+type AgyCommand = { type: 'command'; command: string; timeout?: number };
+
+/**
+ * Wires `ledge hook agy <Event>` in Antigravity CLI's global hooks file (`~/.gemini/config/hooks.json`:
+ * `{ <group>: { <Event>: [...] } }`), as Ledge's own `ledge` group; the user's groups are kept as they are. The
+ * fallback prints nothing: agy reads `{}` from a PreToolUse hook as a refusal of the tool. The file is shared with
+ * Antigravity's app and IDE, whose hooks run without `LEDGE_SESSION`: `ledge hook agy` ignores them.
+ */
+export function mergeAgyHooks(config: unknown, command = 'ledge hook agy'): { settings: object; changed: boolean } {
+  if (config === undefined) config = {};
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('hooks.json root is not an object, not modified');
+  const base = config as Record<string, unknown>;
+  const cmd = (ev: string): AgyCommand => ({ type: 'command', command: guardedHook(`${command} ${ev}`, GO_ON), timeout: 5 });
+  const group = Object.fromEntries(AGY_EVENTS.map(ev => [ev, AGY_TOOL_EVENTS.has(ev) ? [{ matcher: '', hooks: [cmd(ev)] }] : [cmd(ev)]]));
+  const changed = JSON.stringify(base[AGY_GROUP]) !== JSON.stringify(group);
+  return { settings: { ...base, [AGY_GROUP]: group }, changed };
+}
+
 /** Reads a JSON file (undefined when missing), merges, writes it back atomically if anything changed. */
 async function mergeJsonFile(path: string, merge: (current: unknown) => { settings: object; changed: boolean }, name: string): Promise<boolean> {
   let raw: string | null = null;
@@ -270,7 +295,7 @@ export async function writeBin(opts: { link: string; node: string; target: strin
  * `codexDir` and `cursorDir` are the agents' config folders: their hooks are wired only where the folder exists. For
  * tests: `cli` is the CLI as it was run (argv[1]), `link` the `ledge` script's place, `unitDir` and `run` the service's.
  */
-export async function runSetup(opts: { settingsPath?: string; codexDir?: string; cursorDir?: string; service?: boolean; cli?: string; link?: string; unitDir?: string; run?: Runner } = {}): Promise<string[]> {
+export async function runSetup(opts: { settingsPath?: string; codexDir?: string; cursorDir?: string; agyDir?: string; service?: boolean; cli?: string; link?: string; unitDir?: string; run?: Runner } = {}): Promise<string[]> {
   const out: string[] = [];
   await ensureLedgeDir();
   out.push('~/.ledge ready (tmux.conf written if missing)');
@@ -286,6 +311,11 @@ export async function runSetup(opts: { settingsPath?: string; codexDir?: string;
   if (!(await isDir(cursorDir))) out.push(`Cursor Agent not found (${cursorDir} missing), Cursor Agent hooks skipped`);
   else if (await mergeJsonFile(join(cursorDir, 'hooks.json'), mergeCursorHooks, 'hooks.json')) out.push(`Cursor Agent hooks added in ${join(cursorDir, 'hooks.json')}`);
   else out.push('Cursor Agent hooks already present');
+  // Antigravity CLI keeps its settings in ~/.gemini/antigravity-cli and its hooks beside, in ~/.gemini/config.
+  const agyDir = opts.agyDir ?? join(homedir(), '.gemini');
+  if (!(await isDir(join(agyDir, 'antigravity-cli')))) out.push(`Antigravity CLI not found (${join(agyDir, 'antigravity-cli')} missing), Antigravity CLI hooks skipped`);
+  else if (await mergeJsonFile(join(agyDir, 'config', 'hooks.json'), mergeAgyHooks, 'hooks.json')) out.push(`Antigravity CLI hooks added in ${join(agyDir, 'config', 'hooks.json')} (they apply to agy sessions started after this)`);
+  else out.push('Antigravity CLI hooks already present');
   // The script and the service edit the machine outside the agents' config: tests that pass `service: false` skip them.
   if (opts.service ?? true) {
     const cli = opts.cli ?? process.argv[1] ?? '';

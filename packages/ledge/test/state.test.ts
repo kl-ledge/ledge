@@ -718,6 +718,17 @@ describe('reduce: PaneIdle (the pane is at rest)', () => {
     expect(next.state).toBe('idle');
     expect(next.pending).toBeUndefined();
   });
+  it('after a failed answer, drops a request read from the pane that the pane no longer shows (it would block every reply)', () => {
+    const pending = { kind: 'permission' as const, text: 'research: Bash(date +%M)', source: 'pane' as const };
+    const next = reduce(session('error', { pending, lastHookAt: T0 }), idle());
+    expect(next.state).toBe('idle');
+    expect(next.pending).toBeUndefined();
+    // A hook's request, or an error with nothing pending, stays as it was.
+    const hookAsk = session('error', { pending: { ...pending, source: 'hook' }, lastHookAt: T0 });
+    expect(reduce(hookAsk, idle())).toBe(hookAsk);
+    const plain = session('error', { lastHookAt: T0 });
+    expect(reduce(plain, idle())).toBe(plain);
+  });
   it('waits for the hook priority window: a hook just fired describes the turn better', () => {
     const s = session('working', { lastHookAt: later(4000) });
     expect(reduce(s, idle(4000 + HOOK_PRIORITY_MS - 1))).toBe(s);

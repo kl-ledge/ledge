@@ -5,9 +5,11 @@ import type { ModelsState } from './useModels';
 import { savePick } from './modelPrefs';
 
 /** OMP is launched by the daemon itself, with no fallback to another harness: where it cannot be reached (not installed, a daemon
- *  that does not know it, no credentials), the launch is blocked with the reason (spec 2026-10-20 §3.1). */
-export function ompBlocked(form: Pick<LaunchForm, 'tool'>, online: boolean, models: ModelsState): string | null {
-  return form.tool === 'omp' && online && models.status === 'ready' && models.error ? models.error : null;
+ *  that does not know it, no credentials), the launch is blocked with the reason (spec 2026-10-20 §3.1). Antigravity CLI the same:
+ *  a daemon older than its support refuses the tool (`outdated`), one without `agy` installed cannot list its models. */
+export function ompBlocked(form: Pick<LaunchForm, 'tool'>, online: boolean, models: ModelsState, daemon?: { agy?: boolean } | null): string | null {
+  if (form.tool === 'agy' && online && daemon && !daemon.agy) return 'outdated';
+  return (form.tool === 'omp' || form.tool === 'agy') && online && models.status === 'ready' && models.error ? models.error : null;
 }
 
 /** The message sent for `form`: the model chosen is remembered for the project (unless the daemon is too old for models, which then

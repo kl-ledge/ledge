@@ -2,7 +2,7 @@
 
 # Ledge
 
-The workshop of one person who runs coding agents (Claude Code, Codex, Cursor Agent, OMP) across projects and machines. Ledge answers two questions: where all the work handed to agents stands, and how to steer it from wherever you are.
+The workshop of one person who runs coding agents (Claude Code, Codex, Cursor Agent, Antigravity CLI, OMP) across projects and machines. Ledge answers two questions: where all the work handed to agents stands, and how to steer it from wherever you are.
 
 - **Organise.** Ledge Desktop's atelier gives each project a table and seats its sessions around it, subagents at the ends. Messages between agents travel across the room.
 - **Launch and steer.** Start a session from an instruction, pick the project, machine, model and effort; change the model later, archive a session and resume it on the same conversation, read its thread, diffs and terminal.
@@ -41,10 +41,10 @@ You hold the organisation: Ledge proposes, you decide. Personal project. Windows
 ## How it works
 
 1. You start an agent with `ledge claude` instead of `claude`. The launcher puts the agent in a tmux session on a dedicated tmux server, registers it with the daemon, renames the Windows Terminal tab after the bot (`Otto · <topic or project>`) and attaches your terminal to it. Or you start one from the overlay's list (`+`): the daemon spawns the same tmux session itself and, if asked, the overlay opens a Windows Terminal tab on it (`ledge attach <id>`). The launch form opens on the default harness from Settings.
-2. The agent's own hooks (installed once by `ledge setup`) call `ledge hook <Event>` (Codex: `ledge hook codex <Event>`, Cursor Agent: `ledge hook cursor <event>`) on every lifecycle event. Each call forwards one message to the daemon and exits in a few milliseconds.
+2. The agent's own hooks (installed once by `ledge setup`) call `ledge hook <Event>` (Codex: `ledge hook codex <Event>`, Cursor Agent: `ledge hook cursor <event>`, Antigravity CLI: `ledge hook agy <Event>`) on every lifecycle event. Each call forwards one message to the daemon and exits in a few milliseconds.
 3. The daemon keeps the state of every session, polls each tmux pane once a second to detect prompts the hooks do not report and to build a terminal preview, and pushes every change over a local WebSocket.
 4. The Windows overlay shows one mascot per session in the island, stretches it into a bubble when a session waits for you, and sends your decision back. The daemon types it into the right pane and checks that the prompt went away.
-5. From the list, "Ask Ledge" sends a question to the daemon. The daemon writes a read-only context folder and runs the chosen harness headless (Claude Code, Codex, Cursor Agent or OMP). The overlay streams the steps and the answer. Ledge never types into a session from the chat.
+5. From the list, "Ask Ledge" sends a question to the daemon. The daemon writes a read-only context folder and runs the chosen harness headless (Claude Code, Codex, Cursor Agent, Antigravity CLI or OMP). The overlay streams the steps and the answer. Ledge never types into a session from the chat.
 
 ## Architecture
 
@@ -102,8 +102,8 @@ One binary, `ledge`, with fourteen commands. Source under `src/`:
 | --- | --- |
 | `cli/index.ts` | Entry point and dispatch. The `hook` path is isolated so it can never throw or exit non-zero. |
 | `cli/launch.ts` | `ledge <claude\|codex\|cursor> [--name <bot>] [-- args]`: finds or spawns the daemon, picks an id and a name, creates the tmux session with `LEDGE_SESSION` and `LEDGE_NAME` in the agent's environment, registers, renames the tab, attaches, and reports the agent's exit code through `session.unregister`. |
-| `cli/hook.ts` | `ledge hook [codex\|cursor] <Event>`: maps a Claude Code, Codex or Cursor Agent hook payload (read on stdin) to a `SessionEvent` and sends it, with the agent and its folder for a session the daemon does not know yet. Subagent events carry `helperId`. An `AskUserQuestion` with several questions sends the first one's text and options; later questions and the review come from the pane. |
-| `cli/setup.ts` | `ledge setup`: creates `~/.ledge` and merges `ledge hook <Event>` entries into `~/.claude/settings.json` for the twelve Claude Code events, and `ledge hook codex <Event>` entries into `~/.codex/hooks.json` (or `$CODEX_HOME`) for the ten Codex events, and `ledge hook cursor <event>` entries into `~/.cursor/hooks.json` for eight Cursor Agent events, never overwriting what is there. |
+| `cli/hook.ts` | `ledge hook [codex\|cursor\|agy] <Event>`: maps a Claude Code, Codex, Cursor Agent or Antigravity CLI hook payload (read on stdin) to a `SessionEvent` and sends it, with the agent and its folder for a session the daemon does not know yet. Subagent events carry `helperId`. An `AskUserQuestion` with several questions sends the first one's text and options; later questions and the review come from the pane. |
+| `cli/setup.ts` | `ledge setup`: creates `~/.ledge` and merges `ledge hook <Event>` entries into `~/.claude/settings.json` for the twelve Claude Code events, and `ledge hook codex <Event>` entries into `~/.codex/hooks.json` (or `$CODEX_HOME`) for the ten Codex events, `ledge hook cursor <event>` entries into `~/.cursor/hooks.json` for eight Cursor Agent events, and Ledge's own `ledge` group into `~/.gemini/config/hooks.json` for five Antigravity CLI events, never overwriting what is there. |
 | `cli/uninstall.ts` | `ledge uninstall [--purge]`: removes only Ledge's hook entries, the systemd unit and `~/.local/bin/ledge` (the link, or the script `ledge setup` wrote in its place). `--purge` also deletes `~/.ledge`. |
 | `cli/status.ts` | `ledge status`: one line per session from a fresh snapshot. |
 | `cli/attach.ts` | `ledge attach [--read-only] <id>`: renames the tab after the session and puts this terminal on its pane (`--read-only`: watch without typing). What the overlay runs in a new Windows Terminal tab for a session it started itself. |
@@ -121,7 +121,7 @@ One binary, `ledge`, with fourteen commands. Source under `src/`:
 | `daemon/poller.ts` | Every 1 s captures each live pane (200 lines), hashes it to detect activity, broadcasts a 30-line preview when it changed, runs the adapter's prompt detection on the last 60 lines, reads Claude Code's conversation title (`PaneTitle`), refreshes git fields on the life check (every 5 s), and archives exited sessions 10 min after they end (see [Projects, archive and models](#projects-archive-and-models)). |
 | `daemon/server.ts` | The WebSocket server on `127.0.0.1:47831`: snapshot on connect (then `chat.history`), broadcast of every store change and preview, and the command handlers. A decision is injected with the adapter's key plan, then verified. `session.launch` checks the folder, spawns the agent with the login shell's environment (see `shell-path.ts`) and answers `session.launched`. With a chat card's `qid`, it launches the proposal once and marks the turn. `session.rename` sets the topic. Chat commands go to `chat/`. |
 | `daemon/folders.ts` | `resolveFolder` (`~` expanded, absolute, existing) and the folder browser's `listFolder` and `createFolder`, which answer with a `folder.listing`. |
-| `chat/` | Ask Ledge: `service.ts` keeps one conversation a day per harness (50 turns, 180 s cap), writes `~/.ledge/chat/context/`, and runs `claude.ts` (`claude -p --restricted`), `codex.ts` (`codex exec --sandbox read-only`) or `cursor.ts` (`cursor-agent -p --mode ask`). `LEDGE_CHAT=1` so Ledge's own hooks ignore the run; no API key is inherited. |
+| `chat/` | Ask Ledge: `service.ts` keeps one conversation a day per harness (50 turns, 180 s cap), writes `~/.ledge/chat/context/`, and runs `claude.ts` (`claude -p --restricted`), `codex.ts` (`codex exec --sandbox read-only`) `cursor.ts` (`cursor-agent -p --mode ask`) or `agy.ts` (`agy` headless in stream-json, reads held to its workspace, every command, write, edit, MCP and URL denied). `LEDGE_CHAT=1` so Ledge's own hooks ignore the run; no API key is inherited. |
 | `adapters/` | One adapter per tool (`Adapter` in `types.ts`): prompt detection in the pane, `promptStillVisible`, key plans for accept/deny/reply/interrupt, and preview cleaning. `claude.ts`, `codex.ts` and `cursor.ts` are all implemented. Claude Code's adapter also answers a multi-question `AskUserQuestion` (one tab after another, then the review that has no footer). |
 | `tmux.ts` | Thin wrapper over the dedicated server `tmux -L ledge -f ~/.ledge/tmux.conf`. `newSession` runs the tmux client with the pane's PATH: tmux gives a detached session's pane the client's PATH, over `-e`. |
 | `shell-path.ts` | The environment a login shell (`$SHELL -l`) starts with. Under systemd the daemon has the bare system environment: `claude` (`~/.local/bin`) does not resolve and no proxy variable is set; an agent launched from the overlay (or Ask Ledge) gets the terminal's on top of the daemon's, or the daemon's alone (logged) when the shell fails. |
@@ -214,10 +214,10 @@ The daemon owns the processes: a restart ends its OMP sessions (resumable from t
 
 The list's "Ask Ledge" field sits above the sessions, matching the island's mascot ahead of the bots. `/` focuses it, `Enter` on a question sends it, `Enter` on the empty field (or a click on the field's mascot) opens today's conversation without asking. A `+` in the chat header starts a new conversation (`chat.reset`): the day's turns are cleared and the next question opens a fresh harness session.
 
-The overlay sends `chat.ask { qid, text, tool? }`. `tool` is the default harness from Settings (Claude Code, Codex, Cursor Agent or OMP). The daemon:
+The overlay sends `chat.ask { qid, text, tool? }`. `tool` is the default harness from Settings (Claude Code, Codex, Cursor Agent, Antigravity CLI or OMP). The daemon:
 
 1. writes `~/.ledge/chat/context/` (`sessions.md`, `pane-<id>.txt`, `reply-<id>.md`, `git-<id>.txt`) and adds each session's repository with `--add-dir`;
-2. runs one headless, read-only process: `claude -p --restricted` (tools `Read,Grep,Glob` only), `codex exec --sandbox read-only`, or `cursor-agent -p --mode ask`;
+2. runs one headless, read-only process: `claude -p --restricted` (tools `Read,Grep,Glob` only), `codex exec --sandbox read-only`, `cursor-agent -p --mode ask`, or `agy` with session-only settings that deny every command, write, edit, MCP and URL;
 3. streams `chat.step` (what it reads), `chat.delta` (the answer as it comes), then `chat.done` or `chat.error`.
 
 One question at a time (a second one gets `chat.error`). A turn that takes more than 180 s is stopped and reported as a timeout, with no retry. A failed resume of the day's session is retried once with a fresh id. The question goes on stdin, never in argv. `LEDGE_CHAT=1` so Ledge's own hooks ignore the run; an inherited `ANTHROPIC_API_KEY` is dropped so the CLI's own login is used. The context folder is deleted when the turn ends. `~/.ledge/chat.json` remembers the day's session id and which harness it belongs to.
@@ -434,7 +434,7 @@ Ledge has two halves: the `ledge` CLI and its daemon in WSL2, and Ledge Desktop 
 
 | Side | Requirements |
 | --- | --- |
-| WSL2 | A Linux distribution with `systemd=true` in `/etc/wsl.conf`, Git, Node 22, pnpm, tmux, and at least one agent: Claude Code, Codex or Cursor Agent. No root needed. |
+| WSL2 | A Linux distribution with `systemd=true` in `/etc/wsl.conf`, Git, Node 22, pnpm, tmux, and at least one agent: Claude Code, Codex, Cursor Agent or Antigravity CLI. No root needed. |
 | Windows | Windows 10 or 11 and Windows Terminal. WebView2 is already there on Windows 11; the installer fetches it otherwise. To build the installer yourself: Git, Node, pnpm and Rust stable with the MSVC toolchain (the Visual Studio C++ Build Tools). |
 
 Get pnpm with `corepack enable` on either side if it is missing.
@@ -447,7 +447,7 @@ npm i -g @paradow/ledge && ledge setup
 
 Use the `npm` of the Node 22+ that will run the daemon. With nvm, that is the version active when you run the command: `ledge setup` writes that Node into the systemd unit. To work from a clone instead, see [Development](#development).
 
-`ledge setup` prints what it did. It writes `~/.ledge`, adds Ledge's hooks to Claude Code (`~/.claude/settings.json`), and to Codex (`~/.codex/hooks.json`) and Cursor Agent (`~/.cursor/hooks.json`) when their folders exist. It keeps whatever hooks you already have. Codex asks you to review the new hooks at its next start: trust them there or from Ledge.
+`ledge setup` prints what it did. It writes `~/.ledge`, adds Ledge's hooks to Claude Code (`~/.claude/settings.json`), and to Codex (`~/.codex/hooks.json`), Cursor Agent (`~/.cursor/hooks.json`) and Antigravity CLI (`~/.gemini/config/hooks.json`) when their folders exist. It keeps whatever hooks you already have. Codex asks you to review the new hooks at its next start: trust them there or from Ledge.
 
 It also installs and starts the `ledge-daemon.service` systemd user unit and enables linger, so the daemon runs as soon as WSL boots. Without systemd, setup says so and `ledge claude` starts the daemon on demand instead. Check it:
 
@@ -487,7 +487,7 @@ If the notch says the daemon is unreachable, go back to step 1 and check the ser
 In any WSL terminal, start your agent through Ledge:
 
 ```sh
-ledge claude          # or: ledge codex, ledge cursor
+ledge claude          # or: ledge codex, ledge cursor, ledge agy
 ```
 
 The Windows Terminal tab takes the bot's name and a new mascot joins the notch. You can also start a session from the notch itself: open the list with `Ctrl+Alt+L` and press `+`, or press `Ctrl+Alt+N`. The [tour](docs/tour.md) shows every screen.
@@ -518,7 +518,7 @@ In WSL, one command undoes `ledge setup`:
 ledge uninstall           # add --purge to also delete ~/.ledge (session journal and log)
 ```
 
-It removes only Ledge's own entries from the Claude Code, Codex and Cursor Agent hooks, and keeps every other hook where it was. It stops the daemon, removes the `ledge-daemon.service` unit and deletes `~/.local/bin/ledge` (the link, or the script `ledge setup` wrote in its place). Sessions still running on Ledge's tmux server are reported, not killed. It leaves linger on, since other user services may need it. If a config file is not valid JSON, it is left untouched and the command ends with an error after doing the rest.
+It removes only Ledge's own entries from the Claude Code, Codex, Cursor Agent and Antigravity CLI hooks, and keeps every other hook where it was. It stops the daemon, removes the `ledge-daemon.service` unit and deletes `~/.local/bin/ledge` (the link, or the script `ledge setup` wrote in its place). Sessions still running on Ledge's tmux server are reported, not killed. It leaves linger on, since other user services may need it. If a config file is not valid JSON, it is left untouched and the command ends with an error after doing the rest.
 
 On Windows: Settings > Apps > Installed apps > Ledge Desktop > Uninstall. It also removes launch at login. Then delete the clones if you no longer need them.
 
@@ -588,9 +588,10 @@ The Desktop and overlay packages, the two crates and the npm package always carr
 
 ## Status and known limits
 
-- Claude Code, Codex and Cursor Agent have tmux adapters; OMP is driven over its own protocol (see « OMP »). All four can answer Ask Ledge (Settings › Default harness).
+- Claude Code, Codex, Cursor Agent and Antigravity CLI have tmux adapters; OMP is driven over its own protocol (see « OMP »). All five can answer Ask Ledge (Settings › Default harness).
 - An `AskUserQuestion` with several questions can be answered from Ledge, one dialog at a time, including the review screen.
 - Cursor Agent (verified on 2026.10.01): hooks give the turn (prompt, tools, `stop`) and the last reply (`afterAgentResponse`, rebuilt from the transcript so the turn's text blocks stay apart). They never report an approval, a question or a plan, so the pane gives them: the shell approval ("Run this command?", `y` runs once, `n` then an empty Enter skips), the workspace trust (`a` trusts, `q` quits), AskQuestion (an option number moves to it, ticks it with Space and goes on with Enter; Esc skips; a question that follows is a new prompt, not a failed answer) and Plan mode's "Ready to build?" (`b` builds locally, never in the cloud; refusing opens "Describe how to revise the plan", which reads as your turn: the next reply goes there). Keys that must not reach the agent in one read wait for the screen they are meant for (`until` steps). Ctrl-C interrupts (`stop` aborted, then a stray `error` that is ignored). Subagents fire no hook of their own kind: the parent's Task call names a helper, the subagent's hooks (its own `session_id`, but the parent's transcript in `CURSOR_TRANSCRIPT_PATH`) take it over, and the parent's next step ends it. Not covered: the "Other" free-text answer of a question, and the cloud build.
+- Antigravity CLI (verified on 1.5.17–1.5.18, `agy`): Ledge starts it in its asking mode (`--settings '{"agentMode":""}'`, its own default being Auto), the first prompt with `-i`, a resume with `--conversation <id>` and the model named again. Hooks (Ledge's `ledge` group in `~/.gemini/config/hooks.json`, which Antigravity's app and IDE share: only calls with `LEDGE_SESSION` count) give the turn (`SessionStart`, the first `PreInvocation` of a prompt, tools, `Stop` with `fullyIdle`); the reply, the thread's messages and the context use come from its transcript. `PreToolUse` prints nothing: agy reads `{}` as a refusal. A subagent has its own conversation id and is that session's helper. Approvals, questions and the trust prompt come from the pane: a number key answers at once, « always » is this conversation's option (never the one that writes agy's settings), a refusal with a note goes through `Tab` on « No ». A command or diff whose lines would pass for the dialog is not read: it is answered in the terminal. Plan mode writes `implementation_plan.md` and rests. Slash commands that open a panel (`/usage`, `/context`, `/model` alone…) are not typed. Not covered: the account's quota (agy publishes none).
 - Codex (verified on 0.162): hooks give the state, approvals (`y` runs once, Esc refuses), `request_user_input` questions and the last reply; the pane gives the Plan mode approval ("Implement this plan?", which has no hook) and the startup hooks review. Codex may run hooks in a shared app-server daemon that keeps the environment of the `codex` that started it, so a launched session names itself to its hooks through `-c shell_environment_policy.set.LEDGE_CODEX_HOOK_SESSION=<id>`, and `LEDGE_CODEX_SESSION` in the environment is trusted only when no app-server runs the hook. Plan mode itself is switched in the terminal (Shift+Tab).
 - Free-text replies to a question are refused (the 2.x question dialog is a select; typed text would pick the highlighted option). Answer with an option number or in the terminal.
 - The Rust shell compiles on Windows and the installer builds, but the runtime checks of the first-build checklist in the overlay README have not all been run.

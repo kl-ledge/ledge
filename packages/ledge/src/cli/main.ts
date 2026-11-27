@@ -1,8 +1,8 @@
-const USAGE = `ledge <claude|codex|cursor> [--name <bot>] [-- agent args]   start an agent in a tracked session
+const USAGE = `ledge <claude|codex|cursor|agy> [--name <bot>] [-- args]     start an agent in a tracked session
 ledge attach [--read-only] <id>                              put this terminal on a running session
 ledge shell [--nonce <hex32>] <dir>                          print the line that starts your login shell in <dir> with Ledge's marks
 ledge daemon                                                 run the daemon in the foreground
-ledge hook [codex|cursor] <Event>                            receive a hook (reads JSON on stdin)
+ledge hook [codex|cursor|agy] <Event>                        receive a hook (reads JSON on stdin)
 ledge setup                                                  install hooks and ~/.ledge
 ledge uninstall [--purge]                                    remove hooks, service and link (--purge: ~/.ledge too)
 ledge status [--all] [--json]                                list the sessions with their ids (--all: the archived ones too)
@@ -59,7 +59,7 @@ async function main(argv: string[]): Promise<number> {
     case 'close': { const { runClose } = await import('./action.js'); const r = await runClose(rest); console.log(r.line); return r.code; }
     case 'tui': { const { runTui } = await import('../tui/index.js'); return runTui(rest); }
     case 'bridge': { const { bridge } = await import('./bridge.js'); await bridge(); return 0; }
-    case 'claude': case 'codex': case 'cursor': { const { launch } = await import('./launch.js'); return launch(cmd, rest); }
+    case 'claude': case 'codex': case 'cursor': case 'agy': { const { launch } = await import('./launch.js'); return launch(cmd, rest); }
     case 'shell': { const { shell } = await import('./shell.js'); return shell(rest); }
     case 'attach': { const { attach } = await import('./attach.js'); return attach(rest.find(a => !a.startsWith('--')) ?? '', { readOnly: rest.includes('--read-only') }); }
     default: console.log(USAGE); return cmd ? 1 : 0;

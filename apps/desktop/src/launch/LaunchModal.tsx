@@ -27,7 +27,7 @@ import type { LaunchState } from './useLaunch';
 
 export type LaunchWhere = 'active' | 'right';
 
-const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'omp'];
+const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'agy', 'omp'];
 const APPROVALS: readonly OmpApproval[] = ['always-ask', 'write', 'yolo'];
 
 const onRow = (f: LaunchForm, r: ProjectRow) => f.project === r.project && f.machine === r.machine && f.repos[0] === r.path;
@@ -102,7 +102,7 @@ export function LaunchModal(p: {
   const infos = useRepoInfo(p.client, online ? form.machine : null, reposOn(project, form.machine).map(r => r.path));
   const models = useModels(p.client, online ? form.machine : null, form.tool);
   const outdated = models.error === 'outdated';
-  const unavailable = ompBlocked(form, online, models);
+  const unavailable = ompBlocked(form, online, models, chosen?.daemon);
   const approvable = chosen?.daemon?.ompApproval === true;
   const memo = loadPick(form.project, form.tool);
   const remembered = !!memo?.remembered && memo.model === form.model && memo.effort === form.effort;
@@ -222,13 +222,13 @@ export function LaunchModal(p: {
             {TOOLS.map(tool => (
               <button type="button" key={tool} className={cls('launch-modal-agent', form.tool === tool && 'on')} aria-pressed={form.tool === tool}
                 onClick={() => { if (tool !== form.tool) setForm(f => withTool(f, tool, loadPick(f.project, tool))); }}>
-                <span className="an"><span aria-hidden="true"><ProviderLogo provider={providerOf(tool)} size={16} /></span>{t.launch.tools[tool][0]}</span>
+                <span className="an"><span aria-hidden="true"><ProviderLogo provider={providerOf(tool)} size={16} /></span><span>{t.launch.tools[tool][0]}</span></span>
                 <small>{PROVIDER_TITLES[providerOf(tool)]}</small>
-                <LimitLine limit={agentLimit(p.usage.groups, tool, form.machine, p.usage.threshold, p.usage.now)} lang={lang} now={p.usage.now} m={m} />
+                {tool === 'agy' ? <small>{m.noLimitRead}</small> : <LimitLine limit={agentLimit(p.usage.groups, tool, form.machine, p.usage.threshold, p.usage.now)} lang={lang} now={p.usage.now} m={m} />}
               </button>
             ))}
           </div>
-          {unavailable !== null && <p className="launch-modal-alert" role="alert">{unavailable === 'outdated' ? t.launch.ompOutdated : t.launch.ompUnavailable(unavailable)}</p>}
+          {unavailable !== null && <p className="launch-modal-alert" role="alert">{form.tool === 'agy' ? (unavailable === 'outdated' ? t.launch.agyOutdated : t.launch.agyUnavailable(unavailable)) : unavailable === 'outdated' ? t.launch.ompOutdated : t.launch.ompUnavailable(unavailable)}</p>}
         </div>
 
         <span className="launch-modal-lbl">{m.model}</span>
@@ -262,6 +262,8 @@ export function LaunchModal(p: {
             </label>
           ))}
         </div>
+
+        {form.tool === 'agy' && <><span /><small className="models-note">{t.launch.agyHint}</small></>}
 
         <span />
         <div className="launch-modal-go">

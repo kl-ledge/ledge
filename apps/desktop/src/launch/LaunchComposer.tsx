@@ -21,7 +21,7 @@ import { useDefaultTool } from '../settings/tool';
 // The IDE's New session modal rides in this module's lazy chunk (launch/lazy.tsx).
 export { LaunchModal } from './LaunchModal';
 
-const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'omp'];
+const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'agy', 'omp'];
 const APPROVALS: readonly OmpApproval[] = ['always-ask', 'write', 'yolo'];
 const folderName = (path: string) => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path;
 
@@ -71,7 +71,7 @@ export function LaunchComposer(p: {
   // #58: the agent's models on that machine; a daemon too old for them takes no model, so none is offered or sent.
   const models = useModels(p.client, online ? form.machine : null, form.tool);
   const outdated = models.error === 'outdated';
-  const unavailable = ompBlocked(form, online, models);
+  const unavailable = ompBlocked(form, online, models, chosen?.daemon);
   const memo = loadPick(form.project, form.tool);
   const remembered = !!memo?.remembered && memo.model === form.model && memo.effort === form.effort;
 
@@ -191,7 +191,7 @@ export function LaunchComposer(p: {
           {!choosing && form.tool !== defaultTool && (
             <div className="harness-override"><span>{t.launch.onlyThisOne(label(defaultTool))}</span><button type="button" onClick={() => choose(defaultTool)}>{t.launch.backToDefault}</button></div>
           )}
-          {unavailable !== null && <p className="harness-unavailable" role="alert">{unavailable === 'outdated' ? t.launch.ompOutdated : t.launch.ompUnavailable(unavailable)}</p>}
+          {unavailable !== null && <p className="harness-unavailable" role="alert">{form.tool === 'agy' ? (unavailable === 'outdated' ? t.launch.agyOutdated : t.launch.agyUnavailable(unavailable)) : unavailable === 'outdated' ? t.launch.ompOutdated : t.launch.ompUnavailable(unavailable)}</p>}
           {online && !unavailable && (outdated ? <small className="models-note">{t.launch.modelsOutdated}</small>
             : <ModelPicker key={`${form.machine}|${form.tool}|${form.project}`} tool={form.tool} state={models} pick={form} remembered={remembered} onPick={pick => setForm(f => withPick(f, pick))} />)}
           {form.tool === 'omp' && !unavailable && (approvable ? (
@@ -205,6 +205,7 @@ export function LaunchComposer(p: {
               <small className="chip-hint">{t.launch.approvals[form.approval][1]}</small>
             </fieldset>
           ) : online && <small className="models-note">{t.launch.approvalOutdated}</small>)}
+          {form.tool === 'agy' && <p className="harness-native">{t.launch.agyHint}</p>}
           {form.tool === 'omp' && <p className="harness-native">{t.launch.ompNative}</p>}
           <p className="harness-live" role="status">{feedback}</p>
         </section>

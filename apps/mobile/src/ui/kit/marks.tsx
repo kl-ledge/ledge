@@ -24,8 +24,8 @@ export function Dot({ state, pulse = false, label }: { state: DotState; pulse?: 
   );
 }
 
-/** A runtime's two letters, as the desktop's: CC, CX, CU, OM (question Q11). */
-export const RUNTIME: Record<Tool, string> = { claude: 'CC', codex: 'CX', cursor: 'CU', omp: 'OM' };
+/** A runtime's two letters, as the desktop's: CC, CX, CU, AG, OM (question Q11). */
+export const RUNTIME: Record<Tool, string> = { claude: 'CC', codex: 'CX', cursor: 'CU', agy: 'AG', omp: 'OM' };
 
 export function RuntimeTag({ tool }: { tool: Tool }) {
   return <span data-runtime={tool} className="flex-none rounded-[5px] bg-secondary px-[5px] py-px font-mono text-[11px] leading-4 font-medium">{RUNTIME[tool]}</span>;

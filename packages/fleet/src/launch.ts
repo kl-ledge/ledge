@@ -2,8 +2,8 @@ import { splitId, type MachineState } from './machines';
 import { NAMES, pickName, type ClientMessage, type OmpApproval, type Project, type Repo, type RepoInfo, type Session } from '@ledge/protocol';
 
 export type Tool = Session['tool'];
-/** Harnesses that take several folders (Claude Code and OMP: `--add-dir`); the others get one repository at a time. */
-export const MULTI_REPO_TOOLS: ReadonlySet<Tool> = new Set<Tool>(['claude', 'omp']);
+/** The agents that take several folders, as the daemon's MULTI_DIR_ARGS does (Claude Code, Antigravity CLI) or OMP's own launch. */
+export const MULTI_REPO_TOOLS: ReadonlySet<Tool> = new Set<Tool>(['claude', 'agy', 'omp']);
 export const LAUNCH_TIMEOUT_MS = 20_000;
 export type LaunchMessage = Extract<ClientMessage, { type: 'session.launch' }>;
 /** `repos` are paths on `machine`. `tool` starts as the default agent (Settings › General). `model` and `effort` (#58): null leaves the agent's

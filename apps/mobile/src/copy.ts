@@ -399,7 +399,7 @@ const fr = {
   },
   /** A request's badge: the desktop's words for what waits on the user. */
   kind: { permission: 'Ton accord', question: 'Une question', plan: 'Plan', diff: 'Modification' },
-  tools: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' },
+  tools: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', agy: 'Antigravity CLI', omp: 'OMP' },
   /** Changing a live session's model and effort (the chip above the reply field and its sheet). */
   model: {
     title: 'Modèle et effort',
@@ -773,7 +773,7 @@ const fr = {
     ledge: 'Ledge',
     context: 'Contexte max', contextHint: 'Au-delà, une session est signalée près de sa limite. Partagé avec le PC.',
     chatTool: 'Agent du chat', chatToolHint: 'Celui qui répond à tes questions posées depuis cet appareil.',
-    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'omp', string>,
+    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', agy: 'Antigravity', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'agy' | 'omp', string>,
     toolPcHint: 'PC : le même agent que le chat de Ledge sur le PC.',
     failed: 'Le PC n’a pas pris ce réglage. Réessaie.',
     offline: 'Reconnecte-toi au PC pour changer ces réglages.',
@@ -1194,7 +1194,7 @@ const fr = {
     permissions: 'Permissions',
     approvals: { 'always-ask': ['Demander', 'Avant chaque écriture ou commande'], write: ['Fichiers auto', 'Écrit sans demander, demande avant les commandes'], yolo: ['Auto', 'Approuve tout, commandes comprises'] },
     onBranch: (branch: string) => `Sur ${branch}, dans le dossier du projet`, inFolder: 'Dans le dossier du projet',
-    tools: { claude: 'Conception, revue', codex: 'Code et tests', cursor: 'Dans l’éditeur', omp: 'Piloté en natif' },
+    tools: { claude: 'Conception, revue', codex: 'Code et tests', cursor: 'Dans l’éditeur', agy: 'Modèles Gemini', omp: 'Piloté en natif' },
     placeholder: 'Que doit faire l’agent ? Décris le résultat attendu.',
     ideas: ['Relire la dernière pull request', 'Corriger les tests qui échouent', 'Mettre à jour la documentation'],
     pick: (model: string, effort: string | null) => (effort ? `${model} · ${effort}` : model),
@@ -1219,7 +1219,7 @@ const fr = {
     folder: {
       missing: (machine: string) => `Introuvable sur ${machine}`,
       elsewhere: (other: string, machine: string) => `Sur ${other} : ce téléphone ne lance que sur ${machine}`,
-      single: 'Codex et Cursor Agent ne prennent qu’un dossier ; Claude Code et OMP peuvent en prendre plusieurs.'
+      single: 'Sur téléphone, Codex, Cursor Agent et Antigravity CLI ne prennent qu’un dossier ; Claude Code et OMP peuvent en prendre plusieurs.'
     },
     kept: 'Rien n’a été lancé. Ton message est conservé.',
     refused: {

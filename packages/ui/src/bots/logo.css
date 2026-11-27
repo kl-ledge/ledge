@@ -19,3 +19,5 @@
 .logo-bot[data-branded="true"][data-tool="cursor"][data-material="pebble"] { --bot-shell-top: #faf9f3; --bot-shell-bottom: #babcb4; --bot-shell-line: #e3e4dc; --bot-visor: #232824; }
 .logo-bot[data-branded="true"][data-tool="omp"][data-material="signal"] { --bot-shell-top: #cf6bbd; --bot-shell-bottom: #6989bc; --bot-shell-line: #dba4df; --bot-visor: #2d213b; }
 .logo-bot[data-branded="true"][data-tool="omp"][data-material="pebble"] { --bot-shell-top: #f0bee3; --bot-shell-bottom: #a7c4e5; --bot-shell-line: #f8ddf4; --bot-visor: #34283e; }
+.logo-bot[data-branded="true"][data-tool="agy"][data-material="signal"] { --bot-shell-top: #4f8ff7; --bot-shell-bottom: #2a5fc8; --bot-shell-line: #9ec2ff; --bot-visor: #14234a; }
+.logo-bot[data-branded="true"][data-tool="agy"][data-material="pebble"] { --bot-shell-top: #d6e6ff; --bot-shell-bottom: #93b7f0; --bot-shell-line: #ecf3ff; --bot-visor: #1c2b4d; }

@@ -14,6 +14,7 @@ import type { DeviceId, JournalEvent } from '../operator/journal.js';
 import { installedAgents, readGuide } from './guide.js';
 import { LEDGE_VERSION } from '../version.js';
 import { asksForge, type Forge } from './forge.js';
+import { runAgy } from './agy.js';
 import { runClaude, type ClaudeEvent, type RunHandle, type RunOptions } from './claude.js';
 import { runCodex } from './codex.js';
 import { runCursor } from './cursor.js';
@@ -109,9 +110,9 @@ export interface ChatDeps {
   now?: () => string; today?: () => string; uuid?: () => string; bin?: string[]; bins?: Partial<Record<Tool, string[]>>; spawn?: typeof nodeSpawn; timeoutMs?: number;
 }
 
-const TOOL_LABEL: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' };
+const TOOL_LABEL: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP', agy: 'Antigravity CLI' };
 export const runTool = (tool: Tool, o: RunOptions, onEvent: (e: ClaudeEvent) => void, spawn?: typeof nodeSpawn) =>
-  tool === 'omp' ? runOmp(o, onEvent, spawn) : tool === 'codex' ? runCodex(o, onEvent, spawn) : tool === 'cursor' ? runCursor(o, onEvent, spawn) : runClaude(o, onEvent, spawn);
+  tool === 'omp' ? runOmp(o, onEvent, spawn) : tool === 'codex' ? runCodex(o, onEvent, spawn) : tool === 'cursor' ? runCursor(o, onEvent, spawn) : tool === 'agy' ? runAgy(o, onEvent, spawn) : runClaude(o, onEvent, spawn);
 
 /** The environment a chat run gets: the CLI's own login (an API key the daemon inherited is never billed, spec §5.2), no session identity. */
 export async function chatEnv(deps: Pick<ChatDeps, 'env'>): Promise<NodeJS.ProcessEnv> {
@@ -373,8 +374,10 @@ export function createChat(deps: ChatDeps): Chat {
     const { sessionId, resume } = await daySession(fresh, tool);
     const label = TOOL_LABEL[tool];
     const images = (turn.attachments ?? []).flatMap(a => { const path = deps.attachments?.path(a.id); return path ? [{ path, mime: a.mime }] : []; });
-    let answer = ''; let resultError: string | null = null;
+    let answer = ''; let resultError: string | null = null; let actualSessionId: string | null = null;
     const handle = runTool(tool, { question: mine.told.text ? `${mine.told.text}\n\n${turn.question}` : turn.question, cwd: ctx.dir, addDirs: ctx.repoPaths, sessionId, resume, env, bin: deps.bins?.[tool] ?? deps.bin, ...(images.length > 0 ? { images } : {}), ...(tool === 'omp' ? { sessionDir: join(deps.home, 'chat', 'omp', sessionId) } : {}) }, e => {
+      // Antigravity CLI assigns its own conversation id: remember it so the next question of the day resumes it.
+      if (e.type === 'init' && tool === 'agy') actualSessionId = e.sessionId;
       // Reading the limits is no step: the turn says when, and a phone shows the limits under the answer (M3 Q31).
       if (e.type === 'tool' && e.path && ctx.limits && turn.limitsAt === undefined && resolve(e.path) === resolve(ctx.dir, LIMITS_MD)) turn.limitsAt = now();
       if (e.type === 'tool') { const step = e.path ? stepFor(e.path, ctx) : null; if (step && !turn.steps.some(s => sameStep(s, step))) { turn.steps.push(step); emit({ type: 'chat.step', qid: turn.qid, step }); } }
@@ -386,6 +389,7 @@ export function createChat(deps: ChatDeps): Chat {
     const timer = setTimeout(() => { log(`chat ${turn.qid}: timed out`); timedOut = true; handle.kill(); }, deps.timeoutMs ?? 180_000);
     const r = await handle.done; clearTimeout(timer);
     if (mine.cancelled) return CANCELLED;
+    if (actualSessionId && actualSessionId !== sessionId) await writeFile(dayFile, JSON.stringify({ day: today(), sessionId: actualSessionId, tool })).catch(() => {});
     if (timedOut) return { ok: false, message: `${label} did not answer within 3 minutes`, resumed: false };
     if (r.code !== 0) return { ok: false, message: r.code === null ? `${label} could not start: ${r.stderr.trim() || 'not found in PATH'}` : r.stderr.trim() || `${label} exited with code ${r.code}`, resumed: resume };
     if (resultError) return { ok: false, message: resultError, resumed: false };

@@ -104,7 +104,7 @@ export function fakeLink(initial: LinkState = 'ready') {
 const caps = { freeTextAnswer: true };
 export const snapshot = (sessions: PhoneSession[], name = 'Atelier', boot?: string, device?: { confirm: boolean; chat?: true }): PhoneServerMessage => ({
   type: 'snapshot', protocol: PHONE_PROTOCOL, sessions,
-  capabilities: { claude: caps, codex: caps, cursor: { freeTextAnswer: false }, omp: { freeTextAnswer: false } }, daemon: { version: '0.9.0', name, ...(boot ? { boot } : {}) }, ...(device ? { device } : {})
+  capabilities: { claude: caps, codex: caps, cursor: { freeTextAnswer: false }, agy: { freeTextAnswer: false }, omp: { freeTextAnswer: false } }, daemon: { version: '0.9.0', name, ...(boot ? { boot } : {}) }, ...(device ? { device } : {})
 });
 
 /** Scripts the PC's side of a phone chat: the messages it would send for one question. */

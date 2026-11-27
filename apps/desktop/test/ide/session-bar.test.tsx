@@ -67,6 +67,9 @@ describe('the IDE session tab\'s bottom bar (lot 2, task 6)', () => {
     expect(logo()).toBe('Cursor');
     cleanup();
     shown({ tool: 'omp', model: 'gemini-3-pro' });
+    expect(logo()).toBe('Google');
+    cleanup();
+    shown({ tool: 'omp', model: 'unknown-model' });
     expect(logo()).toBe('omp');
   });
 

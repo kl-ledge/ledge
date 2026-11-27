@@ -472,6 +472,9 @@ function reduceEvent(s: Session, ev: SessionEvent): Session {
     case 'PaneIdle': {
       // The pane shows Claude waiting for a prompt. Ends what no hook ends (a denied request, an Esc) and drops a
       // request answered or dismissed in the terminal. A recent hook describes the turn better; a helper may still wait.
+      // After a failed answer (error), a request read from the pane that the pane no longer shows was answered in the
+      // terminal: it goes, or it would refuse every reply and decision with nothing on screen to answer (seen with agy).
+      if (s.state === 'error' && s.pending?.source === 'pane' && !s.pending.helperId) return { ...s, state: 'idle', pending: undefined, lastActivityAt: at };
       if (s.state === 'idle' || s.state === 'error' || s.pending?.helperId) return s;
       if (lastHookAt && Date.parse(at) - Date.parse(lastHookAt) < HOOK_PRIORITY_MS) return s;
       return { ...s, state: 'idle', pending: undefined, lastActivityAt: at };

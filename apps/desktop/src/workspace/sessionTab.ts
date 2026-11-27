@@ -11,12 +11,13 @@ export { providerOf, type Provider } from '@ledge/ui/logos/ProviderLogo';
 import type { Provider } from '@ledge/ui/logos/ProviderLogo';
 
 /** The provider of a model, by its id (each segment of « provider/model » tried): Claude's, OpenAI's or Cursor's own; null
- *  for one with no logo in our set (Gemini…) or none known, where the caller shows the tool's provider. The session bar
+ *  for one with no logo in our set or none known, where the caller shows the tool's provider. The session bar
  *  says the model's provider (a Cursor Agent running Claude wears the Claude mark); a tab says the harness's. */
 export function modelProvider(model: string | undefined): Provider | null {
   for (const part of (model ?? '').toLowerCase().split('/')) {
     if (/^(claude|anthropic)/.test(part)) return 'anthropic';
     if (/^(gpt|codex|openai)/.test(part) || /^o[134](\b|-)/.test(part)) return 'openai';
+    if (/^(gemini|google)/.test(part)) return 'google';
     if (/^(composer|cursor)/.test(part) || part === 'auto') return 'cursor';
   }
   return null;

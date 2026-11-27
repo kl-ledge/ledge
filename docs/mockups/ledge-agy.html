@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Antigravity CLI dans Ledge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Approuvée par l'owner le 2026-11-27 : logo Gemini (« google ») et mascotte « L'étincelle » ; les variantes Antigravity et « L'arche » sont écartées.
+   Précisé le même jour : les tuiles d'agents de « Nouvelle session » par rangées de trois (cinq sur une ligne font passer chaque nom à la ligne
+   dans la fenêtre réelle) ; sur le téléphone, la tuile d'agy dit « Modèles Gemini » / « Gemini models », comme les autres disent leur rôle.
+   Antigravity CLI (agy) comme cinquième agent : son identité (logo du fournisseur, mascotte) et les écrans où il apparaît.
+   Base : docs/mockups/ledge-launch-name.html (même grille, mêmes tokens), packages/ui (ProviderLogo, Bot, logo.css),
+   apps/desktop/src/launch/LaunchModal.tsx, settings/General.tsx, apps/mobile/src/screens/NewSession.tsx, ledge tui.
+   Les marques et silhouettes sont lues dans les sources (packages/ui) ; spec : docs/superpowers/specs/2026-11-25-antigravity-cli.md. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --background:oklch(0.145 0 0);--foreground:oklch(0.985 0 0);--card:oklch(0.205 0 0);--muted:oklch(0.269 0 0);--muted-foreground:oklch(0.708 0 0);
+  --primary:oklch(0.444 0.177 26.899);--border:#ffffff1a;--input:#ffffff26;--accent:#ffffff10;--page:#000;--shell:#0d0d0d;--side:#141414;--ok:#34d399;--warn:#fbbf24;
+  --agy-top:#4f8ff7;--agy-bottom:#2a5fc8;--agy-visor:#14234a;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --background:oklch(1 0 0);--foreground:oklch(0.145 0 0);--card:oklch(1 0 0);--muted:oklch(0.97 0 0);--muted-foreground:oklch(0.556 0 0);
+  --primary:oklch(0.505 0.213 27.518);--border:oklch(0.922 0 0);--input:oklch(0.922 0 0);--accent:#0000000a;--page:oklch(0.95 0 0);--shell:oklch(0.985 0 0);--side:oklch(0.975 0 0);--ok:#059669;--warn:#a25a00;
+  --agy-top:#d6e6ff;--agy-bottom:#93b7f0;--agy-visor:#1c2b4d;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Geist','Segoe UI',system-ui,sans-serif;background:var(--page);color:var(--foreground);font-size:13px;line-height:18px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+code,.mono{font-family:'Geist Mono',ui-monospace,Consolas,monospace;font-size:11.5px}
+.mut{color:var(--muted-foreground)}
+header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--shell);border-bottom:1px solid var(--border)}
+header.bar h1{font-size:14px;font-weight:600;margin:0}
+header.bar .sub{color:var(--muted-foreground);font-size:12px;flex:1}
+.seg{display:inline-flex;border:1px solid var(--input);border-radius:7px;overflow:hidden}
+.seg button{padding:3px 10px;font-size:12px;color:var(--muted-foreground)}
+.seg button.on{background:var(--muted);color:var(--foreground)}
+main{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;max-width:1400px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card.wide{grid-column:1/-1}
+.card>h2{font-size:12.5px;font-weight:600;margin:0;padding:10px 14px 0;display:flex;gap:8px;align-items:baseline}
+.card>h2 .n{color:var(--muted-foreground);font-weight:500}
+.card>.what{margin:4px 14px 0;color:var(--muted-foreground);font-size:12px}
+.card>.body{padding:14px}
+.logo{display:inline-flex;align-items:center;justify-content:center;flex:none}
+.logo svg{display:block}
+/* Identité */
+.idgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.opt{border:1px solid var(--border);border-radius:9px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.opt.on{border-color:var(--foreground)}
+.opt h3{margin:0;font-size:12.5px;font-weight:600;display:flex;gap:8px;align-items:center}
+.opt h3 .tag{font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:5px;background:var(--muted);color:var(--muted-foreground)}
+.opt .row{display:flex;align-items:center;gap:14px}
+.opt .sizes{display:flex;align-items:flex-end;gap:12px}
+.opt .sizes span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;color:var(--muted-foreground)}
+.opt p{margin:0;font-size:12px;color:var(--muted-foreground)}
+.bots{display:flex;gap:18px;align-items:flex-end}
+.bots figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;color:var(--muted-foreground)}
+/* Nouvelle session (Desktop) */
+.modal{background:var(--background);border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;grid-template-columns:110px 1fr;gap:12px 14px;align-items:start}
+.lbl{color:var(--muted-foreground);font-size:12px;padding-top:9px}
+.agents{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.agent{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;min-width:0}
+.agent.on{border-color:var(--foreground);background:color-mix(in srgb,var(--foreground) 3%,transparent)}
+.agent .an{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent small{font-size:11px;color:var(--muted-foreground)}
+.agent small b{color:var(--foreground);font-weight:600}
+.field{border:1px solid var(--input);border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.field .k{color:var(--muted-foreground)}
+.hintline{grid-column:2;color:var(--muted-foreground);font-size:11.5px;margin-top:-6px}
+/* Réglages */
+.setrow{display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:start}
+.setrow .h{font-weight:600}.setrow .h small{display:block;font-weight:400;color:var(--muted-foreground);font-size:11.5px;margin-top:3px}
+.segbig{display:flex;flex-wrap:wrap;border:1px solid var(--input);border-radius:8px;padding:2px;gap:2px;width:max-content;max-width:100%}
+.segbig button{display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:6px;color:var(--muted-foreground);font-size:12.5px}
+.segbig button.on{background:var(--muted);color:var(--foreground)}
+/* Explorateur */
+.tree{background:var(--side);border:1px solid var(--border);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:2px;width:300px}
+.tree .proj{font-size:11px;color:var(--muted-foreground);padding:6px 8px 4px;text-transform:uppercase;letter-spacing:.04em}
+.sess{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px}
+.sess.on{background:var(--accent)}
+.sess .nm{font-weight:600}.sess .tp{color:var(--muted-foreground);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.sess .st{font-size:10.5px;padding:1px 6px;border-radius:5px;background:var(--muted);color:var(--muted-foreground)}
+.sess .st.ask{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-bottom:0;border-radius:8px 8px 0 0;background:var(--background)}
+.explore{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+/* Téléphone */
+.phone{width:300px;border:1px solid var(--border);border-radius:22px;padding:14px;background:var(--background);display:flex;flex-direction:column;gap:10px}
+.phone h4{margin:0;font-size:15px}
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.pgrid div{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:9px;padding:8px 9px;font-weight:500}
+.pgrid div.on{border-color:var(--foreground)}
+/* TUI */
+.tui{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;line-height:18px;background:#0b0b0c;color:#d7d7d7;border-radius:8px;padding:12px 14px;white-space:pre}
+:root[data-theme="light"] .tui{background:#fbfbfa;color:#222;border:1px solid var(--border)}
+.tui .sel{color:#7fb2ff}.tui .dim{opacity:.55}
+.notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;color:var(--muted-foreground);font-size:12px}
+.notes b{color:var(--foreground);font-weight:600}
+@media (max-width:900px){main{grid-template-columns:1fr}.agents{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1 id="title"></h1><span class="sub" id="sub"></span>
+  <span class="seg" id="mark"><button data-v="google"></button><button data-v="antigravity"></button></span>
+  <span class="seg" id="theme"><button data-v="dark">Sombre</button><button data-v="light">Clair</button></span>
+  <span class="seg" id="lang"><button data-v="fr">FR</button><button data-v="en">EN</button></span>
+</header>
+<main id="main"></main>
+<script>
+const DATA = {"marks": {"anthropic": "M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z", "openai": "M9.205 8.658v-2.26c0-.19.072-.333.238-.428l4.543-2.616c.619-.357 1.356-.523 2.117-.523 2.854 0 4.662 2.212 4.662 4.566 0 .167 0 .357-.024.547l-4.71-2.759a.797.797 0 00-.856 0l-5.97 3.473zm10.609 8.8V12.06c0-.333-.143-.57-.429-.737l-5.97-3.473 1.95-1.118a.433.433 0 01.476 0l4.543 2.617c1.309.76 2.189 2.378 2.189 3.948 0 1.808-1.07 3.473-2.76 4.163zM7.802 12.703l-1.95-1.142c-.167-.095-.239-.238-.239-.428V5.899c0-2.545 1.95-4.472 4.591-4.472 1 0 1.927.333 2.712.928L8.23 5.067c-.285.166-.428.404-.428.737v6.898zM12 15.128l-2.795-1.57v-3.33L12 8.658l2.795 1.57v3.33L12 15.128zm1.796 7.23c-1 0-1.927-.332-2.712-.927l4.686-2.712c.285-.166.428-.404.428-.737v-6.898l1.974 1.142c.167.095.238.238.238.428v5.233c0 2.545-1.974 4.472-4.614 4.472zm-5.637-5.303l-4.544-2.617c-1.308-.761-2.188-2.378-2.188-3.948A4.482 4.482 0 014.21 6.327v5.423c0 .333.143.571.428.738l5.947 3.449-1.95 1.118a.432.432 0 01-.476 0zm-.262 3.9c-2.688 0-4.662-2.021-4.662-4.519 0-.19.024-.38.047-.57l4.686 2.71c.286.167.571.167.856 0l5.97-3.448v2.26c0 .19-.07.333-.237.428l-4.543 2.616c-.619.357-1.356.523-2.117.523zm5.899 2.83a5.947 5.947 0 005.827-4.756C22.287 18.339 24 15.84 24 13.296c0-1.665-.713-3.282-1.998-4.448.119-.5.19-.999.19-1.498 0-3.401-2.759-5.947-5.946-5.947-.642 0-1.26.095-1.88.31A5.962 5.962 0 0010.205 0a5.947 5.947 0 00-5.827 4.757C1.713 5.447 0 7.945 0 10.49c0 1.666.713 3.283 1.998 4.448-.119.5-.19 1-.19 1.499 0 3.401 2.759 5.946 5.946 5.946.642 0 1.26-.095 1.88-.309a5.96 5.96 0 004.162 1.713z", "cursor": "M22.106 5.68L12.5.135a.998.998 0 00-.998 0L1.893 5.68a.84.84 0 00-.419.726v11.186c0 .3.16.577.42.727l9.607 5.547a.999.999 0 00.998 0l9.608-5.547a.84.84 0 00.42-.727V6.407a.84.84 0 00-.42-.726zm-.603 1.176L12.228 22.92c-.063.108-.228.064-.228-.061V12.34a.59.59 0 00-.295-.51l-9.11-5.26c-.107-.062-.063-.228.062-.228h18.55c.264 0 .428.286.296.514z", "google": "M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z", "antigravity": "M21.751 22.607c1.34 1.005 3.35.335 1.508-1.508C17.73 15.74 18.904 1 12.037 1 5.17 1 6.342 15.74.815 21.1c-2.01 2.009.167 2.511 1.507 1.506 5.192-3.517 4.857-9.714 9.715-9.714 4.857 0 4.522 6.197 9.714 9.715z"}, "shells": {"claude": "M24 24H72Q75 24 75 27V43H82Q84 43 84 45V52Q84 54 82 54H75V62Q75 64 73 64H70V75Q70 77 68 77H66Q64 77 64 75V64H59V75Q59 77 57 77H55Q53 77 53 75V64H43V75Q43 77 41 77H39Q37 77 37 75V64H32V75Q32 77 30 77H28Q26 77 26 75V64H23Q21 64 21 62V54H14Q12 54 12 52V45Q12 43 14 43H21V27Q21 24 24 24Z", "codex": "M30 25C31 13 48 10 57 20C69 14 84 23 81 37C92 46 87 62 76 65C76 80 58 86 48 77C35 85 20 78 21 66C7 61 7 45 18 38C13 28 21 20 30 25Z", "cursor": "M43 13Q48 10 53 13L77 27Q82 30 82 36V64Q82 69 77 72L53 85Q48 88 43 85L19 72Q14 69 14 64V36Q14 30 19 27Z", "omp": "M17 22H79Q83 22 83 26V48Q83 52 79 52H71V79Q71 83 67 83H58Q54 83 54 79V52H41V67Q41 71 37 71H28Q24 71 24 67V52H17Q13 52 13 48V26Q13 22 17 22Z", "agy": "M48 8Q51 8 52 12C55 32 64 41 84 44Q88 45 88 48Q88 51 84 52C64 55 55 64 52 84Q51 88 48 88Q45 88 44 84C41 64 32 55 12 52Q8 51 8 48Q8 45 12 44C32 41 41 32 44 12Q45 8 48 8Z"}};
+const q = new URLSearchParams(location.search);
+let L = q.get('lang') === 'en' ? 'en' : 'fr';
+let MARK = q.get('mark') === 'antigravity' ? 'antigravity' : 'google';
+document.documentElement.dataset.theme = q.get('theme') === 'light' ? 'light' : 'dark';
+
+const T = {
+  fr: {
+    title: 'Antigravity CLI dans Ledge', sub: 'Le cinquième agent : son identité et les écrans où il apparaît. Rien d’autre ne change.',
+    markA: 'Logo : Gemini', markB: 'Logo : Antigravity',
+    s1: 'Identité', s1w: 'Le logo du fournisseur, que l’agent porte partout, et la mascotte de ses sessions. Une proposition et sa variante pour chacun.',
+    logoA: 'Étincelle Gemini', logoAp: 'Le fournisseur des modèles, en ses couleurs, comme Claude garde son orange. Titre : « Google ».', proposed: 'proposé', variant: 'variante',
+    logoB: 'Marque Antigravity', logoBp: 'Le logo de l’outil lui-même, en couleur du texte, comme Cursor et OpenAI. Titre : « Google ».',
+    botA: 'Mascotte « L’étincelle »', botAp: 'L’étoile à quatre branches, pointes arrondies, en bleu ; les yeux en son centre. En tête seule sous 20 px.',
+    botB: 'Mascotte « L’arche »', botBp: 'L’arche d’Antigravity ; les yeux dans sa partie haute. Moins lisible en petit : la tête perd ses pieds.',
+    working: 'au travail', ask: 'votre accord', idle: 'disponible', head: 'tête · 16 px',
+    s2: 'Nouvelle session (Desktop)', s2w: 'Antigravity CLI vient après Cursor Agent, avant OMP. Il prend un modèle, un effort et plusieurs dossiers, comme Claude Code.',
+    agent: 'Agent', model: 'Modèle', effort: 'Effort', folders: 'Dossiers', limit: 'Limite 5 h', nolimit: 'Pas de limite lue',
+    agyModel: 'Gemini 4 Neon (Medium)', agyHint: 'Démarre en mode « demander » : chaque commande et chaque modification attend ton accord.',
+    s3: 'Réglages › Général', s3w: 'L’agent par défaut des nouvelles sessions et des routines : Antigravity CLI rejoint la liste.',
+    defTool: 'Agent par défaut', defToolH: 'Celui que « Nouvelle session » choisit d’abord.',
+    s4: 'Explorateur et onglet de session', s4w: 'Une session agy porte sa mascotte et son logo comme les autres ; ses états viennent de son terminal et de ses hooks.',
+    asking: 'demande', working2: 'travaille', topicA: 'Corrige le calcul de TVA', topicB: 'Ajoute les tests de la file',
+    s5: 'Téléphone › Nouvelle session', s5w: 'Lancé depuis le téléphone avec un seul dossier, comme Codex et Cursor Agent.',
+    newSession: 'Nouvelle session', launch: 'Lancer',
+    s6: 'ledge tui › Lancer', s6w: 'Le même choix dans le terminal ; `ledge agy` lance aussi une session suivie.',
+    s7: 'Ce que la maquette ne montre pas, et pourquoi', notes: [
+      '<b>Pas de jauge de limite</b> : agy ne publie pas son quota ; la ligne « Limite 5 h » reste vide pour lui.',
+      '<b>Demandes</b> : les permissions, questions et refus avec note d’agy s’affichent dans les cartes existantes, sans nouveau dessin.',
+      '<b>« Toujours autoriser »</b> vaut pour la conversation seulement (jamais l’option qui écrit les réglages d’agy) ; une modification de fichier n’en a pas.',
+      '<b>Textes</b> : « Antigravity CLI » partout, en français comme en anglais ; le fournisseur s’appelle « Google ».'
+    ]
+  },
+  en: {
+    title: 'Antigravity CLI in Ledge', sub: 'The fifth agent: its identity and the screens it shows on. Nothing else changes.',
+    markA: 'Logo: Gemini', markB: 'Logo: Antigravity',
+    s1: 'Identity', s1w: 'The provider logo the agent wears everywhere, and its sessions\' mascot. A proposal and its variant for each.',
+    logoA: 'Gemini spark', logoAp: 'The models\' provider, in its colours, as Claude keeps its orange. Title: “Google”.', proposed: 'proposed', variant: 'variant',
+    logoB: 'Antigravity mark', logoBp: 'The tool\'s own logo, in the text colour, like Cursor\'s and OpenAI\'s. Title: “Google”.',
+    botA: '“The spark” mascot', botAp: 'The four-point star, tips rounded, in blue; the eyes at its centre. Head only below 20 px.',
+    botB: '“The arch” mascot', botBp: 'Antigravity\'s arch; the eyes in its upper part. Less readable when small: the head loses its feet.',
+    working: 'working', ask: 'your approval', idle: 'available', head: 'head · 16 px',
+    s2: 'New session (Desktop)', s2w: 'Antigravity CLI comes after Cursor Agent, before OMP. It takes a model, an effort and several folders, like Claude Code.',
+    agent: 'Agent', model: 'Model', effort: 'Effort', folders: 'Folders', limit: '5 h limit', nolimit: 'No limit read',
+    agyModel: 'Gemini 4 Neon (Medium)', agyHint: 'Starts in the asking mode: every command and every edit waits for your approval.',
+    s3: 'Settings › General', s3w: 'The default agent of new sessions and routines: Antigravity CLI joins the list.',
+    defTool: 'Default agent', defToolH: 'The one “New session” picks first.',
+    s4: 'Explorer and session tab', s4w: 'An agy session wears its mascot and logo like the others; its states come from its terminal and its hooks.',
+    asking: 'asking', working2: 'working', topicA: 'Fix the VAT computation', topicB: 'Add the queue\'s tests',
+    s5: 'Phone › New session', s5w: 'Launched from the phone with one folder, like Codex and Cursor Agent.',
+    newSession: 'New session', launch: 'Launch',
+    s6: 'ledge tui › Launch', s6w: 'The same choice in the terminal; `ledge agy` also starts a followed session.',
+    s7: 'What the mockup does not show, and why', notes: [
+      '<b>No limit gauge</b>: agy does not publish its quota; the “5 h limit” line stays empty for it.',
+      '<b>Requests</b>: agy\'s permissions, questions and refusals with a note show in the existing cards, with no new drawing.',
+      '<b>“Always allow”</b> holds for the conversation only (never the option that writes agy\'s settings); a file edit has none.',
+      '<b>Texts</b>: “Antigravity CLI” everywhere, in French and English; the provider is named “Google”.'
+    ]
+  }
+};
+
+let uid = 0;
+/** A provider's mark, as ProviderLogo draws it. */
+function logo(p, size = 16) {
+  const M = DATA.marks;
+  if (p === 'google') {
+    const id = `g${uid++}`;
+    const w = [['#08B962', 7, 15.5, 11, 12, 1], ['#F94543', 8, 5.5, 11.5, 11, 1], ['#FABC12', 3.5, 13.5, 17.5, 12, .46]];
+    return `<span class="logo"><svg width="${size}" height="${size}" viewBox="0 0 24 24"><defs>${w.map((g, i) => `<linearGradient id="${id}-${i}" gradientUnits="userSpaceOnUse" x1="${g[1]}" y1="${g[2]}" x2="${g[3]}" y2="${g[4]}"><stop stop-color="${g[0]}"/><stop offset="${g[5]}" stop-color="${g[0]}" stop-opacity="0"/></linearGradient>`).join('')}</defs><path fill="#3186FF" d="${M.google}"/>${w.map((_, i) => `<path fill="url(#${id}-${i})" d="${M.google}"/>`).join('')}</svg></span>`;
+  }
+  if (p === 'omp') return `<span class="logo"><svg width="${size}" height="${size}" viewBox="0 0 64 64"><defs><linearGradient id="o${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="oklch(0.7 0.24 340)"/><stop offset=".5" stop-color="oklch(0.62 0.21 295)"/><stop offset="1" stop-color="oklch(0.81 0.14 200)"/></linearGradient></defs><path fill="url(#o${uid++})" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"/></svg></span>`;
+  const fill = p === 'anthropic' ? '#D97757' : 'currentColor';
+  return `<span class="logo"><svg width="${size}" height="${size}" viewBox="0 0 24 24"><path fill="${fill}" fill-rule="${p === 'anthropic' ? 'nonzero' : 'evenodd'}" d="${M[p]}"/></svg></span>`;
+}
+const agyMark = s => logo(MARK, s);
+/** The spark mascot (or the arch), as LogoBot draws it: the shell in its gradient, the eyes on it. */
+function bot(kind, size, eyes = 'open', head = false) {
+  const id = `b${uid++}`;
+  const shell = kind === 'arch' ? `<path transform="translate(6 6) scale(3.5)" d="${DATA.marks.antigravity}" fill="url(#${id})"/>` : `<path d="${DATA.shells.agy}" fill="url(#${id})"/>`;
+  const y = kind === 'arch' ? 33 : 43;
+  const e = eyes === 'happy' ? `<path d="M36 ${y + 8}q3-5 6 0M55 ${y + 8}q3-5 6 0" fill="none" stroke="var(--agy-visor)" stroke-width="3" stroke-linecap="round"/>`
+    : `<rect x="36" y="${y}" width="6" height="${eyes === 'wide' ? 14 : 12}" rx="3" fill="var(--agy-visor)"/><rect x="55" y="${y}" width="6" height="${eyes === 'wide' ? 14 : 12}" rx="3" fill="var(--agy-visor)"/>`;
+  const box = head ? (kind === 'arch' ? '6 6 84 64' : '8 8 80 80') : '0 0 96 96';
+  return `<svg width="${size}" height="${size}" viewBox="${box}"><defs><linearGradient id="${id}" x1=".1" y1="0" x2=".8" y2="1"><stop stop-color="var(--agy-top)"/><stop offset="1" stop-color="var(--agy-bottom)"/></linearGradient></defs>${head ? '' : '<ellipse cx="48" cy="92" rx="22" ry="2.5" fill="currentColor" opacity=".12"/>'}${shell}${e}</svg>`;
+}
+const TOOLS = [['claude', 'Claude Code', 'anthropic', 'Anthropic'], ['codex', 'Codex', 'openai', 'OpenAI'], ['cursor', 'Cursor Agent', 'cursor', 'Cursor'], ['agy', 'Antigravity CLI', 'google', 'Google'], ['omp', 'OMP', 'omp', 'Oh My Pi']];
+const markOf = t => (t[0] === 'agy' ? agyMark(16) : logo(t[2], 16));
+
+function render() {
+  const x = T[L];
+  document.documentElement.lang = L;
+  document.getElementById('title').textContent = x.title;
+  document.getElementById('sub').textContent = x.sub;
+  const mb = document.querySelectorAll('#mark button'); mb[0].textContent = x.markA; mb[1].textContent = x.markB;
+  for (const [g, v] of [['mark', MARK], ['theme', document.documentElement.dataset.theme], ['lang', L]]) for (const b of document.querySelectorAll(`#${g} button`)) b.classList.toggle('on', b.dataset.v === v);
+  const card = (id, n, h, w, body, wide) => `<section class="card${wide ? ' wide' : ''}" id="${id}"><h2><span class="n">${n}</span>${h}</h2><p class="what">${w}</p><div class="body">${body}</div></section>`;
+  const sizes = p => [14, 16, 24].map(s => `<span>${logo(p, s)}${s} px</span>`).join('');
+  const s1 = `<div class="idgrid">
+    <div class="opt ${MARK === 'google' ? 'on' : ''}"><h3>${x.logoA}<span class="tag">${x.proposed}</span></h3><div class="sizes">${sizes('google')}</div><p>${x.logoAp}</p></div>
+    <div class="opt ${MARK === 'antigravity' ? 'on' : ''}"><h3>${x.logoB}<span class="tag">${x.variant}</span></h3><div class="sizes">${sizes('antigravity')}</div><p>${x.logoBp}</p></div>
+    <div class="opt on"><h3>${x.botA}<span class="tag">${x.proposed}</span></h3><div class="bots"><figure>${bot('spark', 72)}${x.working}</figure><figure>${bot('spark', 72, 'wide')}${x.ask}</figure><figure>${bot('spark', 72, 'happy')}${x.idle}</figure><figure>${bot('spark', 16, 'open', true)}${x.head}</figure></div><p>${x.botAp}</p></div>
+    <div class="opt"><h3>${x.botB}<span class="tag">${x.variant}</span></h3><div class="bots"><figure>${bot('arch', 72)}${x.working}</figure><figure>${bot('arch', 72, 'wide')}${x.ask}</figure><figure>${bot('arch', 72, 'happy')}${x.idle}</figure><figure>${bot('arch', 16, 'open', true)}${x.head}</figure></div><p>${x.botBp}</p></div>
+  </div>`;
+  const s2 = `<div class="modal"><span class="lbl">${x.agent}</span><div class="agents">${TOOLS.map((t, i) => `<div class="agent ${t[0] === 'agy' ? 'on' : ''}"><span class="an">${markOf(t)}${t[1]}</span><small>${t[3]}</small><small>${t[0] === 'agy' ? x.nolimit : `${x.limit} <b>${[34, 12, 8, 0, 0][i]} %</b>`}</small></div>`).join('')}</div>
+    <span class="lbl">${x.model}</span><div class="field"><span>${x.agyModel}</span><span class="k">▾</span></div>
+    <span class="lbl">${x.effort}</span><div class="field"><span>medium</span><span class="k">▾</span></div>
+    <span class="lbl">${x.folders}</span><div class="field"><span class="mono">~/work/shop · ~/work/shared</span><span class="k">+</span></div>
+    <span class="hintline">${x.agyHint}</span></div>`;
+  const s3 = `<div class="setrow"><div class="h">${x.defTool}<small>${x.defToolH}</small></div><div class="segbig">${TOOLS.map(t => `<button class="${t[0] === 'agy' ? 'on' : ''}">${markOf(t)}${t[1]}</button>`).join('')}</div></div>`;
+  const s4 = `<div class="explore"><div class="tree"><div class="proj">shop</div>
+    <div class="sess on">${bot('spark', 18, 'wide', true)}<span class="nm">Nova</span><span class="tp">${x.topicA}</span><span class="st ask">${x.asking}</span></div>
+    <div class="sess">${bot('spark', 18, 'open', true)}<span class="nm">Pim</span><span class="tp">${x.topicB}</span><span class="st">${x.working2}</span></div>
+    </div><div><div class="tab">${agyMark(14)}<b>Nova</b><span class="mut">· shop · Antigravity CLI</span></div></div></div>`;
+  const s5 = `<div class="phone"><h4>${x.newSession}</h4><span class="mut">${x.agent}</span><div class="pgrid">${TOOLS.map(t => `<div class="${t[0] === 'agy' ? 'on' : ''}">${markOf(t)}${t[1]}</div>`).join('')}</div><div class="field"><span>${x.agyModel}</span><span class="k">▾</span></div></div>`;
+  const s6 = `<div class="tui">${L === 'fr' ? 'Nouvelle session — agent' : 'New session — agent'}
+  <span class="dim">  Claude Code</span>
+  <span class="dim">  Codex</span>
+  <span class="dim">  Cursor Agent</span>
+  <span class="sel">▸ Antigravity CLI</span>
+  <span class="dim">  OMP</span>
+${L === 'fr' ? '↑↓ choisir · entrée valider · échap annuler' : '↑↓ choose · enter confirm · esc cancel'}</div>`;
+  const s7 = `<ul class="notes">${x.notes.map(n => `<li>${n}</li>`).join('')}</ul>`;
+  document.getElementById('main').innerHTML = card('s1', '1', x.s1, x.s1w, s1, true) + card('s2', '2', x.s2, x.s2w, s2, true) + card('s3', '3', x.s3, x.s3w, s3, true)
+    + card('s4', '4', x.s4, x.s4w, s4) + card('s5', '5', x.s5, x.s5w, s5) + card('s6', '6', x.s6, x.s6w, s6) + card('s7', '7', x.s7, '', s7);
+}
+for (const g of ['mark', 'theme', 'lang']) document.getElementById(g).addEventListener('click', e => {
+  const v = e.target.closest('button')?.dataset.v; if (!v) return;
+  if (g === 'mark') MARK = v; else if (g === 'lang') L = v; else document.documentElement.dataset.theme = v;
+  render();
+});
+render();
+</script>
+</body>
+</html>

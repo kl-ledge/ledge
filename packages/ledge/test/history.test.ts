@@ -14,6 +14,21 @@ let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'ledge-')); process.env.LEDGE_HOME = dir; });
 
 describe('History', () => {
+  it('syncs agy messages from the current turn and records a late tool input', () => {
+    const h = new History();
+    const path = join(dir, '.system_generated/logs/transcript_full.jsonl');
+    mkdirSync(join(dir, '.system_generated/logs'), { recursive: true });
+    writeFileSync(path, [
+      JSON.stringify({ step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: later(1), content: 'Working.' }),
+      JSON.stringify({ step_index: 2, source: 'MODEL', type: 'GENERIC', created_at: later(2), content: 'tool output' })
+    ].join('\n') + '\n');
+    h.record('s', ev('UserPromptSubmit', { text: 'Do it' }));
+    expect(h.sync('s', path, { force: true })).toMatchObject([{ kind: 'message', text: 'Working.' }]);
+    expect(h.sync('s', path, { force: true })).toEqual([]);
+    h.record('s', ev('PreToolUse', { tool: 'edit_file', toolUseId: 'call' }, 2));
+    h.record('s', ev('PostToolUse', { tool: 'edit_file', toolUseId: 'call', toolInput: { Path: '/a', Target: 'a', Replacement: 'b' } }, 3));
+    expect(h.items('s').find(i => i.id === 'call')).toMatchObject({ status: 'success', files: [{ path: '/a', change: 'edit', diff: '- a\n+ b' }] });
+  });
   it('journals under the ledge home', () => { expect(paths().history).toBe(join(dir, 'history')); });
 
   it('builds the turn: prompt, running action, its result on the same row, the reply', () => {

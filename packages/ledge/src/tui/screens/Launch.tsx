@@ -48,7 +48,8 @@ export function Launch() {
   useEffect(() => { if (form.machine === null) { const up = machines.find(m => m.ready); if (up) setForm(f => withMachine(f, list, up.id)); } }, [machines]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const machine = machines.find(m => m.id === form.machine);
-  const tools: Tool[] = ['claude', 'codex', 'cursor', ...(machine?.daemon?.omp ? ['omp' as const] : [])];
+  // Antigravity CLI and OMP only where that machine's daemon launches them (an older one refuses the tool).
+  const tools: Tool[] = ['claude', 'codex', 'cursor', ...(machine?.daemon?.agy ? ['agy' as const] : []), ...(machine?.daemon?.omp ? ['omp' as const] : [])];
   const models = useModels(client, machine?.daemon?.models ? form.machine : null, form.tool);
   const modelIds = [null, ...models.models.map(m => m.id as string)];
   const model = models.models.find(m => m.id === form.model);

@@ -2,7 +2,7 @@ import { readFile, writeFile, rename, rm, lstat, realpath } from 'node:fs/promis
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { paths } from '../paths.js';
-import { BIN_MARK, SERVICE, execRunner, stopDetachedDaemon, type Runner } from './setup.js';
+import { AGY_GROUP, BIN_MARK, SERVICE, execRunner, stopDetachedDaemon, type Runner } from './setup.js';
 
 /** Every command `ledge setup` ever wired, whatever the event: `ledge hook <Event>`, `ledge hook codex|cursor <event>`, bare
  *  (before 0.54.2) or guarded (`… 2>/dev/null || true`, Cursor's `… || echo '{}'`). */
@@ -47,6 +47,13 @@ export function removeClaudeHooks(settings: unknown, file = 'settings.json'): { 
 /** Cursor Agent: `{ version: 1, hooks: { event: [{ command }] } }`. */
 export function removeCursorHooks(config: unknown): { settings: unknown; removed: number } {
   return prune(config, 'hooks.json', entry => isObject(entry) && typeof entry.command === 'string' && LEDGE_HOOK.test(entry.command) ? null : entry);
+}
+
+/** Antigravity CLI: Ledge's own `ledge` group in `~/.gemini/config/hooks.json`, as `ledge setup` wrote it; the rest stays. */
+export function removeAgyHooks(config: unknown): { settings: unknown; removed: number } {
+  if (!isObject(config) || !isObject(config[AGY_GROUP])) return { settings: config, removed: 0 };
+  const { [AGY_GROUP]: group, ...rest } = config;
+  return { settings: rest, removed: Object.keys(group as Record<string, unknown>).length };
 }
 
 /** Rewrites a JSON file without Ledge's hooks, atomically, only when something was removed. Returns that count. */
@@ -110,6 +117,8 @@ export interface UninstallOptions {
   settingsPath?: string;
   codexDir?: string;
   cursorDir?: string;
+  /** Where Antigravity CLI keeps its files (`~/.gemini`). */
+  agyDir?: string;
   service?: boolean;
   unitDir?: string;
   run?: Runner;
@@ -132,7 +141,8 @@ export async function runUninstall(opts: UninstallOptions = {}): Promise<{ lines
   const files: Array<[string, string, (c: unknown) => { settings: unknown; removed: number }]> = [
     ['Claude Code', opts.settingsPath ?? join(homedir(), '.claude', 'settings.json'), c => removeClaudeHooks(c, 'settings.json')],
     ['Codex', join(opts.codexDir ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'hooks.json'), c => removeClaudeHooks(c, 'hooks.json')],
-    ['Cursor Agent', join(opts.cursorDir ?? join(homedir(), '.cursor'), 'hooks.json'), removeCursorHooks]
+    ['Cursor Agent', join(opts.cursorDir ?? join(homedir(), '.cursor'), 'hooks.json'), removeCursorHooks],
+    ['Antigravity CLI', join(opts.agyDir ?? join(homedir(), '.gemini'), 'config', 'hooks.json'), removeAgyHooks]
   ];
   for (const [agent, path, remove] of files) {
     await step(async () => {

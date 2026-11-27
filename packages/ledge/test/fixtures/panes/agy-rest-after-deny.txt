@@ -1,0 +1,39 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.17
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> Add a function sub(a, b) to math.js, nothing else.
+
+● Explored 1 file (math.js)
+● Edited 1 file (math.js) (ctrl+o to expand)
+
+  Added sub(a, b) to math.js:2:
+
+    export const sub = (a, b) => a - b;
+
+────────────────────────────────────────────────────────────
+> Run the shell command: date +%Y
+
+● Ran (date +%Y) failed (ctrl+o to expand)
+
+Command
+  ⎿  User declined the tool call
+
+────────────────────────────────────────────────────────────
+> Use node -e to print the year instead.
+
+○ Thought for 2.9s (Command execution was denied for extracting the year. Shifting approach to execute the requested alternative enviro...)
+● Ran (node -e "console.log(new Date().getFullYear())") failed (ctrl+o to expand)
+
+Command
+  ⎿  User declined the tool call
+
+  ⎿  Interrupted · What should Antigravity CLI do instead?
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                                                                   Gemini 4 Hydrogen · medium

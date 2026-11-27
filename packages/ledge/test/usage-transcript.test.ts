@@ -13,6 +13,17 @@ const turnContext = (model: string, effort?: string) => JSON.stringify({ timesta
 const tokenCount = (at: string, rl: unknown) => JSON.stringify({ timestamp: at, type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { total_tokens: 5000 }, model_context_window: 258400 }, rate_limits: rl } });
 
 describe('the model and effort a session runs, from its transcript', () => {
+  it('reads agy input and cache tokens from the last model step', async () => {
+    const path = join(process.cwd(), 'test/fixtures/agy-transcript-sample.jsonl');
+    expect(await readTurn({ tool: 'agy', transcriptPath: path }, 'now')).toEqual({ model: 'gemini-4-hydrogen-medium', context: { used: 15816, window: 1_000_000, at: 'now' } });
+    const file = join(mkdtempSync(join(tmpdir(), 'agy-turn-')), 'x');
+    for (const family of ['neon', 'carbon', 'argon', 'hydrogen']) {
+      writeFileSync(file, JSON.stringify({ source: 'MODEL', type: 'PLANNER_RESPONSE', model: `gemini-4-${family}-high`, input_tokens: 10, cache_read_tokens: 20, output_tokens: 99 }));
+      expect(await readTurn({ tool: 'agy', transcriptPath: file }, 'now')).toMatchObject({ context: { used: 30, window: 1_000_000 } });
+    }
+    writeFileSync(file, JSON.stringify({ source: 'MODEL', type: 'PLANNER_RESPONSE', model: 'other', input_tokens: 10 }));
+    expect(await readTurn({ tool: 'agy', transcriptPath: file }, 'now')).toEqual({ model: 'other' });
+  });
   it('Claude Code: the last assistant message outside a side chain, its model and its effort', () => {
     expect(claudeTurn([claude({ model: 'claude-opus-5-5', effort: 'medium' }), claude({ model: 'claude-haiku-5-5', side: true })])).toEqual({ model: 'claude-opus-5-5', effort: 'medium' });
     // An older Claude Code without the field: the model alone.

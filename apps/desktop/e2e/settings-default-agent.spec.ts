@@ -5,7 +5,7 @@ import { eight, fakeDaemon, twoProjects } from './daemon';
 // robot mascots: one 16 px mark per choice, centred on its label, in both themes. The zoomed captures land in e2e/.results/.
 test.use({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 3, reducedMotion: 'reduce' });
 
-const PROVIDERS = [['Claude Code', 'Anthropic'], ['Codex', 'OpenAI'], ['Cursor Agent', 'Cursor'], ['OMP', 'omp']] as const;
+const PROVIDERS = [['Claude Code', 'Anthropic'], ['Codex', 'OpenAI'], ['Cursor Agent', 'Cursor'], ['Antigravity CLI', 'Google'], ['OMP', 'omp']] as const;
 
 for (const theme of ['light', 'dark'] as const) {
   test(`Default agent: the provider logos, centred on their labels (${theme})`, async ({ page }, info) => {

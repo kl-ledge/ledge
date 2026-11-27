@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { SessionCommandsListingSchema } from '@ledge/protocol';
-import { CLAUDE_PROBE_ARGS, claudeSlashRefusal, createCommands, parseClaudeCommands, probeClaude } from '../src/daemon/commands.js';
+import { CLAUDE_PROBE_ARGS, agySlashRefusal, claudeSlashRefusal, createCommands, parseClaudeCommands, probeClaude } from '../src/daemon/commands.js';
 
 // The shapes Claude Code 2.1.316 answers `initialize` with (trimmed).
 const RAW = [
@@ -118,5 +118,16 @@ describe('createCommands', () => {
   });
   it('lists nothing yet for the other agents', async () => {
     expect(await createCommands({ claude: async () => RAW }).list('codex', '/p')).toEqual({ commands: [], error: 'unsupported' });
+  });
+});
+
+describe('agySlashRefusal (Antigravity CLI 1.5.18 in tmux)', () => {
+  it('refuses what opens a panel, a picker without arguments, and the session\'s end; types the rest', () => {
+    for (const c of ['/usage', '/quota', '/context', '/diff', '/hooks', '/config', '/resume', '/open']) expect(agySlashRefusal(c)?.why, c).toBe('panel');
+    expect(agySlashRefusal('/model')?.why).toBe('bare');
+    expect(agySlashRefusal('/effort')?.why).toBe('bare');
+    expect(agySlashRefusal('/model gemini-4-neon-high')).toBeNull();
+    expect(agySlashRefusal('/exit')?.why).toBe('close');
+    for (const c of ['/rename Refactor', '/compact', '/btw what changed?', '/plan add a test', 'fix /usage in the docs']) expect(agySlashRefusal(c), c).toBeNull();
   });
 });

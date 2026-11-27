@@ -3,11 +3,13 @@ import type { Adapter } from './types.js';
 import { claudeAdapter } from './claude.js';
 import { codexAdapter } from './codex.js';
 import { cursorAdapter } from './cursor.js';
+import { agyAdapter } from './agy.js';
 
 export function adapterFor(tool: Tool): Adapter {
   if (tool === 'claude') return claudeAdapter;
   if (tool === 'codex') return codexAdapter;
   if (tool === 'cursor') return cursorAdapter;
+  if (tool === 'agy') return agyAdapter;
   throw new Error(`adapter for ${tool} not implemented yet`);
 }
 export type { Adapter, KeyPlan, PanePromptMatch } from './types.js';

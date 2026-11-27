@@ -1,0 +1,37 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.17
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> Add a function sub(a, b) to math.js, nothing else.
+
+● Explored 1 file (math.js)
+● Edited 1 file (math.js) (ctrl+o to expand)
+
+  Added sub(a, b) to math.js:2:
+
+    export const sub = (a, b) => a - b;
+
+────────────────────────────────────────────────────────────
+> Run the shell command: date +%Y
+
+● Ran (date +%Y) (ctrl+o to expand)
+
+Command
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Requesting permission for:
+   date +%Y
+
+Run this command?
+> 1. Yes, and tell Antigravity CLI what to do next
+    >
+  2. Yes, and always allow in this conversation for commands that start with 'date'
+  3. Yes, and always allow for commands that start with 'date' (Persist to settings.json)
+  4. No, cancel
+
+  enter Submit
+esc to cancel                                                                                                     Gemini 4 Hydrogen · medium

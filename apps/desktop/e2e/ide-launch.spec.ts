@@ -47,16 +47,18 @@ for (const theme of ['dark', 'light'] as const) test(`a group's + opens the moda
   const labelX = (await box(labels.first())).x;
   expect(Math.round(fieldsX - labelX)).toBe(166);
   for (const l of await labels.all()) expect(Math.round((await box(l)).x)).toBe(Math.round(labelX));
-  // Four agent tiles side by side, as wide as each other; Claude's limit amber (84 % over 80 %), Cursor's not read.
+  // Five agent tiles in rows of three (the owner's choice, 2026-11-27: five in one row wrap every name), as wide as each other; Claude's limit amber (84 % over 80 %), Cursor's not read.
   const tiles = form.locator('.launch-modal-agent');
-  await expect(tiles).toHaveCount(4);
+  await expect(tiles).toHaveCount(5);
   const tb = await Promise.all((await tiles.all()).map(box));
-  expect(new Set(tb.map(b => Math.round(b.y))).size).toBe(1);
+  expect(new Set(tb.map(b => Math.round(b.y))).size).toBe(2);
   expect(new Set(tb.map(b => Math.round(b.width))).size).toBe(1);
   await expect(tiles.nth(0)).toContainText(/Limite 5 h 84 % · réinit\. /);
   await expect(tiles.nth(0).locator('b.amber')).toHaveText('84 %');
   await expect(tiles.nth(1).locator('b')).not.toHaveClass(/amber/);
   await expect(tiles.nth(2)).toContainText('Limite non lue');
+  await expect(tiles.nth(3)).toContainText('Antigravity CLI');
+  await expect(tiles.nth(3)).toContainText('Pas de limite lue');
   // The fields bordered as the mockup's .inp and .agent (app.css's button reset must not win), the Project and Model fields 30 px high.
   const border = (l: Locator) => l.evaluate(e => getComputedStyle(e).borderTopWidth);
   expect(await border(form.locator('.launch-modal-inp'))).toBe('1px');
@@ -81,6 +83,18 @@ for (const theme of ['dark', 'light'] as const) test(`a group's + opens the moda
   await expect(dialog).toBeVisible();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await dialog.screenshot({ path: info.outputPath(`ide-launch-${theme}.png`), animations: 'disabled' });
+  // Antigravity CLI chosen (docs/mockups/ledge-agy.html, card 2): its name on one line at the others' size, Gemini's mark, the
+  // asking-mode hint under the form; on a daemon that does not announce it, the launch is blocked with the reason.
+  await tiles.nth(3).click();
+  await expect(tiles.nth(3)).toHaveAttribute('aria-pressed', 'true');
+  await expect(tiles.nth(3).locator('.logo')).toHaveAttribute('title', 'Google');
+  const nameOf = (i: number) => tiles.nth(i).locator('.an');
+  expect(Math.round((await box(nameOf(3))).height)).toBe(Math.round((await box(nameOf(0))).height));
+  expect(await nameOf(3).evaluate(e => getComputedStyle(e).fontSize)).toBe(await nameOf(0).evaluate(e => getComputedStyle(e).fontSize));
+  await expect(form).toContainText('Démarre en mode « demander »');
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await dialog.screenshot({ path: info.outputPath(`ide-launch-agy-${theme}.png`), animations: 'disabled' });
+  await tiles.nth(0).click();
   // The model list: each row wears its provider's logo.
   await form.locator('.model-trigger').click();
   await expect(page.locator('.model-menu .model-option .logo')).toHaveCount(1);

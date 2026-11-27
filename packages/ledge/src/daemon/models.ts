@@ -71,6 +71,29 @@ export function parseCursorModels(text: string): ModelChoice[] {
   return models;
 }
 
+/** The model agy is asked for to make it print its catalog: no model has this name, so it lists them and runs nothing. */
+export const AGY_LIST_PROBE = 'ledge-list-models';
+
+/**
+ * Antigravity CLI's catalog, from the error an unknown `--model` prints (`Available models:` then one display name per
+ * line, `Gemini 4 Neon (High)`; `agy models` was seen printing a stale list). Its ids are those names lower-cased with
+ * dashes (`gemini-4-neon-high`, the form agy takes); only the Gemini models are offered, the others' ids not being
+ * known. `settingsModel` (settings.json's `model`, a display name) marks the default.
+ */
+export function parseAgyModels(text: string, settingsModel?: string): ModelChoice[] {
+  const at = text.indexOf('Available models:');
+  if (at < 0) throw new Error('no model list');
+  const models: ModelChoice[] = [];
+  for (const line of text.slice(at).split('\n').slice(1)) {
+    const name = line.trim();
+    if (!/^ {2}\S/.test(line) || !/^Gemini \S/.test(name)) { if (!/^ {2}\S/.test(line)) break; continue; }
+    const id = name.toLowerCase().replace(/[()]/g, '').trim().replace(/\s+/g, '-');
+    if (!isModelId(id) || models.some(m => m.id === id)) continue;
+    models.push({ id, label: name, ...(name === settingsModel ? { isDefault: true } : {}) });
+  }
+  return models;
+}
+
 /** config.toml's top-level `model` and `model_reasoning_effort`, before its first table. */
 export function codexConfig(toml: string): { model?: string; effort?: string } {
   const top = toml.split(/^\s*\[/m)[0] ?? '';
@@ -115,6 +138,14 @@ export function createModels(deps: ModelsDeps = {}): Models {
       return claudeModels(typeof model === 'string' ? model : undefined);
     }
     if (tool === 'omp') { if (!deps.omp) throw new Error('not available'); return deps.omp(); }
+    if (tool === 'agy') {
+      // An unknown model fails at once, before any request, with the catalog in its message.
+      const r = await run('agy', ['-p', 'models', '--model', AGY_LIST_PROBE, '--output-format', 'json']);
+      if (r.code === null) throw new Error('not installed');
+      const settings = await readText(join(home, '.gemini', 'antigravity-cli', 'settings.json'));
+      let model: unknown; try { model = settings ? (JSON.parse(settings) as { model?: unknown }).model : undefined; } catch { /* not JSON: no default */ }
+      return parseAgyModels(`${r.stdout}\n${r.stderr}`, typeof model === 'string' ? model : undefined);
+    }
     const r = tool === 'codex' ? await run('codex', ['debug', 'models']) : await run('cursor-agent', ['models']);
     if (r.code === null) throw new Error('not installed');
     if (r.code !== 0) throw new Error(r.stderr.trim().split('\n').pop() || `exit ${r.code}`);

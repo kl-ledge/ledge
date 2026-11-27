@@ -17,7 +17,7 @@ export const NEARS = Array.from({ length: Math.round((CONTEXT_NEAR_MAX - CONTEXT
 // prefs stay in the device's settings, read and ignored, so an older phone is not refused (D12).
 const KINDS: readonly MutableNotification[] = ['decision'];
 type ToolChoice = Tool | 'pc';
-const TOOL_CHOICES: readonly ToolChoice[] = ['pc', 'claude', 'codex', 'cursor', 'omp'];
+const TOOL_CHOICES: readonly ToolChoice[] = ['pc', 'claude', 'codex', 'cursor', 'agy', 'omp'];
 
 /** A labelled row: the label (and its hint) on the left, the control on the right. */
 function Row({ label, hint, children }: { label: string; hint?: ReactNode; children: (describedBy: string | undefined) => ReactNode }) {

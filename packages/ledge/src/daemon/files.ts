@@ -28,6 +28,11 @@ export function filesOf(tool: string | undefined, input: Record<string, unknown>
   if (!tool || !input) return [];
   const path = str(input.file_path) ?? str(input.notebook_path);
   switch (tool) {
+    case 'edit_file': { const p = str(input.Path); return p ? [{ path: p, change: 'edit', diff: cap(edit(str(input.Target) ?? '', str(input.Replacement) ?? '')) }] : []; }
+    case 'write_file': {
+      const p = str(input.Path); const content = str(input.Content);
+      return p ? [{ path: p, change: 'write', ...(content !== undefined ? { diff: cap(content.split('\n').map(l => `+ ${l}`)) } : {}) }] : [];
+    }
     case 'Write': return path ? [{ path, change: 'write', ...(str(input.content) !== undefined ? { diff: cap(str(input.content)!.split('\n').map(l => `+ ${l}`)) } : {}) }] : [];
     case 'Edit': return path ? [{ path, change: 'edit', diff: cap(edit(str(input.old_string) ?? '', str(input.new_string) ?? '')) }] : [];
     case 'MultiEdit': {

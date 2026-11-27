@@ -41,6 +41,26 @@ export function claudeSlashRefusal(text: string): { message: string; why: 'panel
   return null;
 }
 
+/**
+ * Antigravity CLI 1.5.18, seen in tmux: the commands that open a panel or a picker (`/usage`, `/context`, `/diff`,
+ * `/effort`…) or a form, a file, the microphone; `/model` and `/effort` only when nothing follows them. The others answer
+ * on the conversation's line (`/rename` without a name says so) and are typed.
+ */
+const AGY_BLOCKED: ReadonlySet<string> = new Set(['agents', 'artifact', 'changelog', 'config', 'settings', 'context', 'credits', 'diff', 'help',
+  'hooks', 'keybindings', 'mcp', 'permissions', 'plugin', 'projects', 'resume', 'switch', 'rewind', 'undo', 'skills', 'tasks', 'usage', 'quota',
+  'record', 'voice', 'feedback', 'logout', 'open']);
+const AGY_BARE: ReadonlySet<string> = new Set(['model', 'effort']);
+
+/** Why Ledge does not type `text` into an Antigravity CLI session, or null; the same reasons as Claude Code's. */
+export function agySlashRefusal(text: string): { message: string; why: 'panel' | 'bare' | 'close' } | null {
+  const m = /^\/(\S+)(\s+\S[\s\S]*)?$/.exec(text.trim()); if (!m) return null;
+  const name = m[1]!.toLowerCase(), args = m[2] !== undefined;
+  if (CLAUDE_CLOSE.has(name)) return { message: `/${name} would end the session: close it from Ledge instead`, why: 'close' };
+  if (AGY_BLOCKED.has(name)) return { message: `/${name} opens a panel in the terminal: run it there`, why: 'panel' };
+  if (AGY_BARE.has(name) && !args) return { message: `/${name} without arguments opens a panel in the terminal: give it one, or run it there`, why: 'bare' };
+  return null;
+}
+
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? v as Json : {});
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);

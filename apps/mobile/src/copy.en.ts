@@ -376,7 +376,7 @@ export const en: Copy = {
   },
   /** A request's badge: the desktop's words for what waits on the user. */
   kind: { permission: 'Your approval', question: 'A question', plan: 'Plan', diff: 'Change' },
-  tools: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' },
+  tools: { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', agy: 'Antigravity CLI', omp: 'OMP' },
   /** Changing a live session's model and effort (the chip above the reply field and its sheet). */
   model: {
     title: 'Model and effort',
@@ -747,7 +747,7 @@ export const en: Copy = {
     ledge: 'Ledge',
     context: 'Context max', contextHint: 'Above it, a session is flagged as near its limit. Shared with the PC.',
     chatTool: 'Chat agent', chatToolHint: 'The one that answers the questions you ask from this device.',
-    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'omp', string>,
+    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', agy: 'Antigravity', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'agy' | 'omp', string>,
     toolPcHint: 'PC: the same agent as Ledge’s chat on the PC.',
     failed: 'The PC did not take this setting. Try again.',
     offline: 'Reconnect to the PC to change these settings.',
@@ -1150,7 +1150,7 @@ export const en: Copy = {
     permissions: 'Permissions',
     approvals: { 'always-ask': ['Ask', 'Before every write or command'], write: ['Auto files', 'Writes without asking, asks before commands'], yolo: ['Auto', 'Approves everything, commands included'] },
     onBranch: (branch: string) => `On ${branch}, in the project folder`, inFolder: 'In the project folder',
-    tools: { claude: 'Design, review', codex: 'Code and tests', cursor: 'In the editor', omp: 'Driven natively' },
+    tools: { claude: 'Design, review', codex: 'Code and tests', cursor: 'In the editor', agy: 'Gemini models', omp: 'Driven natively' },
     placeholder: 'What should the agent do? Describe the expected result.',
     ideas: ['Review the latest pull request', 'Fix the failing tests', 'Update the documentation'],
     pick: (model: string, effort: string | null) => (effort ? `${model} · ${effort}` : model),
@@ -1174,7 +1174,7 @@ export const en: Copy = {
     folder: {
       missing: (machine: string) => `Not found on ${machine}`,
       elsewhere: (other: string, machine: string) => `On ${other}: this phone launches on ${machine} only`,
-      single: 'Codex and Cursor Agent take a single folder; Claude Code and OMP can take several.'
+      single: 'On the phone, Codex, Cursor Agent and Antigravity CLI take a single folder; Claude Code and OMP can take several.'
     },
     kept: 'Nothing was launched. Your message is kept.',
     refused: {

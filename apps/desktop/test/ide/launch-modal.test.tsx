@@ -273,7 +273,19 @@ describe('LaunchModal', () => {
       expect(trigger().querySelector('.logo')).toHaveAttribute('title', 'Cursor');
       await user.click(trigger());
       const rows = screen.getAllByRole('option');
-      expect(rows.map(r => r.querySelector('.logo')?.getAttribute('title'))).toEqual(['Cursor', 'Anthropic', 'OpenAI', 'Cursor']);
+      expect(rows.map(r => r.querySelector('.logo')?.getAttribute('title'))).toEqual(['Cursor', 'Anthropic', 'OpenAI', 'Google']);
     });
   });
+});
+
+it('offers Antigravity after Cursor with its Google identity and asking hint', async () => {
+  const user = userEvent.setup();
+  render(ui(props()));
+  const buttons = within(screen.getByRole('group', { name: 'Agent' })).getAllByRole('button');
+  expect(buttons.map(b => b.querySelector('.an')?.textContent)).toEqual(['Claude Code', 'Codex', 'Cursor Agent', 'Antigravity CLI', 'OMP']);
+  const agy = buttons[3]!;
+  expect(agy).toHaveTextContent('Google');
+  expect(agy).toHaveTextContent('Pas de limite lue');
+  await user.click(agy);
+  expect(screen.getByText('Démarre en mode « demander » : chaque commande et chaque modification attend ton accord.')).toBeVisible();
 });

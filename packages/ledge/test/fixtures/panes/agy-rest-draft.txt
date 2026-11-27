@@ -1,0 +1,50 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.18
+     ▀▀▀▀▀▀       charles.meunier.dev@gmail.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/bench/agy-live/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> Read TASK.md and fix the bugs it describes in src/cache.js. Run the tests with npm test when done.
+
+● Explored 3 files (TASK.md, cache.js, package.json)
+● Ran (ls -la test/ && npm test) failed (ctrl+o to expand)
+
+Command
+  ⎿  User declined the tool call
+
+────────────────────────────────────────────────────────────
+> Run only npm test, without ls.
+
+○ Thought for 16.4s (Cache eviction behavior violates requirements because accessing an entry via read operations fails to promote it to the most-recently-used position. Relying on default map in...)
+● Ran (npm test)
+● Explored 1 file (cache.test.js)
+● Edited 2 files (cache.js, cache.test.js)
+● Ran (npm test) (ctrl+o to expand)
+
+  Fixed the bugs and added the requested features in src/cache.js, along with unit tests in test/cache.test.js.
+
+  Changes in src/cache.js
+
+  • Recency updates on get and set: get(key) and set(key, value, options) delete and re-insert existing keys in this.map so they move to the most-recently-used position.
+  • Expiration handling in has, size, and keys: Added #getAlive(key, now) and #purgeExpired(now) so expired entries (e.expires <= now) are removed and excluded from has(key), size, and keys(),
+  without altering LRU order.
+  • keys() ordering: Updated keys() to return live keys most recently used first ([...this.map.keys()].reverse()).
+  • Eviction order on set: When adding a new key to a full cache, set purges all expired entries first (#purgeExpired(now)) before evicting the least recently used entry if still at capacity.
+  • Per-entry ttlMs and ttlMs: 0: set(key, value, options) accepts { ttlMs } (falling back to this.ttlMs), and ttlMs === 0 sets expires = Infinity so entries never expire.
+  • peek(key): Added peek(key) to read a live entry's value (or remove it and return undefined if expired) without changing LRU order.
+
+  Verification
+
+  Ran npm test (node --test): all 11 tests passed (0 failed, 0 skipped).
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> alive ?alive ?alive ?alive ?
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                                                                              Gemini 4 Hydrogen · medium
+
+
+
+
+

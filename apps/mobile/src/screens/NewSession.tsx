@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { cleanName, nameHolder, nameRefusal, namesInUse, pickName, PHONE_LAUNCH_MULTI, type OperationReason, type PhoneFolder, type PhoneLaunch, type PhoneProject, type Tool } from '@ledge/protocol';
+import { ProviderLogo, providerOf } from '@ledge/ui/logos/ProviderLogo';
 import { copy } from '../copy';
 import { MOBILE_STORAGE_PREFIX } from '../link/keys';
 import { effortLabel, efforts, modelHint, type Pick } from '../model/modelChoice';
@@ -20,7 +21,8 @@ import { isApple } from './device';
 import { rememberStarted } from './launchStarted';
 
 const L = copy.launch;
-const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'omp'];
+/** Antigravity CLI is offered only by a PC whose daemon says it has its capabilities (an older one refuses the tool). */
+const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'agy', 'omp'];
 const APPROVALS = ['always-ask', 'write', 'yolo'] as const;
 type Approval = typeof APPROVALS[number];
 /** How long a sent launch may stay without a final answer before « n'a pas répondu » (Desktop's LAUNCH_TIMEOUT_MS, contract §6). */
@@ -251,10 +253,10 @@ export function NewSession({ store, storage }: { store: MobileStore; storage?: S
         )}
         <Field label={L.agent}>
           <div role="group" aria-label={L.agent} className="grid grid-cols-2 gap-2">
-            {TOOLS.map(t => (
+            {TOOLS.filter(t => t !== 'agy' || !!state.capabilities?.agy).map(t => (
               <button key={t} type="button" aria-pressed={t === tool} onClick={() => chooseTool(t)}
                 className="flex flex-col items-start gap-0.5 rounded-lg border border-input px-[11px] py-[9px] text-left text-[13.5px] font-medium aria-pressed:border-ring aria-pressed:bg-raised aria-pressed:shadow-[inset_0_0_0_1px_var(--color-ring)]">
-                {copy.tools[t]}<small className="text-[11.5px] font-normal text-muted">{L.tools[t]}</small>
+                <span className="flex items-center gap-2"><ProviderLogo provider={providerOf(t)} />{copy.tools[t]}</span><small className="text-[11.5px] font-normal text-muted">{L.tools[t]}</small>
               </button>
             ))}
           </div>

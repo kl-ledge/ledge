@@ -8,6 +8,8 @@ const TAIL_BYTES = 512 * 1024;
 const CLAUDE_WINDOW = 200_000;
 const CLAUDE_LONG_WINDOW = 1_000_000;
 const LONG_BY_DEFAULT = /^claude-(?:opus|sonnet|fable)-(\d+)/;
+/** Gemini 4's context window, assumed: agy's transcript does not say it and no documented figure was found. */
+const AGY_GEMINI_4_ASSUMED_WINDOW = 1_000_000;
 
 /** Whether a Claude model, the transcript's (`claude-opus-5-5`) or the one Ledge launched (`opus[1m]`), has the long window. */
 function longWindow(model: string | undefined): boolean {
@@ -150,9 +152,21 @@ export function codexLimits(lines: readonly string[]): { windows: UsageWindow[];
  *  and, for Codex, the account's limits. Each part undefined when it cannot be told. */
 export interface TurnInfo { context?: Context; model?: string; effort?: string; codexLimits?: { windows: UsageWindow[]; at: string } }
 export async function readTurn(s: Pick<Session, 'tool' | 'transcriptPath' | 'model'>, at: string): Promise<TurnInfo> {
-  if (!s.transcriptPath || (s.tool !== 'claude' && s.tool !== 'codex')) return {};
+  if (!s.transcriptPath || (s.tool !== 'claude' && s.tool !== 'codex' && s.tool !== 'agy')) return {};
   let lines: string[];
   try { lines = await tail(s.transcriptPath); } catch { return {}; }
+  if (s.tool === 'agy') {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      let e: Json;
+      try { e = JSON.parse(lines[i]!) as Json; } catch { continue; }
+      if (!e || e.source !== 'MODEL' || e.type !== 'PLANNER_RESPONSE') continue;
+      const model = str(e.model);
+      const used = num(e.input_tokens) + num(e.cache_read_tokens);
+      const window = model && /^gemini-4-(?:neon|carbon|argon|hydrogen)(?:-|$)/.test(model) ? AGY_GEMINI_4_ASSUMED_WINDOW : undefined;
+      return { ...(model ? { model } : {}), ...(used > 0 && window ? { context: { used, window, at } } : {}) };
+    }
+    return {};
+  }
   if (s.tool === 'claude') {
     const u = claudeUsage(lines, s.model);
     return { ...(u ? { context: { ...u, at } } : {}), ...claudeTurn(lines) };

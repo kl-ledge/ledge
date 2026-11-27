@@ -18,7 +18,7 @@ export async function readGuide(files: readonly string[] = GUIDE_FILES): Promise
 }
 
 /** The executable each harness runs by default (claude.ts, codex.ts, cursor.ts, omp.ts). */
-export const AGENT_BIN: Record<Tool, string> = { claude: 'claude', codex: 'codex', cursor: 'cursor-agent', omp: 'omp' };
+export const AGENT_BIN: Record<Tool, string> = { claude: 'claude', codex: 'codex', cursor: 'cursor-agent', omp: 'omp', agy: 'agy' };
 
 /** The agents whose executable is on `path` (the login shell's PATH, as a launched agent sees it). */
 export async function installedAgents(path: string | undefined): Promise<Tool[]> {

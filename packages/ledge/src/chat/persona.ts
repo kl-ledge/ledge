@@ -11,7 +11,7 @@ Réponds dans la langue de la question, en 3 à 10 lignes, en Markdown simple : 
 Tu n'agis jamais toi-même : tu proposes une action, une carte la montre à l'utilisateur, et rien ne se fait avant qu'il la valide. Ne propose une action que si l'utilisateur la demande explicitement. N'y mets que des ids, des noms et des chemins absolus lus dans les fichiers du dossier courant ou donnés tels quels par l'utilisateur : n'invente jamais un chemin ni un id. Si plusieurs cibles conviennent, ou aucune, ne mets pas de bloc : cite les candidats et demande laquelle, ou dis pourquoi ce n'est pas possible.
 Une question peut commencer par des lignes « [Ledge] … » : c'est Ledge, pas l'utilisateur, qui te dit qu'une carte que tu as proposée a été ignorée. Ne repropose pas cette action, sauf si l'utilisateur la redemande.`;
 
-/** What each harness reads with, beside the flags that make it so (claude.ts, codex.ts, cursor.ts, omp.ts): a flag change and its sentence go together. */
+/** What each harness reads with, beside the flags that make it so (claude.ts, codex.ts, cursor.ts, omp.ts, agy.ts): a flag change and its sentence go together. */
 const READS: Record<Tool, string> = {
   // --tools Read,Grep,Glob --permission-mode dontAsk
   claude: 'Pour lire, tu as les outils `Read`, `Grep` et `Glob` ; pas de shell.',
@@ -20,7 +20,9 @@ const READS: Record<Tool, string> = {
   // --mode ask --sandbox enabled
   cursor: 'Pour lire, tu as la lecture et la recherche du mode ask ; aucune écriture.',
   // --tools read,grep,glob
-  omp: 'Pour lire, tu as les outils `read`, `grep` et `glob` ; pas de shell.'
+  omp: 'Pour lire, tu as les outils `read`, `grep` et `glob` ; pas de shell.',
+  // --sandbox --add-dir --settings (reads held to the workspace; every command, write, edit, mcp and url denied)
+  agy: 'Pour lire, tu as `read_file` sur le dossier courant et les dépôts, par leur chemin : pas de commande shell ni de liste de dossier, aucune écriture.'
 };
 
 const RISK: Record<'read' | 'reversible' | 'destructive', string> = {

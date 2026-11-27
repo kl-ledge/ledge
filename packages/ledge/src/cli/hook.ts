@@ -361,6 +361,149 @@ function mapCursorEvent(eventName: string, p: Payload, at: string, launched: boo
   }
 }
 
+/** One step of an Antigravity CLI transcript (`…/brain/<conversationId>/.system_generated/logs/transcript_full.jsonl`). */
+type AgyStep = { step_index?: number; source?: string; type?: string; content?: string; tool_calls?: unknown[] };
+
+/** The first `bytes` of an agy transcript as steps: where a conversation says how it began. */
+export function readAgyHead(path: string, bytes = 64 * 1024): AgyStep[] {
+  let raw: string;
+  try {
+    const fd = openSync(path, 'r');
+    try { const buf = Buffer.alloc(bytes); const n = readSync(fd, buf, 0, bytes, 0); raw = buf.subarray(0, n).toString('utf8'); } finally { closeSync(fd); }
+  } catch { return []; }
+  const out: AgyStep[] = [];
+  for (const line of raw.split('\n')) { try { if (line.trim()) out.push(JSON.parse(line)); } catch { /* cut or being written */ } }
+  return out;
+}
+
+/** The steps at the end of an agy transcript (the same reading as Claude's: its last 512 KB). */
+const readAgyTail = (path: string): AgyStep[] => readTranscript(path) as unknown as AgyStep[];
+
+/**
+ * A subagent's conversation starts with the message its parent sent it (`<SYSTEM_MESSAGE>[Message] … sender=<parent id>`),
+ * a person's with their prompt. Its hooks carry no parent id and an empty `lastUserInput` (agy 1.5.17).
+ */
+export function agyIsHelper(p: Payload, head: (path: string) => AgyStep[] = readAgyHead): boolean {
+  const path = str(p.transcriptPath);
+  const first = path ? head(path)[0] : undefined;
+  if (first) return first.type !== 'USER_INPUT' && /\bsender=[0-9a-f-]{36}\b/.test(first.content ?? '');
+  return str(p.lastUserInput) === '';
+}
+
+/** What a subagent was asked: the content of its parent's message. */
+function agyHelperTask(p: Payload, head: (path: string) => AgyStep[]): string | undefined {
+  const path = str(p.transcriptPath);
+  const first = path ? head(path)[0] : undefined;
+  return first?.content?.match(/\bcontent=([^\n]+)/)?.[1]?.trim().slice(0, 200) || undefined;
+}
+
+/** The agent's last words of the turn: the latest model step with text, from the transcript (agy's Stop carries none). */
+export function agyReply(steps: AgyStep[]): string | undefined {
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const s = steps[i]!;
+    if (s.type === 'USER_INPUT') return undefined; // nothing said since the prompt
+    if (s.type === 'PLANNER_RESPONSE' && s.content?.trim()) return cap(s.content.trim());
+  }
+  return undefined;
+}
+
+/**
+ * Whether a `PreInvocation` with `invocationNum` 0 starts a turn a person asked for: the step just before it is their
+ * prompt. A parent woken by its subagent's message starts again from 0 too, after a step that is not a prompt. Unread
+ * (no transcript yet), it is taken as a prompt.
+ */
+export function agyPromptStarts(p: Payload, tail: (path: string) => AgyStep[] = readAgyTail): boolean {
+  if (p.invocationNum !== 0) return false;
+  const path = str(p.transcriptPath); const n = typeof p.initialNumSteps === 'number' ? p.initialNumSteps : undefined;
+  if (!path || n === undefined) return true;
+  const before = tail(path).find(s => s.step_index === n - 1);
+  return before ? before.type === 'USER_INPUT' : true;
+}
+
+/** Antigravity CLI's tool call as Ledge shows it: the command, the file, or the question. */
+function describeAgyTool(name: string | undefined, args: Payload): string {
+  if (name === 'run_command') return str(args.CommandLine) ?? '';
+  return str(args.Path) ?? str(args.AbsolutePath) ?? str(args.toolSummary) ?? JSON.stringify(args).slice(0, 200);
+}
+
+/**
+ * Antigravity CLI 1.5.17 hooks (`~/.gemini/config/hooks.json`, see setup.ts). They report the turn (prompt, tools,
+ * stop) but never a permission or a question waiting: those come from the pane, like Cursor Agent's.
+ *
+ * Only a session Ledge launched is followed: the global hooks file is shared with Antigravity's app and IDE, whose
+ * hooks run without `LEDGE_SESSION`. A subagent (`invoke_subagent`) runs in the same pane and has the same
+ * environment, under a conversation of its own: it is that session's helper, named by its conversation id. Each of the
+ * parent's `Stop`s ends its turn (see mapAgyEvent).
+ */
+export function mapAgyHook(eventName: string, payload: unknown, at: string, env: NodeJS.ProcessEnv = process.env,
+  read: { head?: (path: string) => AgyStep[]; tail?: (path: string) => AgyStep[] } = {}): MappedHook | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as Payload;
+  const id = env.LEDGE_SESSION;
+  const conversation = str(p.conversationId);
+  if (!id || !conversation) return null;
+  const head = read.head ?? readAgyHead; const tail = read.tail ?? readAgyTail;
+  const cwd = str(p.cwd) || undefined;
+  const helper = agyIsHelper(p, head);
+  const event = helper ? mapAgyHelperEvent(eventName, p, at, conversation, head) : mapAgyEvent(eventName, p, at, tail);
+  if (!event) return null;
+  // The conversation id (what `--conversation` takes) rides on the session's own events, never on a subagent's.
+  return { id, event: helper ? event : { ...event, agentSessionId: conversation }, agent: 'agy', ...(cwd ? { cwd } : {}) };
+}
+
+function agyCall(p: Payload): { tool?: string; args: Payload; toolUseId?: string } {
+  const call = (p.toolCall && typeof p.toolCall === 'object' ? p.toolCall : {}) as Payload;
+  const args = (call.args && typeof call.args === 'object' ? call.args : {}) as Payload;
+  return { tool: str(call.name) || undefined, args, toolUseId: str(call.id) || undefined };
+}
+
+function mapAgyHelperEvent(eventName: string, p: Payload, at: string, helperId: string, head: (path: string) => AgyStep[]): SessionEvent | null {
+  const base = { at, source: 'hook' as const, helperId };
+  const { tool, toolUseId } = agyCall(p);
+  switch (eventName) {
+    case 'SessionStart': { const task = agyHelperTask(p, head); return { name: 'SubagentStart', ...base, tool: 'subagent', ...(task ? { text: task } : {}) }; }
+    case 'PreToolUse': return { name: 'PreToolUse', ...base, tool, ...(toolUseId ? { toolUseId } : {}) };
+    case 'PostToolUse': return { name: str(p.error) ? 'PostToolUseFailure' : 'PostToolUse', ...base, tool, ...(toolUseId ? { toolUseId } : {}) };
+    case 'Stop': return p.fullyIdle === false ? null : { name: 'SubagentStop', ...base };
+    default: return null;
+  }
+}
+
+function mapAgyEvent(eventName: string, p: Payload, at: string, tail: (path: string) => AgyStep[]): SessionEvent | null {
+  const transcriptPath = str(p.transcriptPath);
+  const base = { at, source: 'hook' as const, ...(transcriptPath ? { transcriptPath } : {}) };
+  const { tool, args, toolUseId } = agyCall(p);
+  const call = { ...(toolUseId ? { toolUseId } : {}), ...(tool ? { toolInput: trimInput(args) ?? {} } : {}) };
+  switch (eventName) {
+    case 'SessionStart': return { name: 'SessionStart', ...base };
+    // agy has no prompt event: the first model call of a turn a person started is the prompt (see agyPromptStarts).
+    case 'PreInvocation': return agyPromptStarts(p, tail) ? { name: 'UserPromptSubmit', ...base, ...promptText({ prompt: p.lastUserInput }) } : null;
+    case 'PreToolUse': {
+      // A subagent is announced by its parent's call; its own SessionStart (a helper) follows.
+      return { name: 'PreToolUse', ...base, tool, text: describeAgyTool(tool, args), ...call };
+    }
+    case 'PostToolUse': {
+      const error = str(p.error) || undefined;
+      return error ? { name: 'PostToolUseFailure', ...base, tool, ...call, error } : { name: 'PostToolUse', ...base, tool, ...call };
+    }
+    case 'Stop': {
+      // Every Stop of the session ends its turn, `fullyIdle: false` too (a subagent still working): agy does not always stop
+      // again once that subagent is done (seen live on 1.5.18: the parent's last Stop said false, its subagent's Stop came
+      // after, nothing more), and its reply would be lost. A parent woken by its subagent works again through its tools.
+      const reason = str(p.terminationReason) ?? '';
+      if (reason === 'USER_CANCELED') return { name: 'PostToolUseFailure', ...base, interrupt: true };
+      if (reason === 'ERROR' || str(p.error)) {
+        const text = (str(p.error) || reason).slice(0, 300);
+        return { name: 'StopFailure', ...base, ...(text ? { text } : {}) };
+      }
+      const path = str(p.transcriptPath);
+      const text = path ? agyReply(tail(path)) : undefined;
+      return { name: 'Stop', ...base, ...(text ? { text } : {}) };
+    }
+    default: return null;
+  }
+}
+
 type Identity = Pick<Session, 'name' | 'tool' | 'project' | 'cwd'> & Partial<Pick<Session, 'repo' | 'branch' | 'worktree'>> & {
   /** The tasks it holds, open (context handover spec §2): kept by Ledge, not in its conversation. */
   tasks?: Task[];
@@ -411,6 +554,8 @@ export function identityContext(s: Identity): string {
     `Tu es ${s.name}, ${where} : une session lancée par Ledge (${s.tool}). Les autres sessions Ledge te connaissent sous le nom ${s.name}.`,
     'Pour voir les autres sessions (nom, outil, état, projet, branche, sujet), lance `ledge who`.',
     s.tool === 'claude' ? 'Pour écrire à une autre session Ledge, Claude ou Codex, utilise son nom Ledge (donné par `ledge who`) comme adresse SendMessage : Ledge le transmet. `ListAgents` montre les noms internes de Claude, pas les noms Ledge. Pour écrire à plusieurs sessions d\'un coup : @projet:<nom> (tout un projet) ou une liste Pim,Nova comme adresse.'
+      // Antigravity CLI runs `ledge` like any command (no sandbox to cross): no hook answers for it.
+      : s.tool === 'agy' ? 'Pour écrire à une autre session Ledge, lance `ledge send <nom> "<message>"`. Pour écrire à tout un projet : `ledge send @projet:<nom> "…"` ; à plusieurs sessions : `ledge send Pim,Nova "…"`.'
       : 'Pour écrire à une autre session Ledge, lance `ledge send <nom> "<message>"` (seul, sans && ni |). Ledge exécute lui-même `ledge send`, `ledge read`, `ledge task` et `ledge who` : leur résultat t\'arrive comme « Command blocked by PreToolUse hook: … », c\'est la réponse, pas une erreur. Pour écrire à tout un projet : `ledge send @projet:<nom> "…"` ; à plusieurs sessions : `ledge send Pim,Nova "…"`.',
     'Un long message d\'une autre session t\'arrive en aperçu avec son id : lance `ledge read <id>` pour le lire en entier. Une `<ledge-notice>` vient de Ledge : un de tes messages n\'a pas pu être remis.',
     'Un message sert à prévenir ; pour confier un travail qui ne doit pas se perdre, lance plutôt `ledge task give <nom> "<titre>" "<détail>"` (`ledge task` pour le reste). Une `<ledge-task>` t\'en confie une, ou te dit comment une des tiennes a fini : quand on t\'en confie une, prends-la (`ledge task take <id>`) et termine-la toujours (`ledge task done <id> "<résultat>"`, ou `refuse`). Une décision qui revient à l\'utilisateur se pose avec `ledge task give ledge "<question>" "<options, ta recommandation>"` : sa réponse te réveille, inutile d\'attendre la fin pour la poser.',
@@ -544,10 +689,12 @@ export async function runHook(eventName: string, stdin: string, opts: { port?: n
   let routines: Routine[] = [];
   try {
     const payload = JSON.parse(stdin || '{}');
-    mapped = agent === 'cursor' ? mapCursorHook(eventName, payload, new Date().toISOString()) : mapHook(agent, eventName, payload, new Date().toISOString());
+    const at = new Date().toISOString();
+    mapped = agent === 'cursor' ? mapCursorHook(eventName, payload, at) : agent === 'agy' ? mapAgyHook(eventName, payload, at) : mapHook(agent, eventName, payload, at);
     if (!mapped) { log(`hook ${label} ignored: unknown event, malformed payload, non-terminal SessionEnd or subagent event without a session of its own`); return undefined; }
-    const launchedId = agent === 'codex' ? codexLedgeId() : agent === 'claude' ? process.env.LEDGE_SESSION : undefined;
-    identify = eventName === 'SessionStart' && !!launchedId && mapped.id === launchedId;
+    const launchedId = agent === 'codex' ? codexLedgeId() : agent === 'claude' || agent === 'agy' ? process.env.LEDGE_SESSION : undefined;
+    // An agy subagent's SessionStart is mapped to SubagentStart: the identity is the session's, not its helpers'.
+    identify = eventName === 'SessionStart' && mapped.event.name === 'SessionStart' && !!launchedId && mapped.id === launchedId;
     const input = ((payload as Payload).tool_input ?? {}) as Payload;
     const intercept = agent === 'claude' && eventName === 'PreToolUse' && str((payload as Payload).tool_name) === 'SendMessage'
       && typeof input.to === 'string' && typeof input.message === 'string' && !!input.message;
@@ -592,5 +739,8 @@ export async function runHook(eventName: string, stdin: string, opts: { port?: n
   const byId = new Map(sessions.map(s => [s.id, s] as const));
   const mine = found ? routinesOf(routines, { cwd: found.cwd, names: targetNames({ name: found.name, relieves: known?.relieves }, id => byId.get(id)) }) : [];
   const who = found ? { ...found, ...(held.length ? { tasks: held } : {}), ...(known?.relieves ? { relieves: known.relieves } : {}), ...(brain ? { brain } : {}), ...(mine.length ? { routines: mine } : {}) } : undefined;
-  return who ? JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: identityContext(who) } }) : undefined;
+  if (!who) return undefined;
+  // Antigravity CLI takes context as a system message added to the conversation.
+  if (agent === 'agy') return JSON.stringify({ injectSteps: [{ systemMessage: { systemMessage: identityContext(who) } }] });
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: identityContext(who) } });
 }

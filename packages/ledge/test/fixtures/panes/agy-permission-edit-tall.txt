@@ -1,0 +1,50 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/home/dev/demo/src/cache.js  +46 -12
+   1  -    set(key, value) {
+   2  -      this.map.set(key, { value, expires: this.now() + this.ttlMs });
+   3  -      if (this.map.size > this.max) {
+   4  -        const oldest = this.map.keys().next().value;
+   5  -        this.map.delete(oldest);
+   1  +    set(key, value, options) {
+   2  +      const now = this.now();
+   3  +      const ttl = options?.ttlMs ?? this.ttlMs;
+   4  +      const expires = ttl === 0 ? Infinity : now + ttl;
+   5  +
+   6  +      if (this.map.has(key)) {
+   7  +        this.map.delete(key);
+   8  +      } else if (this.map.size >= this.max) {
+   9  +        this.#purgeExpired(now);
+  10  +        while (this.map.size >= this.max && this.map.size > 0) {
+  11  +          const oldest = this.map.keys().next().value;
+  12  +          this.map.delete(oldest);
+  13  +        }
+  14  +      }
+  15  +
+  16  +      if (this.max > 0) {
+  17  +        this.map.set(key, { value, expires });
+  18         }
+  19       }
+  20
+  21       get(key) {
+  10  -      const e = this.map.get(key);
+  22  +      const e = this.#getAlive(key);
+  23         if (!e) return undefined;
+  12  -      if (e.expires <= this.now()) {
+  13  -        this.map.delete(key);
+  14  -        return undefined;
+  15  -      }
+  24  +      this.map.delete(key);
+  25  +      this.map.set(key, e);
+  26         return e.value;
+  27       }
+  28
+  … 42 more lines (f for full diff)
+
+  shift+tab to auto-approve file edits
+Accept this file edit?
+> 1. Yes, accept this change
+  2. No, reject this change
+
+  ↑/↓ Navigate · f full diff
+esc to cancel                                                                                                                                                                 Gemini 4 Hydrogen · medium

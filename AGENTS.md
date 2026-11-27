@@ -1,6 +1,6 @@
 # Ledge — guidance for agents
 
-Ledge is a workshop for one person who runs coding agents (Claude Code, Codex, Cursor Agent, OMP) across projects and
+Ledge is a workshop for one person who runs coding agents (Claude Code, Codex, Cursor Agent, Antigravity CLI, OMP) across projects and
 machines: a WSL daemon and CLI that follow the agents in tmux, a Windows app (Ledge Desktop, with its island on the top
 edge), an end-to-end encrypted phone app, and a relay between the phone and the PC. `README.md` explains the whole;
 each project below has its own `AGENTS.md`, read it before working there.

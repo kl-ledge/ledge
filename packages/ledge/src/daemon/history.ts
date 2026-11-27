@@ -5,7 +5,7 @@ import type { AttachmentRef, NoticeItem, ReceivedItem, SentItem, SessionEvent, T
 import { paths } from '../paths.js';
 import { log } from '../log.js';
 import { filesOf } from './files.js';
-import { agentMessages } from './transcript.js';
+import { agentMessages, agyMessages } from './transcript.js';
 import { QUESTION_TOOLS } from './state.js';
 import { quote } from './tasks.js';
 import { crossSession, crossSessionNotices, stripNote, ledgeBody, ledgeMessages, ledgeNotice, ledgeTask, mailId, type CrossSessionNotice } from './crossSession.js';
@@ -283,7 +283,9 @@ export class History {
     const have = new Set(items.map(i => i.id));
     const turn = this.turns.get(id) ?? 0;
     const added: ThreadItem[] = [];
-    for (const m of agentMessages(path, { sidechain: !!opts.helperId })) {
+    // History receives only the transcript path, so agy's distinctive filename selects its reader.
+    const messages = path.endsWith('/.system_generated/logs/transcript_full.jsonl') ? agyMessages(path) : agentMessages(path, { sidechain: !!opts.helperId });
+    for (const m of messages) {
       if (m.at < since || have.has(`msg-${m.id}`)) continue;
       added.push(this.put(id, { kind: 'message', id: `msg-${m.id}`, at: m.at, turn, text: m.text, ...(opts.helperId ? { helperId: opts.helperId } : {}) }));
     }

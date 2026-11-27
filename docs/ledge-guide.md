@@ -4,7 +4,7 @@ Ce guide est écrit à la main et versionné avec le code. Ledge le recopie dans
 
 ## Ce qu'est Ledge
 
-Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cursor Agent et OMP, lancés dans WSL ou sur un serveur SSH. Il montre ce que fait chaque agent et ce qu'il attend. Il permet de répondre à une demande sans ouvrir son terminal et de lancer des sessions.
+Ledge veille sur les sessions d'agents de l'utilisateur : Claude Code, Codex, Cursor Agent, Antigravity CLI et OMP, lancés dans WSL ou sur un serveur SSH. Il montre ce que fait chaque agent et ce qu'il attend. Il permet de répondre à une demande sans ouvrir son terminal et de lancer des sessions.
 
 - **Le daemon** (`ledge daemon`, paquet npm `@paradow/ledge`) tourne dans WSL ou sur un serveur. Il suit les sessions par leurs hooks et par tmux, garde les projets, les tâches et les messages entre sessions, et fait tourner le chat de Ledge. La CLI `ledge` lui parle :
   - `ledge claude|codex|cursor` lance un agent suivi ;
@@ -368,7 +368,7 @@ S'ouvre par `?`. Liste complète des raccourcis.
 #### Nouvelle session (`launch`)
 
 S'ouvre par `N`, `Ctrl+Alt+N` partout dans Windows, le + d'un groupe, « Nouvelle session » d'un groupe vide, le menu d'un projet ou la palette. `Ctrl+Entrée` lance, Échap ferme.
-- **Champs :** projet, où travailler (une nouvelle branche dans un worktree, ou le dossier du projet), agent (Claude Code, Codex, Cursor Agent, OMP, avec la limite d'usage de son compte), modèle, permissions, premier message, et où ouvrir la session (groupe actif, à droite).
+- **Champs :** projet, où travailler (une nouvelle branche dans un worktree, ou le dossier du projet), agent (Claude Code, Codex, Cursor Agent, Antigravity CLI, OMP, avec la limite d'usage de son compte quand Ledge la lit ; aucune pour Antigravity CLI), modèle, permissions, premier message, et où ouvrir la session (groupe actif, à droite).
 
 Y renvoyer l'utilisateur pour lancer lui-même une session avec des réglages précis.
 

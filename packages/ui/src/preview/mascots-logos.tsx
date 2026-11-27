@@ -15,7 +15,8 @@ const FAMILY: { tool: BotProps['tool']; name: string; title: string; detail: str
   { tool: 'claude', name: 'Claude Code', title: 'Clawd, version Ledge', detail: 'Le corps en pixels, les pattes et les petits bras de Clawd. La visière et les yeux arrondis de Ledge, sans changer sa silhouette.', source: 'https://github.com/Vvkmnn/clawd' },
   { tool: 'codex', name: 'Codex', title: 'Le nuage terminal', detail: 'Le nuage de l’app Codex accueille la visière et le regard expressif de Ledge.', source: 'https://openai.com/index/introducing-the-codex-app/' },
   { tool: 'cursor', name: 'Cursor', title: 'Le cube adouci', detail: 'Le volume du logo, avec des coins arrondis, des facettes douces et une visière Ledge. Un petit cube moins anguleux, plus accueillant.', source: 'https://cursor.com/brand' },
-  { tool: 'omp', name: 'omp', title: 'Le petit pi', detail: 'La barre du π porte la visière. Ses deux jambes restent asymétriques.', source: 'https://omp.sh/' }
+  { tool: 'omp', name: 'omp', title: 'Le petit pi', detail: 'La barre du π porte la visière. Ses deux jambes restent asymétriques.', source: 'https://omp.sh/' },
+  { tool: 'agy', name: 'Antigravity CLI', title: 'L’étincelle', detail: 'L’étoile à quatre branches de Gemini, pointes arrondies, en bleu Google. Les yeux se posent en son centre, là où elle est la plus large.', source: 'https://antigravity.google/' }
 ];
 const STATES: BotState[] = ['starting', 'working', 'approval', 'question', 'idle', 'error', 'done', 'readonly'];
 const SIZES = [12, 16, 20, 22, 32, 48, 92];

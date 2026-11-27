@@ -41,7 +41,7 @@ import { readProjects, writeProjects } from './projects.js';
 import { readContextPrefs, readIsland, writeContextPrefs, writeIsland } from './island.js';
 import { readDocument } from './documents.js';
 import { createModels, type Models } from './models.js';
-import { claudeSlashRefusal, createCommands, type Commands } from './commands.js';
+import { agySlashRefusal, claudeSlashRefusal, createCommands, type Commands } from './commands.js';
 import { createOpenRig, execRun, type OpenRig } from './openrig.js';
 import { createHumanChannel, type HumanChannelService } from './openrigHuman.js';
 import { createGoals, type GoalsService } from './openrigGoals.js';
@@ -102,11 +102,12 @@ function withoutHarness(s: Session): Session {
 /** The OpenRig runtimes Ledge follows as a session, and the harness each one is. */
 const SEAT_TOOLS: Readonly<Record<string, Tool>> = { 'claude-code': 'claude', codex: 'codex', omp: 'omp' };
 
-/** How each agent resumes the folder's last conversation, all three verified (Cursor Agent: `--continue`). */
-export const CONTINUE_ARGS: Record<TmuxTool, string[]> = { claude: ['--continue'], codex: ['resume', '--last'], cursor: ['--continue'] };
+/** How each agent resumes the folder's last conversation, all verified (Cursor Agent and Antigravity CLI: `--continue`). */
+export const CONTINUE_ARGS: Record<TmuxTool, string[]> = { claude: ['--continue'], codex: ['resume', '--last'], cursor: ['--continue'], agy: ['--continue'] };
 
-/** How each agent continues one conversation by its own id (Claude Code and Cursor Agent `--resume <id>`, Codex `resume <id>`). */
-export const RESUME_ARGS: Record<TmuxTool, (id: string) => string[]> = { claude: id => ['--resume', id], codex: id => ['resume', id], cursor: id => ['--resume', id] };
+/** How each agent continues one conversation by its own id (Claude Code and Cursor Agent `--resume <id>`, Codex `resume <id>`,
+ *  Antigravity CLI `--conversation <id>`, which does not keep the model: a resume names it again, see `session.resume`). */
+export const RESUME_ARGS: Record<TmuxTool, (id: string) => string[]> = { claude: id => ['--resume', id], codex: id => ['resume', id], cursor: id => ['--resume', id], agy: id => ['--conversation', id] };
 
 /** The agent's own conversation id: the one its hooks gave, else, for Claude Code, the name of its transcript file. */
 export function resumeKey(s: Session): string | undefined {
@@ -116,13 +117,14 @@ export function resumeKey(s: Session): string | undefined {
   return s.tool === 'claude' && s.transcriptPath ? basename(s.transcriptPath, '.jsonl') : undefined;
 }
 
-/** The harnesses that take extra folders, and how. Claude only (verified: `claude --add-dir a b -- "prompt"`). */
-export const MULTI_DIR_ARGS: Partial<Record<TmuxTool, (dirs: string[]) => string[]>> = { claude: dirs => ['--add-dir', ...dirs] };
+/** The harnesses that take extra folders, and how: Claude's option takes them all (`claude --add-dir a b -- "prompt"`),
+ *  Antigravity CLI's one each (`agy --add-dir a --add-dir b`). */
+export const MULTI_DIR_ARGS: Partial<Record<TmuxTool, (dirs: string[]) => string[]>> = { claude: dirs => ['--add-dir', ...dirs], agy: dirs => dirs.flatMap(d => ['--add-dir', d]) };
 
 /** How each agent takes a model (#58): Claude Code `--model`, Codex `-m` (also after `resume`), Cursor Agent `--model`. */
-export const MODEL_ARGS: Record<TmuxTool, (model: string) => string[]> = { claude: m => ['--model', m], codex: m => ['-m', m], cursor: m => ['--model', m] };
+export const MODEL_ARGS: Record<TmuxTool, (model: string) => string[]> = { claude: m => ['--model', m], codex: m => ['-m', m], cursor: m => ['--model', m], agy: m => ['--model', m] };
 /** How each agent takes an effort; Cursor Agent has none apart from its model id (`gpt-5.3-codex-high`). */
-export const EFFORT_ARGS: Partial<Record<TmuxTool, (effort: string) => string[]>> = { claude: e => ['--effort', e], codex: e => ['-c', `model_reasoning_effort="${e}"`] };
+export const EFFORT_ARGS: Partial<Record<TmuxTool, (effort: string) => string[]>> = { claude: e => ['--effort', e], codex: e => ['-c', `model_reasoning_effort="${e}"`], agy: e => ['--effort', e] };
 
 /** The agent's arguments for a `session.launch`: the resume flag, the model and effort, then the first instruction as the positional prompt. */
 export function launchArgs(msg: { tool: TmuxTool; prompt?: string; continue?: boolean; dirs?: string[]; model?: string; effort?: string }): string[] {
@@ -130,6 +132,8 @@ export function launchArgs(msg: { tool: TmuxTool; prompt?: string; continue?: bo
   const more = msg.dirs?.length ? MULTI_DIR_ARGS[msg.tool]?.(msg.dirs) : undefined;
   const model = msg.model ? MODEL_ARGS[msg.tool](msg.model) : [];
   const effort = msg.effort ? EFFORT_ARGS[msg.tool]?.(msg.effort) ?? [] : [];
+  // Antigravity CLI takes the first prompt of an interactive session with -i (a positional prompt is not one).
+  if (msg.tool === 'agy') return [...(msg.continue ? CONTINUE_ARGS.agy : []), ...model, ...effort, ...(more ?? []), ...(prompt ? ['-i', prompt] : [])];
   // The `--` only follows --add-dir: the option is variadic and would swallow the prompt.
   return [...(msg.continue ? CONTINUE_ARGS[msg.tool] : []), ...model, ...effort, ...(more ?? []), ...(prompt ? [...(more ? ['--'] : []), prompt] : [])];
 }
@@ -694,7 +698,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, agy: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
@@ -780,7 +784,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       let before: string | null = null;
       if (requirePrompt) {
         before = s.tmuxSession ? await tmux.capture(s.tmuxSession, DETECT_LINES) : null;
-        if (before === null || !adapter.promptStillVisible(bottomLines(before))) throw new Refusal(NO_PROMPT, 'no_prompt');
+        if (before === null || !(adapter.promptVisible ? adapter.promptVisible(before) : adapter.promptStillVisible(bottomLines(before)))) throw new Refusal(NO_PROMPT, 'no_prompt');
         // The request checked before the capture may have been replaced while it ran: no key for one the user did not see.
         if (!stillTheSame()) throw new Refusal(STALE, 'stale');
         // Nor for another dialog already on screen whose hook has not come yet: the daemon still holds the old request.
@@ -970,7 +974,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (s.pending && s.pending.kind !== 'question') return new Refusal(`a ${s.pending.kind} prompt takes accept or deny, not a reply`, 'not_offered');
     if (text.trim() === '') return new Refusal('empty reply', 'invalid');
     // A slash command that opens a terminal panel, or ends the session, never goes: nothing could close the panel from here.
-    const slash = !s.pending && s.tool === 'claude' ? claudeSlashRefusal(text) : null;
+    const slash = s.pending ? null : s.tool === 'claude' ? claudeSlashRefusal(text) : s.tool === 'agy' ? agySlashRefusal(text) : null;
     if (slash) return new Refusal(slash.message, 'not_offered');
     // A question dialog is a select: typed text then Enter would silently pick the highlighted option, unless the
     // adapter knows the dialog's own free-text field.

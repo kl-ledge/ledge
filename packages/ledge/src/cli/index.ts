@@ -17,8 +17,9 @@ const sibling = (name: string): string => new URL(`./${name}${import.meta.url.en
  * the exit code is always 0. Cursor Agent reads a JSON answer on stdout: `{}` lets the agent go on as it would have.
  */
 async function hookMain(args: string[]): Promise<void> {
-  // `ledge hook <Event>` is Claude Code's; another agent names itself first: `ledge hook codex <Event>`.
-  const tool = args[0] === 'codex' || args[0] === 'cursor' ? args[0] : undefined;
+  // `ledge hook <Event>` is Claude Code's; another agent names itself first: `ledge hook codex <Event>`. Antigravity CLI
+  // reads no answer but SessionStart's: printing nothing (never `{}`, which denies every tool) leaves it to go on.
+  const tool = args[0] === 'codex' || args[0] === 'cursor' || args[0] === 'agy' ? args[0] : undefined;
   const event = (tool ? args[1] : args[0]) ?? '';
   let answered = false;
   const done = (): never => {

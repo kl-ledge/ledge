@@ -9,8 +9,8 @@ import type { DraftErrors, FormFault, Refusal, SpecDraft } from './model';
 import { sessionLook } from './RoutinesView';
 import { anchorWeek, dateLong, fillPrompt, hhmm, momentLabel } from './schedule';
 
-const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'omp'];
-const TOOL_NAME: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' };
+const TOOLS: readonly Tool[] = ['claude', 'codex', 'cursor', 'agy', 'omp'];
+const TOOL_NAME: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', agy: 'Antigravity CLI', omp: 'OMP' };
 const WEEK: readonly Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri'];
 
 /** The daemon's preview of the draft's next runs (card 20): its instants, why it cannot say, and whether it differs from what is

@@ -1,8 +1,23 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { agentMessages, claudeOpenCall, claudeVersion, claudePlan, claudeToolAnswered, claudeTranscriptPath, codexPlan, labelTranscript, resumeLabel, tailLines, TAIL_BYTES } from '../src/daemon/transcript.js';
+import { agentMessages, agyMessages, claudeOpenCall, claudeVersion, claudePlan, claudeToolAnswered, claudeTranscriptPath, codexPlan, labelTranscript, resumeLabel, tailLines, TAIL_BYTES } from '../src/daemon/transcript.js';
+
+describe('agyMessages', () => {
+  it('reads model response text and timestamps from the sample transcript', () => {
+    const messages = agyMessages(join(process.cwd(), 'test/fixtures/agy-transcript-sample.jsonl'));
+    expect(messages[0]).toMatchObject({ id: 'agy-agy-6', at: '2026-11-25T20:41:26.000Z', text: expect.stringContaining('Added `sub(a, b)`') });
+    expect(messages.map(m => m.id)).not.toContain('agy-agy-5');
+  });
+  it('names each message after its conversation too: a session resumed in another one starts its steps from 0 again', () => {
+    const one = join(dir, 'brain', 'conv-one', '.system_generated', 'logs'); const two = join(dir, 'brain', 'conv-two', '.system_generated', 'logs');
+    const step = JSON.stringify({ step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: '2026-11-25T20:41:26Z', content: 'Done.' });
+    for (const d of [one, two]) { mkdirSync(d, { recursive: true }); writeFileSync(join(d, 'transcript_full.jsonl'), step + '\n'); }
+    expect(agyMessages(join(one, 'transcript_full.jsonl'))[0]!.id).toBe('agy-conv-one-1');
+    expect(agyMessages(join(two, 'transcript_full.jsonl'))[0]!.id).toBe('agy-conv-two-1');
+  });
+});
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'ledge-')); });

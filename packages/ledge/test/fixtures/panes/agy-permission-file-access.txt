@@ -1,0 +1,50 @@
+
+
+      ▄▀▀▄        Antigravity CLI 1.5.18
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/bench/agy-live/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> Read TASK.md and fix the bugs it describes in src/cache.js. Run the tests with npm test when done.
+
+● Ran (pwd && ls -la && ls -la src/)
+● Explored 3 files (TASK.md, cache.js, package.json)
+● Running (ls -la test/) (ctrl+o to expand)
+
+File access
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Read: /home/dev/demo/TASK.md
+
+Allow access to this file?
+> 1. Yes, allow access
+  2. No, deny access
+
+  ↑/↓ Navigate
+esc to cancel                                                                                                                                                                 Gemini 4 Hydrogen · medium
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

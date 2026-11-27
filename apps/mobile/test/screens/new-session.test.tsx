@@ -119,7 +119,7 @@ describe('« Nouvelle session » (m2-sessions.html §9)', () => {
     expect(sheet.getByRole('button', { name: /Le dossier du projet/ })).toHaveAttribute('aria-pressed', 'true');
     expect(sheet.getByRole('button', { name: /dev-back-mobile-launch.*Introuvable sur WSL/ })).toBeDisabled();
     expect(sheet.getByRole('button', { name: /ledge-legion.*Sur Legion : ce téléphone ne lance que sur WSL/ })).toBeDisabled();
-    expect(sheet.getByText(/Codex et Cursor Agent ne prennent qu’un dossier/)).toBeInTheDocument();
+    expect(sheet.getByText(/Codex, Cursor Agent et Antigravity CLI ne prennent qu’un dossier/)).toBeInTheDocument();
   });
 
   it('Claude Code takes several folders, « + 1 » in the field; Codex keeps the first only', async () => {
@@ -133,6 +133,18 @@ describe('« Nouvelle session » (m2-sessions.html §9)', () => {
     type('Corrige les tests');
     const m = await launched(t);
     expect(m.launch).toEqual({ project: 'ledge', tool: 'codex', folders: [ROOT], prompt: 'Corrige les tests' });
+  });
+
+  it('offers Antigravity after Cursor and launches it with one folder', async () => {
+    const t = opened();
+    const agents = within(screen.getByRole('group', { name: 'Agent' })).getAllByRole('button');
+    expect(agents.map(a => a.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Antigravity CLI')]));
+    expect(agents.findIndex(a => a.textContent?.includes('Antigravity CLI'))).toBe(agents.findIndex(a => a.textContent?.includes('Cursor Agent')) + 1);
+    fireEvent.click(screen.getByRole('button', { name: /Antigravity CLI/ }));
+    expect(screen.getByTitle('Google')).toBeInTheDocument();
+    type('Corrige les tests');
+    const m = await launched(t);
+    expect(m.launch).toEqual({ project: 'ledge', tool: 'agy', folders: [ROOT], prompt: 'Corrige les tests' });
   });
 
   it('OMP adds Permissions, « Demander » by default and not sent; another choice is (Q78 B)', async () => {

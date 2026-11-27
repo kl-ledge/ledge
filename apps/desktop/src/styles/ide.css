@@ -395,12 +395,12 @@ body.ide-resizing-y { cursor: row-resize; user-select: none; }
 .launch-modal-rows button:disabled { opacity: .55; cursor: not-allowed; }
 .launch-modal-rows small { margin-left: auto; font-size: 11px; color: var(--muted-foreground); }
 .launch-modal-empty { display: flex; align-items: center; gap: 12px; padding-top: 2px; }
-.launch-modal-agents { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.launch-modal-agents { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .launch-modal .launch-modal-agent { min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; text-align: left; color: var(--foreground); }
 .launch-modal .launch-modal-agent:hover { border-color: var(--input); }
 .launch-modal .launch-modal-agent.on { border-color: var(--foreground); background: color-mix(in srgb, var(--foreground) 3%, transparent); }
 .launch-modal-agent .an { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.launch-modal-agent .an > span { display: inline-flex; }
+.launch-modal-agent .an > span:first-child { display: inline-flex; flex: none; }
 .launch-modal-agent small { color: var(--muted-foreground); font-size: 11px; }
 .launch-modal-agent small b { font-weight: 500; color: var(--foreground); }
 .launch-modal-agent small b.amber { color: var(--warning); }

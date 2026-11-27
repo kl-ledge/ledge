@@ -272,7 +272,7 @@ const ask = (extra: Partial<PhonePending> = {}) => question({
 
 function omp(p: PhonePending, opts: { device?: boolean } = {}) {
   const t = setup();
-  t.deliver({ ...snapshot([session('a', { name: 'Kai', tool: 'omp', state: 'waiting_input', pending: p })]), capabilities: { claude: { freeTextAnswer: true }, codex: { freeTextAnswer: true }, cursor: { freeTextAnswer: false }, omp: ompCaps }, ...(opts.device === false ? {} : { device: { confirm: true } }) } as never);
+  t.deliver({ ...snapshot([session('a', { name: 'Kai', tool: 'omp', state: 'waiting_input', pending: p })]), capabilities: { claude: { freeTextAnswer: true }, codex: { freeTextAnswer: true }, cursor: { freeTextAnswer: false }, agy: { freeTextAnswer: false }, omp: ompCaps }, ...(opts.device === false ? {} : { device: { confirm: true } }) } as never);
   render(<RequestDetail store={t.store} sessionId="a" requestKey={p.key} />);
   return t;
 }

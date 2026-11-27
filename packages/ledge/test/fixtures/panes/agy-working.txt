@@ -1,0 +1,18 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.17
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/demo
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────
+> un this exact shell command and report its output: curl -sI https://example.com | head -1
+
+● Ran (curl -sI https://example.com | head -1)
+○ Running (curl -sI https://example.com | head -1) (ctrl+o to expand)
+⣷  Running command... 4s
+└ Tip: View and review artifacts with /artifact.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+esc to cancel                                                                                              auto · Gemini 4 Hydrogen · medium

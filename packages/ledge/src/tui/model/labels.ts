@@ -1,7 +1,7 @@
 import { splitId } from '@ledge/fleet';
 import type { Session, Tool } from '@ledge/protocol';
 
-export const TOOL_NAME: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP' };
+export const TOOL_NAME: Record<Tool, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor Agent', omp: 'OMP', agy: 'Antigravity CLI' };
 
 /** « opus · high », the model alone, or `fallback` when the agent runs its own default. */
 export const modelLabel = (s: Pick<Session, 'model' | 'effort'>, fallback: string): string =>

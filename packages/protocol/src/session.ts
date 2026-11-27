@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ContextSchema, HandoverSchema, RelievesSchema } from './handover.js';
 import { DecidedBySchema, DecisionSchema } from './decisions.js';
 
-export const ToolSchema = z.enum(['claude', 'codex', 'cursor', 'omp']);
+export const ToolSchema = z.enum(['claude', 'codex', 'cursor', 'omp', 'agy']);
 /** OMP's `--approval-mode` as Ledge offers it: ask before writes and executions, approve file writes by themselves, or approve everything (auto). */
 export const OmpApprovalSchema = z.enum(['always-ask', 'write', 'yolo']);
 export type OmpApproval = z.infer<typeof OmpApprovalSchema>;

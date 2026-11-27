@@ -70,6 +70,25 @@ export function agentMessages(path: string, opts: { sidechain?: boolean; bytes?:
   return out;
 }
 
+/**
+ * Antigravity CLI's own words in a transcript (`…/brain/<conversationId>/.system_generated/logs/transcript_full.jsonl`):
+ * its model steps with text. A step's index is only unique within its conversation, and a session can go on in another
+ * one (a resume, `/clear`): the conversation id is part of each message's id.
+ */
+export function agyMessages(path: string): AgentText[] {
+  const conversation = /\/brain\/([^/]+)\/\.system_generated\//.exec(path)?.[1] ?? 'agy';
+  const out: AgentText[] = [];
+  for (const line of tailLines(path)) {
+    let e: Record<string, unknown>;
+    try { e = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+    if (e?.source !== 'MODEL' || e.type !== 'PLANNER_RESPONSE' || typeof e.step_index !== 'number' || typeof e.created_at !== 'string' || typeof e.content !== 'string') continue;
+    const text = e.content.trim();
+    const date = new Date(e.created_at);
+    if (text && !Number.isNaN(date.getTime())) out.push({ id: `agy-${conversation}-${e.step_index}`, at: date.toISOString(), text });
+  }
+  return out;
+}
+
 /** Codex in Plan mode ends its turn with a null `last_assistant_message`: the plan it proposed is that turn's completed
  *  `Plan` item in the rollout (the plain text; the assistant message wraps it in `<proposed_plan>` tags). */
 export function codexPlan(path: string, turnId: string): string | undefined {

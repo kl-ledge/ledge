@@ -38,6 +38,7 @@ describe('picks', () => {
     expect(efforts('claude', [opus, sonnet], { model: 'opus', effort: null })).toEqual(['low', 'high']);
     expect(efforts('claude', [opus, sonnet], { model: null, effort: null })).toEqual(['low', 'medium']);
     expect(efforts('claude', [{ id: 'x', label: 'X' }], { model: 'x', effort: null })).toBeNull();
+    expect(efforts('agy', [opus], { model: 'opus', effort: null })).toEqual(['low', 'high']);
     expect(efforts('cursor', [opus], { model: 'opus', effort: null })).toBeNull();
   });
 });

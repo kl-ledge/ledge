@@ -85,8 +85,8 @@ export function seatState(o: { session?: PhoneSession | undefined; node?: RigSea
 export const SEAT_DOT: Record<SeatState, DotState> = { perm: 'perm', ask: 'ask', work: 'work', idle: 'idle', off: 'off', starting: 'work', waiting: 'off' };
 
 /** The runtime's two letters for a topology node (`claude-code` → CC, `codex` → CX), null for one Ledge does not draw. */
-export const toolOf = (runtime: string): 'claude' | 'codex' | 'cursor' | 'omp' | null =>
-  runtime === 'claude-code' || runtime === 'claude' ? 'claude' : runtime === 'codex' ? 'codex' : runtime === 'cursor' ? 'cursor' : runtime === 'omp' ? 'omp' : null;
+export const toolOf = (runtime: string): 'claude' | 'codex' | 'cursor' | 'agy' | 'omp' | null =>
+  runtime === 'claude-code' || runtime === 'claude' ? 'claude' : runtime === 'codex' ? 'codex' : runtime === 'cursor' ? 'cursor' : runtime === 'agy' ? 'agy' : runtime === 'omp' ? 'omp' : null;
 
 /** A node's short name: its member (`dev.front` → `dev-front`, as OpenRig names the session before the `@`). */
 export const seatName = (logicalId: string, session?: string): string => session?.split('@')[0] || logicalId.replace('.', '-');

@@ -1,0 +1,15 @@
+
+      ▄▀▀▄        Antigravity CLI 1.5.17
+     ▀▀▀▀▀▀       dev@example.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 4 Hydrogen (Medium)
+   ▄▀▀    ▀▀▄     ~/demo
+  ▄▀▀      ▀▀▄
+
+
+ ┃ Gemini 4 Carbon now available!
+ ┃ Both Carbon and Argon are now included as part of the entire Gemini entitlement, so you can use them for much longer.
+ ┃ esc to dismiss
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> Auto mode: edits & safe commands auto-approved (shift+tab to cycle)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts                                                                                            auto · Gemini 4 Hydrogen · medium
