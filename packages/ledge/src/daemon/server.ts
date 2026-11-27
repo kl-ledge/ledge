@@ -364,24 +364,36 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   // #54: the operator's thread's « Missions » and « Échanges », read while a front that asked for them is connected, again on each queue
   // event and on a timer (OpenRig sends no event for a message), pushed whole to those fronts when they change.
   const missions = opts.missions ?? createMissions({ state: () => openrig.state() });
-  const missionsAskers = new Set<Reply>();
-  let missionsWant = EXCHANGES_DEFAULT, missionsTimer: NodeJS.Timeout | null = null, missionsPoll: NodeJS.Timeout | null = null, lastMissions = '';
+  /** Each front that asked, and how many exchanges it wants: one read with the most, each front its own count. */
+  const missionsAskers = new Map<Reply, number>();
+  let missionsTimer: NodeJS.Timeout | null = null, missionsPoll: NodeJS.Timeout | null = null;
+  const lastMissions = new Map<Reply, string>();
+  const missionsMost = () => Math.max(EXCHANGES_DEFAULT, ...missionsAskers.values());
+  /** A read as one front wants it: its own count of exchanges, older ones said when the read had more. */
+  const missionsFor = (l: Awaited<ReturnType<MissionsService['list']>>, want: number) =>
+    ({ ...l, exchanges: l.exchanges.slice(0, want), exchangesMore: l.exchangesMore || l.exchanges.length > want });
   const pushMissions = () => {
     if (!missionsAskers.size || missionsTimer) return;
     missionsTimer = setTimeout(() => {
       missionsTimer = null;
       if (!missionsAskers.size) return;
-      void missions.list(missionsWant).then(l => {
-        const key = JSON.stringify(l);
-        if (key !== lastMissions) { lastMissions = key; for (const r of missionsAskers) r({ type: 'openrig.missionsChanged', ...l }); }
+      const most = missionsMost();
+      void missions.list(most).then(l => {
+        for (const [r, want] of missionsAskers) {
+          // A front that asked for more since this read began gets the next one, never a shorter list.
+          if (want > most) continue;
+          const mine = missionsFor(l, want), key = JSON.stringify(mine);
+          if (key !== lastMissions.get(r)) { lastMissions.set(r, key); r({ type: 'openrig.missionsChanged', ...mine }); }
+        }
       }).catch(e => log(`openrig missions: not read: ${(e as Error).message}`));
     }, 600);
   };
   /** The last front that asked has gone: no more reading. */
   const leaveMissions = (r: Reply) => {
+    lastMissions.delete(r);
     if (!missionsAskers.delete(r) || missionsAskers.size) return;
     if (missionsPoll) clearInterval(missionsPoll);
-    missionsPoll = null; lastMissions = '';
+    missionsPoll = null;
   };
   const onQueueEvent = () => { pushGoals(); pushMissions(); };
   const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: onQueueEvent });
@@ -1575,16 +1587,16 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }
       // #54: asked by the operator's thread only. `exchanges`: what « Échanges » shows (« Voir plus ancien » asks for more).
       case 'openrig.missions': {
-        missionsWant = msg.exchanges ?? EXCHANGES_DEFAULT;
-        missionsAskers.add(reply);
+        const want = msg.exchanges ?? EXCHANGES_DEFAULT;
+        missionsAskers.set(reply, want);
         if (!missionsPoll) {
           followAsks();
           missionsPoll = setInterval(pushMissions, opts.missionsPollMs ?? 15_000);
           missionsPoll.unref?.();
         }
-        const l = await missions.list(missionsWant);
-        lastMissions = JSON.stringify(l);
-        return reply({ type: 'openrig.missionsChanged', requestId: msg.requestId, ...l });
+        const mine = missionsFor(await missions.list(missionsMost()), want);
+        lastMissions.set(reply, JSON.stringify(mine));
+        return reply({ type: 'openrig.missionsChanged', requestId: msg.requestId, ...mine });
       }
       case 'openrig.goal.send': { const r = await goals.send(msg.goalId, msg.text, msg.folder); pushGoals(); return reply({ type: 'openrig.goal.sent', requestId: msg.requestId, goalId: msg.goalId, ...r }); }
       case 'openrig.goal.reply': { const r = await goals.reply(msg.goalId, msg.replyId, msg.text); pushGoals(); return reply({ type: 'openrig.goal.replied', requestId: msg.requestId, goalId: msg.goalId, replyId: msg.replyId, ...r }); }

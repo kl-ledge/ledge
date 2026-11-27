@@ -16,7 +16,9 @@ const operator = { id: 'local:max', name: 'Max', rig: { seat: 'operator-agent@ke
 
 function fake() {
   const listeners = new Set<(m: ServerMessage) => void>(), status = new Set<(s: string) => void>(), sent: ClientMessage[] = [];
+  let current = 'open';
   const client = {
+    status: () => current,
     send: (m: ClientMessage) => { sent.push(m); },
     onMessage: (f: (m: ServerMessage) => void) => { listeners.add(f); return () => { listeners.delete(f); }; },
     onStatus: (f: (s: string) => void) => { status.add(f); return () => { status.delete(f); }; }
@@ -26,7 +28,8 @@ function fake() {
     type: 'openrig.missionsChanged', requestId: asks().at(-1)!.requestId, machineId: 'local',
     openrig: 'ok', operator: 'operator-agent@kernel', missions: [], exchanges: [], exchangesMore: false, ...read
   } as ServerMessage)));
-  return { client, sent, asks, answer };
+  const setStatus = (s: string) => act(() => { current = s; status.forEach(f => f(s)); });
+  return { client, sent, asks, answer, setStatus };
 }
 const show = (client: DaemonClient) => render(<LangProvider lang="fr"><OperatorCards client={client} session={operator} now={NOW} /></LangProvider>);
 const card = (title: string) => screen.getByText(title, { selector: 'summary > span' }).closest('details') as HTMLElement;
@@ -122,6 +125,28 @@ describe('#54: the operator thread\'s cards', () => {
     expect(c.getByText('Rien pour ce filtre.')).toBeTruthy();
     await user.click(c.getByRole('button', { name: 'Voir plus ancien' }));
     expect(f.asks().at(-1)!.exchanges).toBe(100);
+  });
+
+  it('an older read is said as such: the machine answered offline after it, or the connection closed; a fresh read clears it', () => {
+    const f = fake();
+    show(f.client);
+    f.answer({ missions: [m40] });
+    expect(screen.queryByText(/Liste peut-être incomplète/)).toBeNull();
+    f.answer({ error: 'offline', openrig: 'unreachable', operator: null } as Partial<OpenRigMissionsChanged>);
+    // The last read stays, with the amber line on both cards.
+    expect(within(card('Missions')).getByText(/Commencer #40/)).toBeTruthy();
+    expect(within(card('Missions')).getByText(/Liste peut-être incomplète/)).toBeTruthy();
+    expect(within(card('Échanges')).getByText(/Liste peut-être incomplète/)).toBeTruthy();
+    f.answer({ missions: [m40] });
+    expect(screen.queryByText(/Liste peut-être incomplète/)).toBeNull();
+    // The connection closes with nothing in flight: said too; it comes back: asked again.
+    const n = f.asks().length;
+    f.setStatus('closed');
+    expect(within(card('Missions')).getByText(/Liste peut-être incomplète/)).toBeTruthy();
+    f.setStatus('open');
+    expect(f.asks().length).toBe(n + 1);
+    f.answer({ missions: [m40] });
+    expect(screen.queryByText(/Liste peut-être incomplète/)).toBeNull();
   });
 
   it('a daemon that predates #54: no card', () => {

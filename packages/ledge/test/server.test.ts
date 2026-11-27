@@ -3098,6 +3098,26 @@ describe('server: the operator thread\'s missions and exchanges (#54)', () => {
     idle.close(); await srv2.close();
   });
 
+  it('each front gets the count of exchanges it asked for, from one read', async () => {
+    const e = (id: string) => ({ id, at: 't', kind: 'message' as const, from: 'a@r', to: ['b@r'], rigs: ['r'], text: id });
+    const asked: number[] = [];
+    const srv2 = await startServer({ store, tmux, port: 0, missionsPollMs: 60_000,
+      human: { async list() { return { channel: { state: 'ready' as const, person: null, slack: false }, asks: [] }; }, async answer(q) { return { qitemId: q, ok: true }; }, start() {}, stop() {} },
+      missions: { async list(n) { asked.push(n ?? 0); return { openrig: 'ok' as const, operator: null, missions: [], exchanges: [e('e1'), e('e2'), e('e3')], exchangesMore: false }; } } });
+    const c = await connect({ port: srv2.port }), other = await connect({ port: srv2.port });
+    await c.next('snapshot'); await other.next('snapshot');
+    c.send({ type: 'openrig.missions', requestId: 'm1', exchanges: 2 });
+    const mine = await c.next('openrig.missionsChanged');
+    expect(mine.exchanges.map(x => x.id)).toEqual(['e1', 'e2']);
+    expect(mine.exchangesMore).toBe(true);
+    other.send({ type: 'openrig.missions', requestId: 'm2', exchanges: 80 });
+    const theirs = await other.next('openrig.missionsChanged');
+    expect(theirs.exchanges).toHaveLength(3);
+    expect(theirs.exchangesMore).toBe(false);
+    expect(asked).toEqual([50, 80]);
+    c.close(); other.close(); await srv2.close();
+  });
+
   it('the daemon says it answers them', async () => {
     const srv2 = await startServer({ store, tmux, port: 0, daemon: { version: '0.2.2', install: 'npm', systemd: true } });
     const c = await connect({ port: srv2.port });

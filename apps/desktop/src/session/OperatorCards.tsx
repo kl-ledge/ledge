@@ -31,31 +31,31 @@ const age = (at: string, now: number, lang: Lang): string => fmtDur(Math.max(60_
 
 export function OperatorCards({ client, session, now }: { client: DaemonClient; session: Session; now: number }): JSX.Element | null {
   const machine = splitId(session.id)?.machine ?? 'local';
-  const { read, error, older } = useOpenRigMissions(client, machine);
+  const { read, error, stale, older } = useOpenRigMissions(client, machine);
   // A daemon that predates #54, or a machine gone: no card rather than an empty one that would read as « nothing ».
   if (error === 'outdated' || (!read && error === 'offline')) return null;
   if (!read) return null;
   return (
     <>
-      <MissionsCard read={read} machine={machine} now={now} />
-      <ExchangesCard read={read} machine={machine} now={now} onOlder={older} />
+      <MissionsCard read={read} stale={stale} machine={machine} now={now} />
+      <ExchangesCard read={read} stale={stale} machine={machine} now={now} onOlder={older} />
     </>
   );
 }
 
 type Read = NonNullable<ReturnType<typeof useOpenRigMissions>['read']>;
 
-function MissionsCard({ read, machine, now }: { read: Read; machine: string; now: number }): JSX.Element {
+function MissionsCard({ read, stale, machine, now }: { read: Read; stale: boolean; machine: string; now: number }): JSX.Element {
   const { t } = useI18n();
   const q = t.session.thread.q54;
   const body: ReactNode = read.openrig !== 'ok' ? <p className="oc-note">{q.openrig[read.openrig]}</p>
     : read.operator === null ? <p className="oc-note">{q.noOperator}</p>
-    : read.missions.length === 0 && !read.partial ? <p className="oc-note">{q.noMission}</p>
+    : read.missions.length === 0 && !read.partial && !stale ? <p className="oc-note">{q.noMission}</p>
     : read.missions.map(m => <MissionRow key={m.rootQitemId} m={m} machine={machine} now={now} />);
   return (
     <Card title={t.session.thread.missions.title} count={read.openrig === 'ok' && read.operator !== null ? String(read.missions.length) : undefined}>
       <div className="oc-body">
-        {read.openrig === 'ok' && read.partial && <p className="oc-warn" role="status">{q.partial}</p>}
+        {(stale || (read.openrig === 'ok' && read.partial)) && <p className="oc-warn" role="status">{q.partial}</p>}
         {body}
       </div>
     </Card>
@@ -120,7 +120,7 @@ const WARN = <svg className="oc-gl" viewBox="0 0 16 16" aria-hidden="true"><path
 /** The rigs of an entry that tell something: the kernel (the operator's own) is always obvious. */
 const rigsOf = (e: Exchange): string[] => e.rigs.filter(r => r && r !== KERNEL);
 
-function ExchangesCard({ read, machine, now, onOlder }: { read: Read; machine: string; now: number; onOlder(): void }): JSX.Element {
+function ExchangesCard({ read, stale, machine, now, onOlder }: { read: Read; stale: boolean; machine: string; now: number; onOlder(): void }): JSX.Element {
   const { t } = useI18n();
   const tx = t.session.thread.exchanges, q = t.session.thread.q54;
   const [filter, setFilter] = useState<Filter>('all');
@@ -136,7 +136,7 @@ function ExchangesCard({ read, machine, now, onOlder }: { read: Read; machine: s
   const filtered = filter !== 'all' || rig !== '';
   const body: ReactNode = read.openrig !== 'ok' ? <p className="oc-note">{q.openrig[read.openrig]}</p>
     : shown.length > 0 ? shown.map(e => <ExchangeRow key={e.id} e={e} machine={machine} now={now} usual={usual} />)
-    : read.partial ? null
+    : read.partial || stale ? null
     : <p className="oc-note">{filtered && read.exchanges.length > 0 ? q.noMatch : q.noExchange}</p>;
   return (
     <Card title={tx.title} count={read.openrig === 'ok' ? String(shown.length) : undefined}>
@@ -154,7 +154,7 @@ function ExchangesCard({ read, machine, now, onOlder }: { read: Read; machine: s
             )}
           </div>
         )}
-        {read.openrig === 'ok' && read.partial && <p className="oc-warn" role="status">{q.partial}</p>}
+        {(stale || (read.openrig === 'ok' && read.partial)) && <p className="oc-warn" role="status">{q.partial}</p>}
         {body}
         {read.openrig === 'ok' && read.exchangesMore && <button type="button" className="oc-older" onClick={onOlder}>{tx.older}</button>}
       </div>

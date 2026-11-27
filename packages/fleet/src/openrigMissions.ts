@@ -13,17 +13,27 @@ export interface OpenRigMissionsView {
   read: Read | null;
   /** The machine could not answer: `offline`, or `outdated` (its Ledge daemon predates #54). */
   error?: 'offline' | 'outdated';
+  /** What is shown is an older read: the machine answered `offline` after it, or the connection is not open. */
+  stale: boolean;
   /** « Voir plus ancien »: asks for more entries. */
   older(): void;
 }
 
 let next = 0;
 
+/** The machine can answer: through a fleet, its own connection is ready; otherwise the client's is open. */
+function up(client: DaemonClient, machine: string | null): boolean {
+  if (client.status() !== 'open') return false;
+  const m = client.fleet?.machines().find(x => x.id === (machine ?? 'local'));
+  return client.fleet ? m?.ready === true : true;
+}
+
 /** The operator thread's « Missions » and « Échanges » on one machine (#54): asked when shown, again when the connection comes back,
  *  taken whole from every push. Null machine: nothing asked. */
 export function useOpenRigMissions(client: DaemonClient, machine: string | null): OpenRigMissionsView {
   const [state, setState] = useState<{ machine: string | null; read: Read | null; error?: 'offline' | 'outdated' }>({ machine, read: null });
   const [want, setWant] = useState(EXCHANGES_FIRST);
+  const [open, setOpen] = useState(() => up(client, machine));
   const asked = useRef<string | null>(null);
 
   const ask = useCallback((exchanges: number) => {
@@ -46,13 +56,23 @@ export function useOpenRigMissions(client: DaemonClient, machine: string | null)
     return off;
   }, [client, machine]);
 
-  // Asked at once with what « Échanges » wants, and again whenever the connection opens.
+  // Asked at once with what « Échanges » wants, and again whenever the machine comes back.
   useEffect(() => {
     if (machine === null) return;
     ask(want);
-    return client.onStatus(s => { if (s === 'open') ask(want); });
+    let was = up(client, machine);
+    setOpen(was);
+    const check = () => {
+      const now = up(client, machine);
+      if (now !== was) { was = now; setOpen(now); if (now) ask(want); }
+    };
+    const offStatus = client.onStatus(check);
+    const offFleet = client.fleet?.subscribe(check);
+    return () => { offStatus(); offFleet?.(); };
   }, [client, machine, want, ask]);
 
   const older = useCallback(() => setWant(w => Math.min(EXCHANGES_MOST, w + EXCHANGES_STEP)), []);
-  return { read: state.machine === machine ? state.read : null, ...(state.machine === machine && state.error ? { error: state.error } : {}), older };
+  const read = state.machine === machine ? state.read : null;
+  const error = state.machine === machine ? state.error : undefined;
+  return { read, ...(error ? { error } : {}), stale: read !== null && (error === 'offline' || !open), older };
 }
