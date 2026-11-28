@@ -595,8 +595,6 @@ const fr = {
     /** Réglages › Usage (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10): the harnesses' limits, the point's « LIMITES » before. */
     usage: 'Usage',
     notify: {
-      finished: 'Le point de Ledge', finishedHint: 'Quand Ledge fait le point : sessions finies, tâches, nouvelles des rigs.',
-      chat: 'Réponse de Ledge', chatHint: 'Quand Ledge a répondu à une question posée d’ici.',
       decision: 'Décision à prendre', decisionHint: 'Quand une session te demande de trancher.',
       always: 'Les demandes d’accord et les questions des agents préviennent toujours, sauf pendant une pause.'
     },
@@ -608,9 +606,6 @@ const fr = {
     resume: 'Reprendre',
     ledge: 'Ledge',
     context: 'Contexte max', contextHint: 'Au-delà, une session est signalée près de sa limite. Partagé avec le PC.',
-    chatTool: 'Agent du chat', chatToolHint: 'Celui qui répond à tes questions posées depuis cet appareil.',
-    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'omp', string>,
-    toolPcHint: 'PC : le même agent que le chat de Ledge sur le PC.',
     failed: 'Le PC n’a pas pris ce réglage. Réessaie.',
     offline: 'Reconnecte-toi au PC pour changer ces réglages.',
     projects: {

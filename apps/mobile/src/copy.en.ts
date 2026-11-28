@@ -579,8 +579,6 @@ export const en: Copy = {
     notifications: 'Notifications on this device',
     usage: 'Usage',
     notify: {
-      finished: 'Ledge’s point', finishedHint: 'When Ledge takes stock: finished sessions, tasks, news from the rigs.',
-      chat: 'Ledge’s answer', chatHint: 'When Ledge has answered a question asked from here.',
       decision: 'Decision to make', decisionHint: 'When a session asks you to decide.',
       always: 'Approval requests and the agents’ questions always notify, except during a pause.'
     },
@@ -592,9 +590,6 @@ export const en: Copy = {
     resume: 'Resume',
     ledge: 'Ledge',
     context: 'Context max', contextHint: 'Above it, a session is flagged as near its limit. Shared with the PC.',
-    chatTool: 'Chat agent', chatToolHint: 'The one that answers the questions you ask from this device.',
-    tools: { pc: 'PC', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', omp: 'OMP' } as Record<'pc' | 'claude' | 'codex' | 'cursor' | 'omp', string>,
-    toolPcHint: 'PC: the same agent as Ledge’s chat on the PC.',
     failed: 'The PC did not take this setting. Try again.',
     offline: 'Reconnect to the PC to change these settings.',
     projects: {
