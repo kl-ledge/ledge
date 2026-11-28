@@ -134,7 +134,7 @@ export const en: Catalogue = {
     },
     notch: {
       title: 'At the top of the screen',
-      text: 'The notch, on Windows. An approval request arrives there right away, with its two answers. The rest passes there one card at a time, which closes by itself. You keep typing where you were.',
+      text: 'The notch, on Windows. An approval request arrives there right away, with its two answers. The rest passes there one card at a time: a notice closes by itself, a question waits for your answer. You keep typing where you were.',
       videoLabel: 'The notch on video: an approval request arrives right away and "Allow" is clicked, then Ledge announces in one go that Bix and Pim have finished and that a decision is waiting, then a rig\'s urgent question gets its answer on the spot'
     },
     phone: {
