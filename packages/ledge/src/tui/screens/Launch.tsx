@@ -47,7 +47,7 @@ export function Launch() {
   // A machine that comes up after the form opened is chosen when none was.
   useEffect(() => { if (form.machine === null) { const up = machines.find(m => m.ready); if (up) setForm(f => withMachine(f, list, up.id)); } }, [machines]); // eslint-disable-line react-hooks/exhaustive-deps
   // Projects that arrive after the form opened (the daemon sends them after its snapshot): the default project is chosen, as if they
-  // had been there, unless the project field was already touched.
+  // had been there, unless the project field or the repositories were already touched.
   const projectTouched = useRef(false);
   useEffect(() => {
     if (projectTouched.current || form.project !== null || list.length === 0) return;
@@ -105,7 +105,7 @@ export function Launch() {
     const by = key.rightArrow || input === 'l' ? 1 : key.leftArrow || input === 'h' ? -1 : 0;
     if (field === 'repos') {
       if (by) setRepoAt(i => (repoOptions.length ? (i + by + repoOptions.length) % repoOptions.length : 0));
-      else if (input === ' ' && repoOptions[repoAt]) setForm(f => toggleRepo(f, repoOptions[repoAt]!));
+      else if (input === ' ' && repoOptions[repoAt]) { projectTouched.current = true; setForm(f => toggleRepo(f, repoOptions[repoAt]!)); }
       return;
     }
     if (!by) return;
