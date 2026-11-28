@@ -256,6 +256,8 @@ button.tg:disabled{cursor:default}
 .waiting-row{padding:8px 0}
 /* The waiting row (mockup C): the agent works and no action runs. Shaped like a running action, quieter. */
 .wait-row{padding:4px 0}
+/* #67: nothing drawn, no empty cell kept: the phrase takes the node's place (under the skin's `.ide-pane .r`, hence that prefix too). */
+.wait-row.bare,:root[data-skin="atelier"] .ide-pane .wait-row.bare{grid-template-columns:minmax(0,1fr) minmax(56px,max-content)}
 .wait-phrase{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:20px;color:var(--muted-foreground);animation:wait-rise .18s ease-out}
 .wait-phrase code{font:12px 'Geist Mono',monospace;color:var(--foreground);background:var(--muted);padding:1px 5px;border-radius:var(--radius-sm)}
 .wait-phrase.still{animation:none}
