@@ -4,6 +4,7 @@ import { cleanup, render } from '@testing-library/react';
 import { LangProvider } from '../src/i18n/lang';
 import { WaitLine } from '../src/session/WaitLine';
 import type { WaitCause } from '../src/session/waiting';
+import { declarations } from './helpers';
 
 afterEach(() => cleanup());
 
@@ -61,5 +62,11 @@ describe('#67: the waiting line never leaves an empty cell', () => {
     expect(el.querySelector('.n')).toBeNull();
     expect(el.classList.contains('bare')).toBe(true);
     expect(el.querySelector('.wait-phrase')?.textContent).toBeTruthy();
+  });
+
+  it('a thinking row drops the node column, including under the Atelier skin', () => {
+    const cols = 'grid-template-columns:minmax(0,1fr)minmax(56px,max-content)';
+    expect(declarations('session.css', '.wait-row.bare')).toContain(cols);
+    expect(declarations('session.css', ':root[data-skin="atelier"] .ide-pane .wait-row.bare')).toContain(cols);
   });
 });

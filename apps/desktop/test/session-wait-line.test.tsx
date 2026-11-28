@@ -53,6 +53,21 @@ describe('the waiting line', () => {
     await expect.poll(() => thread().getByRole('status', { name: 'The agent is working' }).querySelector('.spin')).not.toBeNull();
   });
 
+  it('after a helper that finished, shows the ring, never an empty cell', async () => {
+    const { d } = await openNova();
+    d.threadItem('nova', { kind: 'helper', id: 'h1', at: ago(1), turn: 1, task: 'Lire', agentType: 'Explore', state: 'exited' });
+    await expect.poll(() => thread().getByRole('status', { name: 'The agent is working' }).querySelector('.spin')).not.toBeNull();
+    const line = thread().getByRole('status', { name: 'The agent is working' });
+    expect([...line.querySelectorAll('.n')].some(n => n.childElementCount === 0)).toBe(false);
+  });
+
+  it('after a word of its own, the phrase stands alone, no cell', async () => {
+    const { d } = await openNova();
+    d.threadItem('nova', { kind: 'message', id: 'm1', at: ago(1), turn: 1, text: 'Je regarde.' });
+    await expect.poll(() => thread().getByRole('status', { name: 'The agent is working' }).classList.contains('bare')).toBe(true);
+    expect(thread().getByRole('status', { name: 'The agent is working' }).querySelector('.n')).toBeNull();
+  });
+
   it('goes once the agent stops working', async () => {
     const { d } = await openNova();
     await thread().findByRole('status', { name: 'The agent is working' });
