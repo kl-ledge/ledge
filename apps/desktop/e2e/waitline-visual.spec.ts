@@ -38,14 +38,17 @@ for (const theme of ['dark', 'light'] as const) {
       await line.screenshot({ path: info.outputPath(`wait-${drawing}-${theme}.png`) });
     }
     d.item('nova', { ...done('t5', 'Bash', 'npm test'), status: 'failed' } as ThreadItem);
+    await expect(line.getByText(/failed/)).toBeVisible();
     await expect(line.locator('.spin')).toBeVisible();
     await expect(line.locator('.n:empty')).toHaveCount(0);
     await line.screenshot({ path: info.outputPath(`wait-failed-${theme}.png`) });
     d.item('nova', { kind: 'helper', id: 'h1', at: ago(1), turn: 1, task: 'Lire le code', agentType: 'Explore', state: 'exited' });
-    await expect(line.locator('.spin')).toBeVisible();
+    // The ring is already on the line from the failed tool: wait on the helper's phrase, not on .spin.
+    await expect(line.getByText(/Taking up Explore/)).toBeVisible();
     await expect(line.locator('.n:empty')).toHaveCount(0);
     await line.screenshot({ path: info.outputPath(`wait-helper-${theme}.png`) });
     d.item('nova', { kind: 'message', id: 'm1', at: ago(1), turn: 1, text: 'Je regarde.' });
+    await expect(line.getByText('Carrying on…')).toBeVisible();
     await expect(line).toHaveClass(/bare/);
     await expect(line.locator('.n')).toHaveCount(0);
     await line.screenshot({ path: info.outputPath(`wait-thinking-${theme}.png`) });
