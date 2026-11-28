@@ -661,6 +661,22 @@ describe('ledge tui: new session', () => {
     } finally { await tui.cleanup(); }
   });
 
+  it('projects that arrive after the form opened: the default project is chosen, and ctrl+s launches in it', async () => {
+    const tui = await startTui({ projects: null });
+    tui.daemon.options.autoLaunch = true;
+    try {
+      await tui.press('+');
+      await until(() => tui.frame().includes('NOUVELLE SESSION'));
+      // The daemon's projects come now, after the form opened (what a slow start makes happen).
+      tui.daemon.projects(PROJECTS);
+      await until(() => !tui.frame().includes('◂ aucun ▸') && !tui.frame().includes('Choisissez un dépôt'));
+      await tui.press('Ajoute un test pour la reconnexion ssh');
+      await tui.press('\u0013'); // ctrl+s
+      await until(() => sent(tui.daemon.received, 'session.launch').length === 1);
+      expect(sent(tui.daemon.received, 'session.launch')[0]).toMatchObject({ cwd: '/w/ledge', prompt: 'Ajoute un test pour la reconnexion ssh' });
+    } finally { await tui.cleanup(); }
+  });
+
   it('says what is missing instead of launching', async () => {
     const tui = await startTui();
     try {
