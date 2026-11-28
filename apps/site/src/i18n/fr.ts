@@ -132,7 +132,7 @@ export const fr = {
     },
     notch: {
       title: 'En haut de l\'écran',
-      text: 'L\'encoche, sur Windows. Une demande d\'accord y arrive tout de suite, avec ses deux réponses. Le reste, Ledge le regroupe et vous le dit en une fois, sans une bulle par agent. Vous continuez à taper là où vous étiez.',
+      text: 'L\'encoche, sur Windows. Une demande d\'accord y arrive tout de suite, avec ses deux réponses. Le reste y passe une carte à la fois, qui se ferme seule. Vous continuez à taper là où vous étiez.',
       videoLabel: 'L\'encoche en vidéo : une demande d\'accord arrive tout de suite et on clique Autoriser, puis Ledge annonce en une fois que Bix et Pim ont fini et qu\'une décision attend, puis la question urgente d\'un rig reçoit sa réponse sur place'
     },
     phone: {
