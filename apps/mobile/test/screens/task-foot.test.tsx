@@ -29,14 +29,14 @@ function open(tasks: PhoneTask[], o: { taskAnswer?: boolean; confirm?: boolean }
   t.deliver({ type: 'tasks', tasks });
   return t;
 }
-const foot = () => screen.getByRole('contentinfo', { name: copy.chat.point.decision });
+const foot = () => screen.getByRole('contentinfo', { name: copy.cards.decision });
 const field = () => within(foot()).getByRole('textbox');
 
 describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
   it('takes the composer\'s place: who asks, the title, the detail, a field, « Envoyer ma réponse » and the check\'s line (card 1)', async () => {
     const t = open([decision('t1')]);
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
     expect(f).toHaveTextContent('DécisionNovate demande');
     expect(within(f).getByText('Choisir le dossier des captures')).toBeInTheDocument();
     expect(within(f).getByText('captures/ ou docs/shots/ ? Les deux existent.')).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     vi.mocked(getAssertion).mockResolvedValue(ASSERTION);
     const t = open([decision('t1')]);
     render(<Thread store={t.store} sessionId="nova" />);
-    await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    await screen.findByRole('contentinfo', { name: copy.cards.decision });
     fireEvent.change(field(), { target: { value: 'docs/shots/, et supprime captures/' } });
     fireEvent.click(within(foot()).getByRole('button', { name: 'Envoyer ma réponse' }));
     await waitFor(() => expect(t.of('confirm.prepare')).toEqual([expect.objectContaining({ purpose: 'decision', task: 't1', taskAnswer: 'docs/shots/, et supprime captures/' })]));
@@ -63,13 +63,13 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     expect(within(foot()).getByText('Réponse envoyée à Nova.')).toBeInTheDocument();
     act(() => { vi.advanceTimersByTime(SENT_MS); });
     vi.useRealTimers();
-    expect(screen.queryByRole('contentinfo', { name: copy.chat.point.decision })).toBeNull();
+    expect(screen.queryByRole('contentinfo', { name: copy.cards.decision })).toBeNull();
   });
 
   it('one at a time, the oldest first, « 1 sur 2 » (card 2)', async () => {
     const t = open([decision('t2', { title: 'La seconde', at: new Date(Date.now() + 1000).toISOString() }), decision('t1', { title: 'La première' })]);
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
     expect(within(f).getByText('La première')).toBeInTheDocument();
     expect(within(f).queryByText('La seconde')).toBeNull();
     expect(within(f).getByText('1 sur 2')).toBeInTheDocument();
@@ -78,8 +78,8 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
   it('without a passkey: says so, and « Ouvrir les Réglages » (card 2)', async () => {
     const t = open([decision('t1')], { confirm: false });
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
-    expect(within(f).getByText(copy.chat.point.note.confirmRequired)).toBeInTheDocument();
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
+    expect(within(f).getByText(copy.cards.note.confirmRequired)).toBeInTheDocument();
     expect(within(f).getByRole('link', { name: 'Ouvrir les Réglages' })).toHaveAttribute('href', '#/connection');
     expect(within(f).queryByRole('textbox')).toBeNull();
   });
@@ -88,7 +88,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     const t = open([decision('t1')]);
     act(() => t.set('pc_offline'));
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
     expect(within(f).getByText(copy.decide.offlineHint)).toBeInTheDocument();
     expect(within(f).getByRole('button', { name: 'Envoyer ma réponse' })).toBeDisabled();
   });
@@ -97,7 +97,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     vi.mocked(getAssertion).mockResolvedValue(ASSERTION);
     const t = open([decision('t1')]);
     render(<Thread store={t.store} sessionId="nova" />);
-    await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    await screen.findByRole('contentinfo', { name: copy.cards.decision });
     fireEvent.change(field(), { target: { value: 'captures/' } });
     fireEvent.click(within(foot()).getByRole('button', { name: 'Envoyer ma réponse' }));
     await waitFor(() => expect(t.of('confirm.prepare')).toHaveLength(1));
@@ -110,7 +110,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
   it('a proposal about the notes keeps its buttons: Ajouter · Modifier · Refuser (card 2)', async () => {
     const t = open([decision('t3', { title: 'Note captures : ajouter ce fait ?', brain: { kind: 'add', note: 'captures', fact: 'Les captures vont dans docs/shots/, jamais à la racine.', source: 't-13, réponse du 27/11' } })]);
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
     expect(within(f).getByText('propose d’ajouter à la note captures')).toBeInTheDocument();
     expect(within(f).getByRole('button', { name: 'Ajouter' })).toBeInTheDocument();
     expect(within(f).getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     t.deliver({ ...snap, daemon: { ...snap.daemon, taskAnswer: true } } as PhoneServerMessage);
     t.deliver({ type: 'tasks', tasks: [decision('t1')] });
     render(<Thread store={t.store} sessionId="nova" />);
-    const f = await screen.findByRole('contentinfo', { name: copy.chat.point.decision });
+    const f = await screen.findByRole('contentinfo', { name: copy.cards.decision });
     expect(within(f).getByText('Choisir le dossier des captures')).toBeInTheDocument();
     const ended = screen.getByText(copy.sessionEnd.ended);
     expect(f.compareDocumentPosition(ended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -133,7 +133,7 @@ describe('a decision put to Ledge, in its session\'s thread (#40 D2)', () => {
     const t = open([decision('t1')], { taskAnswer: false });
     render(<Thread store={t.store} sessionId="nova" />);
     await waitFor(() => expect(screen.getByLabelText(copy.thread.composer.label('Nova'))).toBeInTheDocument());
-    expect(screen.queryByRole('contentinfo', { name: copy.chat.point.decision })).toBeNull();
+    expect(screen.queryByRole('contentinfo', { name: copy.cards.decision })).toBeNull();
   });
 
   it('marks the session\'s row in Sessions with an amber « Décision » while it waits', () => {

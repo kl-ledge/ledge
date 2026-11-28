@@ -2,8 +2,8 @@ import { useId, useState } from 'react';
 import type { BrainChoice, PhoneTask } from '@ledge/protocol';
 import { copy } from '../../copy';
 import type { MobileStore } from '../../state/store';
-import { buttonClass } from '../Button';
-import { Tag } from '../Tag';
+import { buttonClass } from '../../ui/Button';
+import { Tag } from '../../ui/Tag';
 
 const YES = buttonClass({ variant: 'primary', size: 'sm', className: 'min-w-[64px] flex-none' });
 const SMALL = buttonClass({ size: 'sm', className: 'min-w-[64px] flex-none' });
@@ -16,7 +16,7 @@ const one = (s: string) => s.replace(/\s*[\r\n]+\s*/g, ' ').trim();
  * choice (the PC refuses it otherwise).
  */
 export function NoteProposal({ task, store, fresh }: { task: PhoneTask & { brain: NonNullable<PhoneTask['brain']> }; store: MobileStore; fresh: boolean }) {
-  const P = copy.chat.point.note;
+  const P = copy.cards.note;
   const p = task.brain;
   const id = useId();
   const [editing, setEditing] = useState(false);
@@ -44,7 +44,7 @@ export function NoteProposal({ task, store, fresh }: { task: PhoneTask & { brain
     <div className="flex flex-col gap-2 rounded-control bg-raised p-2.5" data-note-proposal={task.id}>
       <span className="flex flex-wrap items-center gap-1.5 text-body">
         <Tag tone="attention" label={P.tag} />
-        <span className="font-medium">{task.giverName ?? copy.chat.point.someone}</span><span className="text-muted">{head}</span>
+        <span className="font-medium">{task.giverName ?? copy.cards.someone}</span><span className="text-muted">{head}</span>
       </span>
       {p.create && (
         <>

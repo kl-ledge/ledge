@@ -101,7 +101,7 @@ describe('the Atelier tab', () => {
     const nav = () => screen.getByRole('navigation', { name: copy.nav.label });
     // No Ledge in the rail any more (#40 D6, card 10).
     expect(within(nav()).getAllByRole('link').map(a => a.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.settings]);
-    expect(within(nav()).queryByRole('button', { name: copy.nav.chat })).toBeNull();
+    expect(within(nav()).queryByRole('button', { name: 'Ledge' })).toBeNull();
     expect(within(nav()).getByRole('link', { name: copy.nav.atelier })).toHaveAttribute('href', '#/atelier');
     unmount();
     wide(false);

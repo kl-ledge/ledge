@@ -121,15 +121,13 @@ describe('Réglages: Ledge', () => {
     await waitFor(() => expect(screen.getByRole('combobox', { name: 'Contexte max' })).toHaveValue('60'));
   });
 
-  it('the chat\'s agent: « PC » until chosen, then this device\'s own (null back to the PC\'s)', () => {
+  it('no « Agent du chat » any more: the chat left the phone (#40 PR 4)', () => {
     const t = app('ready', { hash: '#/connection' });
-    act(() => t.deliver(snap({ chat: true })));
-    expect(screen.getByRole('radio', { name: 'PC' })).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: 'Codex' }));
-    expect(t.of('device.prefs')[0]!.prefs.chatTool).toBe('codex');
-    fireEvent.click(screen.getByRole('radio', { name: 'PC' }));
-    expect(t.of('device.prefs')[1]!.prefs.chatTool).toBeNull();
+    act(() => t.deliver(snap()));
+    expect(screen.queryByRole('radiogroup', { name: 'Agent du chat' })).toBeNull();
+    expect(screen.queryByText('Agent du chat')).toBeNull();
   });
+
 
   it('no chat on this PC: no choice of agent', () => {
     const t = app('ready', { hash: '#/connection' });

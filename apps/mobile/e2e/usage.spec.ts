@@ -49,7 +49,7 @@ for (const theme of ['dark', 'light'] as const) {
     await pair(page, theme);
     // 1 · Réglages › Usage (#40 D9, docs/mockups/ledge-remove-chat-p2.html, card 10): the alert at its head, the limits with the logo.
     await page.evaluate(() => { location.hash = '#/connection/usage'; });
-    const limits = page.getByRole('group', { name: copy.chat.point.limitsLabel });
+    const limits = page.getByRole('group', { name: copy.limits.limitsLabel });
     await expect(limits).toContainText('84 %');
     await expect(limits.locator('svg.harness-claude')).toBeVisible();
     await expect(page.getByRole('main').getByRole('status').first()).toContainText('Claude Code · Opus atteinte');
@@ -72,7 +72,7 @@ test('Cursor limits on the phone: month, Cursor and others', async ({ page }) =>
   Object.assign(h.daemon, { usage: [{ harness: 'cursor', status: 'ok', readAt: at(-1), windows: [{ kind: 'month', pct: 81, resetsAt }, { kind: 'pool', pool: 'cursor', pct: 41, resetsAt }, { kind: 'pool', pool: 'other', pct: 100, resetsAt }] }] satisfies PhoneHarnessUsage[] });
   await pair(page, 'dark');
   await page.evaluate(() => { location.hash = '#/connection/usage'; });
-  const limits = page.getByRole('group', { name: copy.chat.point.limitsLabel });
+  const limits = page.getByRole('group', { name: copy.limits.limitsLabel });
   await expect(limits).toContainText('Mois');
   await expect(limits).toContainText('Cursor Agent');
   await expect(limits).toContainText('Autres');
