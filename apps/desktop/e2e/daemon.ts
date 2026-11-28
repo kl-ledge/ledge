@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Page, WebSocketRoute } from '@playwright/test';
-import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ChatAction, ChatProjectProposal, ChatProposal, ChatStep, ChatTurn, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task, Routine, RoutineRun } from '@ledge/protocol';
+import type { RigGraph, RigRow, RigSeatPermission, RigSnapshot, BrowserLive, HumanAsk, HumanChannel, OpenRigAnswered, OpenRigState, RigSpec, RoleDetail, RoleSummary, ClientMessage, DaemonInfo, FoundRepo, IslandPrefs, Machines, ModelChoice, Projects, SlashCommand, Recent, Session, ThreadItem, Tool, UsageStateMessage, PullRequest, ForgeStatus, PrDetail, ForgeAction, FollowedSession, Task, Routine, RoutineRun } from '@ledge/protocol';
 
 /** How long a launched session stays `starting` in the fake daemon before it is `working`. */
 /** A routine's key as the fake daemon gives it: a digest of what « Activer » applies, as the real `routineKey` (not its bytes). */
@@ -15,17 +15,12 @@ const keyed = (r: Routine): Routine => ({ ...r, key: fakeKey(r) });
 
 export const LAUNCH_SETTLE_MS = 1500;
 export const T0 = new Date(Date.now() - 5 * 60_000).toISOString();
-/** A local daemon that can route the chat between machines (spec 2026-10-14 §5.3): the fleet coordinates through it. */
-export const ROUTING: DaemonInfo = { version: '0.6.0', install: 'npm', systemd: true, routing: true };
 export function session(id: string, extra: Partial<Session> = {}): Session {
   return { id, name: 'Otto', tool: 'claude', cwd: '/w/harness-assistant', project: 'harness-assistant', title: 'Otto · harness-assistant', tmuxSession: `ledge-${id}`, state: 'working', helpers: [], startedAt: T0, lastActivityAt: T0, source: 'launcher', ...extra };
 }
 
 /** A folder of the fake daemon's disk: its parent (null at `/`), its subfolders by name, the Git repositories among them with their branch. */
 export interface Folder { parent: string | null; entries: string[]; repos?: { name: string; branch: string }[] }
-
-/** Ledge's scripted answer to every `chat.ask`: what it read, its text, the session it proposes to start. */
-export interface ChatReply { steps?: ChatStep[]; text: string; proposal?: ChatProposal; projectProposal?: ChatProjectProposal; /** The generic card's rows (spec §9.2), as the daemon sends them. */ actions?: ChatAction[] }
 
 /** A machine's answer to `repos.scan`: its repositories, or the fleet's `error` for a machine it cannot ask. */
 export type Found = { repos: FoundRepo[]; truncated?: boolean } | 'offline' | 'outdated';
@@ -38,9 +33,6 @@ export type Found = { repos: FoundRepo[]; truncated?: boolean } | 'offline' | 'o
  *  `requestId` and the Git `repos` among the entries, or with the asked path and `error` `not found`. A `folder.create` adds the folder to its parent there
  *  and answers with its listing; a name already there is refused (`already exists: <name>`), as the daemon does. A `session.launch` is answered as the daemon does: a `starting` session (`launched-<n>`, the message's name, harness and folder) is listed,
  *  then `session.launched`, and LAUNCH_SETTLE_MS later it is `working`; `launches: 'manual'` leaves the answer to the test (`launched`, `refuse`).
- *  A `chat.ask` is answered from `extras.chat` as the daemon streams it: each `chat.step`, the text as one `chat.delta`, then `chat.done` with the
- *  proposal. A card's `session.launch { qid }` seats its agent as above, then broadcasts the `chat.history` where that turn's proposal has its
- *  `launchedId`; that agent stays `starting` (the test may `upsert` it), so what the launch lit is never raced by the settle.
  *  A `repos.scan` is answered by its `machineId` (default `local`) from `extras.found` with `repos.found` (after `scanDelayMs`, to hold the scan view): no entry, an empty list.
  *  Like the daemon it keeps the island's settings (`extras.island`, default null: none set yet), sent after the projects, and an `island.set`
  *  replaces them and is broadcast back as `island`; `island: 'unknown'` plays a daemon too old to speak of them.
@@ -48,7 +40,7 @@ export type Found = { repos: FoundRepo[]; truncated?: boolean } | 'offline' | 'o
  *  The route is anchored so it never catches `/ssh/<alias>` (see `fakeRemote`). Register before `page.goto`. */
 /** What a daemon answers about OpenRig's roles: the list, each role by library id, each file by absolute path. */
 export interface FakeRoles { list: RoleSummary[]; details: Record<string, RoleDetail>; files: Record<string, string>; openrigVersion?: string }
-export async function fakeDaemon(page: Page, initial: Session[], extras: { machines?: Machines; launcher?: string[]; recents?: Recent[]; daemon?: DaemonInfo; projects?: Projects; threads?: Record<string, ThreadItem[]>; documents?: Record<string, string>; repoInfo?: Record<string, { exists: boolean; branch: string | null }>; folders?: Record<string, Folder>; home?: string; launches?: 'auto' | 'manual'; chat?: ChatReply; found?: Record<string, Found>; scanDelayMs?: number; island?: IslandPrefs | null | 'unknown'; models?: Partial<Record<Tool, ModelChoice[]>>; /** What `session.commands` answers, for every session. */ commands?: SlashCommand[]; openrig?: OpenRigState; /** The `rig` commands an `openrig.act` reports having run (the bottom panel's Output logs the actions that ran some). */ rigCommands?: string[]; rigSpecs?: RigSpec[]; /** Images the daemon already holds, by id (no preview: a preview get is served the whole image). */ images?: Record<string, { mime: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }>; roles?: FakeRoles; /** Lot 7a, by rig name (see RIG_7A in openrig-fixtures.ts): a rig's topology, snapshots, permissions and queue. */ rigGraphs?: Record<string, RigGraph>; rigSnapshots?: Record<string, RigSnapshot[]>; rigPermissions?: Record<string, { policy?: string; seats: RigSeatPermission[] }>; rigQueues?: Record<string, RigRow[]>; /** « À toi » (docs/vision/ledge-human-channel-contract.md): the channel and what OpenRig asks the person; answers end as `answered`. */ asks?: { channel: HumanChannel; asks: HumanAsk[]; answered?: Partial<OpenRigAnswered> }; /** Ledge's tasks, oldest first, answered to the fleet's `task.cmd list` (it asks only a daemon from 0.17: give `extras.daemon` a version). */ tasks?: Task[]; /** Issue #9: what a report's preview attaches (and its log excerpt), and how a creation ends (never a real issue). */ report?: { items: { key: string; value: string }[]; log?: string; created: { ok: boolean; number?: number; url?: string; code?: string; message?: string } };
+export async function fakeDaemon(page: Page, initial: Session[], extras: { machines?: Machines; launcher?: string[]; recents?: Recent[]; daemon?: DaemonInfo; projects?: Projects; threads?: Record<string, ThreadItem[]>; documents?: Record<string, string>; repoInfo?: Record<string, { exists: boolean; branch: string | null }>; folders?: Record<string, Folder>; home?: string; launches?: 'auto' | 'manual'; found?: Record<string, Found>; scanDelayMs?: number; island?: IslandPrefs | null | 'unknown'; models?: Partial<Record<Tool, ModelChoice[]>>; /** What `session.commands` answers, for every session. */ commands?: SlashCommand[]; openrig?: OpenRigState; /** The `rig` commands an `openrig.act` reports having run (the bottom panel's Output logs the actions that ran some). */ rigCommands?: string[]; rigSpecs?: RigSpec[]; /** Images the daemon already holds, by id (no preview: a preview get is served the whole image). */ images?: Record<string, { mime: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }>; roles?: FakeRoles; /** Lot 7a, by rig name (see RIG_7A in openrig-fixtures.ts): a rig's topology, snapshots, permissions and queue. */ rigGraphs?: Record<string, RigGraph>; rigSnapshots?: Record<string, RigSnapshot[]>; rigPermissions?: Record<string, { policy?: string; seats: RigSeatPermission[] }>; rigQueues?: Record<string, RigRow[]>; /** « À toi » (docs/vision/ledge-human-channel-contract.md): the channel and what OpenRig asks the person; answers end as `answered`. */ asks?: { channel: HumanChannel; asks: HumanAsk[]; answered?: Partial<OpenRigAnswered> }; /** Ledge's tasks, oldest first, answered to the fleet's `task.cmd list` (it asks only a daemon from 0.17: give `extras.daemon` a version). */ tasks?: Task[]; /** Issue #9: what a report's preview attaches (and its log excerpt), and how a creation ends (never a real issue). */ report?: { items: { key: string; value: string }[]; log?: string; created: { ok: boolean; number?: number; url?: string; code?: string; message?: string } };
   /** The agents' browsers (docs/mockups/ledge-browser-live.html), by session: their state, and the image a `browser.watch` gets (JPEG, base64). */
   browsers?: Record<string, { live: Omit<BrowserLive, 'type'>; frame?: string }>;
   /** The harnesses' limits (`usage.state`, docs/mockups/ledge-harness-usage.html), sent after the island; `usage.set` and
@@ -70,7 +62,6 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
   let socket: WebSocketRoute | null = null;
   let up = true;
   let launches = 0;
-  const turns = new Map<string, ChatTurn>();
   const images = new Map<string, { mime: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string; preview: boolean }>(Object.entries(extras.images ?? {}).map(([id, i]) => [id, { ...i, preview: false }]));
   const browsers = new Map(Object.entries(extras.browsers ?? {}));
   await page.routeWebSocket(/127\.0\.0\.1:47831\/?$/, ws => {
@@ -246,15 +237,6 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
         const answer = { type: 'repos.found', requestId: msg.requestId, repos: typeof f === 'string' ? [] : f.repos, truncated: typeof f === 'string' ? false : f.truncated ?? false, ...(typeof f === 'string' ? { error: f } : {}) };
         setTimeout(() => { try { ws.send(JSON.stringify(answer)); } catch { /* the page is gone */ } }, extras.scanDelayMs ?? 0);
       }
-      if (msg.type === 'chat.ask') {
-        const reply = extras.chat ?? { text: 'Nothing to report.' };
-        const steps = reply.steps ?? [];
-        const at = new Date().toISOString();
-        turns.set(msg.qid, { qid: msg.qid, question: msg.text, askedAt: at, steps, answer: reply.text, answeredAt: at, ...(reply.proposal ? { proposal: reply.proposal } : {}), ...(reply.projectProposal ? { projectProposal: reply.projectProposal } : {}), ...(reply.actions ? { actions: reply.actions } : {}) });
-        for (const step of steps) ws.send(JSON.stringify({ type: 'chat.step', qid: msg.qid, step }));
-        ws.send(JSON.stringify({ type: 'chat.delta', qid: msg.qid, text: reply.text }));
-        ws.send(JSON.stringify({ type: 'chat.done', qid: msg.qid, text: reply.text, at, ...(reply.proposal ? { proposal: reply.proposal } : {}), ...(reply.projectProposal ? { projectProposal: reply.projectProposal } : {}), ...(reply.actions ? { actions: reply.actions } : {}) }));
-      }
       if (msg.type === 'session.launch' && extras.launches !== 'manual') {
         const id = `launched-${++launches}`;
         const project = msg.cwd.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || msg.cwd;
@@ -263,12 +245,6 @@ export async function fakeDaemon(page: Page, initial: Session[], extras: { machi
         sessions.set(id, s);
         ws.send(JSON.stringify({ type: 'session.updated', session: s }));
         ws.send(JSON.stringify({ type: 'session.launched', id }));
-        const turn = msg.qid === undefined ? undefined : turns.get(msg.qid);
-        if (turn?.proposal) {
-          turns.set(turn.qid, { ...turn, proposal: { ...turn.proposal, launchedId: id } });
-          ws.send(JSON.stringify({ type: 'chat.history', turns: [...turns.values()] }));
-        }
-        if (msg.qid !== undefined) return;
         setTimeout(() => {
           if (sessions.get(id)?.state !== 'starting') return;
           const next = { ...s, state: 'working' as const, lastActivityAt: new Date().toISOString() };

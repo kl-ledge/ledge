@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { PROJECT_COLORS, projectNameKey, type PhoneFolder, type PhoneProject, type ProjectColor } from '@ledge/protocol';
 import { copy } from '../copy';
-import type { ChatAction } from '../state/chat';
+import type { ActionResult } from '../state/actionResult';
 import { useMobile, type MobileStore } from '../state/store';
 import { Button, IconButton } from '../ui/Button';
 import { Sheet } from '../ui/Dialog';
@@ -13,7 +13,7 @@ const COLORS = Object.keys(PROJECT_COLORS) as ProjectColor[];
 const NAME_MAX = 80;
 
 /** What the user reads of an outcome that is not `applied`. */
-const why = (r: ChatAction): string => P.errors[r.status === 'rejected' ? r.reason : r.status] ?? P.errors.failed!;
+const why = (r: ActionResult): string => P.errors[r.status === 'rejected' ? r.reason : r.status] ?? P.errors.failed!;
 
 /** `ids` with the project at `from` moved one place up (-1) or down (+1). */
 export function moved(ids: readonly string[], from: number, by: -1 | 1): string[] {
@@ -188,7 +188,7 @@ function FoldersSheet({ store, project, onClose }: { store: MobileStore; project
   useEffect(() => { store.requestProjectFolders(project.id); }, [store, project.id]);
   const folders = state.projectFolders[project.id];
   const canConfirm = !!state.device?.confirm;
-  const settle = (r: ChatAction, after: () => void) => {
+  const settle = (r: ActionResult, after: () => void) => {
     setBusy(false);
     if (r.status === 'applied') { store.requestProjectFolders(project.id); after(); } else setError(why(r));
   };

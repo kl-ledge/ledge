@@ -67,7 +67,7 @@ describe('the shell (m0-socle.html)', () => {
     rerender(<Rail route={{ name: 'rigs' }} active="rigs" badges={{}} atelier />);
     expect(names()).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs, copy.nav.atelier, copy.nav.settings]);
     expect(screen.getByRole('link', { name: copy.nav.rigs })).toHaveAttribute('aria-current', 'page');
-    expect(screen.queryByRole('button', { name: copy.nav.chat })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ledge' })).toBeNull();
   });
 
 

@@ -71,7 +71,7 @@ export function Sidebar(p: {
   const attn = useMemo(() => attentionOf(p.sessions, p.waits), [p.sessions, p.waits]);
   const root = useRef<HTMLElement>(null);
   const keys = useRef({ attn, current, dispatch: p.dispatch, quiet: false });
-  keys.current = { attn, current, dispatch: p.dispatch, quiet: p.nav.modal !== null || p.nav.chat || p.actions.pending !== null || p.menu.menu !== null };
+  keys.current = { attn, current, dispatch: p.dispatch, quiet: p.nav.modal !== null || p.actions.pending !== null || p.menu.menu !== null };
   // Alt ↓ opens the next waiting session. Ctrl ⇧ E focuses its tree row, or the first row when none is open.
   // A dialog, a confirmation, the chat, or a text field already owns the key (same rule as the window shortcuts).
   useEffect(() => {

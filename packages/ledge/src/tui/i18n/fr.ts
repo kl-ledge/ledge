@@ -1,7 +1,5 @@
 import { formatBytes } from '@ledge/ui/images/encode';
 import type { BotState } from '@ledge/ui/bots/poseFor';
-import { actionCopy } from '@ledge/ui/chat/actionCopy';
-import { pointCopy } from '@ledge/ui/chat/pointCopy';
 import type { DeviceWord } from '@ledge/fleet';
 
 /** French counts 0 and 1 as singular; a device in a sentence takes its article (« l’iPad », « cet iPad », « de l’iPad »), a name the user gave is said bare. */

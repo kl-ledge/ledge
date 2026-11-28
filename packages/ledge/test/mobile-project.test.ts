@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CapabilitiesByToolSchema, PhoneSessionSchema, PhoneSessionSchema as S, pendingKey, THREAD_BUDGET, THREAD_ITEMS_MAX, type Session, type ThreadItem } from '@ledge/protocol';
 import { adapterFor } from '../src/adapters/index.js';
-import { toPhoneTurn } from '../src/mobile/chat.js';
 import { capabilities, toPhoneFullRequest, toPhoneItem, toPhoneSession, toPhoneThread } from '../src/mobile/project.js';
 import { checklistSummary, toPhoneChecklist } from '../src/mobile/project.js';
 import type { Todo } from '@ledge/protocol';
@@ -157,11 +156,6 @@ describe('images on the phone projection', () => {
   });
   it('a prompt item without images stays as it was', () => {
     expect(toPhoneItem({ kind: 'prompt', id: 'p1', at: T, turn: 1, text: 'look' }).item).not.toHaveProperty('images');
-  });
-  it('a chat turn keeps its attachments', () => {
-    const t = toPhoneTurn({ qid: '8b4f6d3e-0000-4000-8000-000000000000', question: 'q', askedAt: T, steps: [], attachments: [ref] } as never);
-    expect(t.attachments).toEqual([ref]);
-    expect(toPhoneTurn({ qid: 'x', question: 'q', askedAt: T, steps: [] } as never)).not.toHaveProperty('attachments');
   });
 });
 

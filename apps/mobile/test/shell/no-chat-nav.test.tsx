@@ -10,7 +10,7 @@ import { snapshot } from '../state/helpers';
 import { meStub } from '../screens/app-setup';
 import { setup } from '../screens/setup';
 
-const ON = { confirm: true, chat: true as const };
+const ON = { confirm: true };
 const wide = (on: boolean) => { globalThis.matchMedia = ((q: string) => ({ matches: on && !q.includes('pointer'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof matchMedia; };
 
 afterEach(() => { wide(false); forgetTabs(); });
@@ -31,14 +31,14 @@ describe('without the chat (#40 D6)', () => {
     expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
     expect(within(nav()).getAllByRole('link').map(a => a.textContent?.replace(/\d+$/, ''))).toEqual([copy.nav.sessions, copy.nav.prs, copy.nav.rigs]);
     expect(within(nav()).getByRole('link', { name: copy.nav.sessions })).toHaveAttribute('aria-current', 'page');
-    expect(screen.queryByLabelText(copy.chat.field)).toBeNull();
+    expect(screen.queryByLabelText('Question pour Ledge')).toBeNull();
   });
 
   it.each(['#/', '#/chat'])('on a tablet, %s opens Sessions, the rail without Ledge and no pane', (hash) => {
     open(hash, true);
     expect(document.querySelector('[data-route]')).toHaveAttribute('data-route', 'sessions');
-    expect(within(nav()).queryByRole('button', { name: copy.nav.chat })).toBeNull();
-    expect(screen.queryByRole('complementary', { name: copy.chat.title })).toBeNull();
-    expect(screen.queryByLabelText(copy.chat.field)).toBeNull();
+    expect(within(nav()).queryByRole('button', { name: 'Ledge' })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: 'Ledge' })).toBeNull();
+    expect(screen.queryByLabelText('Question pour Ledge')).toBeNull();
   });
 });

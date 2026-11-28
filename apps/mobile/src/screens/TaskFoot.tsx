@@ -5,7 +5,7 @@ import { openDecisions } from '../model/tasks';
 import { href } from '../router';
 import { useMobile, type MobileStore } from '../state/store';
 import { buttonClass } from '../ui/Button';
-import { NoteProposal } from '../ui/chat/NoteProposal';
+import { NoteProposal } from './cards/NoteProposal';
 import { Icon } from '../ui/icons';
 import { Notice } from '../ui/Notice';
 import { Tag } from '../ui/Tag';
@@ -32,7 +32,7 @@ export function TaskFoot({ store, session, tasks, sent, onSent }: {
   const state = useMobile(store);
   const platform = usePlatform();
   const D = copy.decide;
-  const P = copy.chat.point;
+  const P = copy.cards;
   const id = useId();
   const setSent = onSent;
   useEffect(() => {
@@ -112,7 +112,7 @@ export function TaskFoot({ store, session, tasks, sent, onSent }: {
     {task.text && <p className="text-body whitespace-pre-wrap text-muted">{task.text}</p>}
     {keyless ? noKey : error === 'stale' ? problem : <>
       <label htmlFor={id} className="sr-only">{P.answerLabel(task.title)}</label>
-      <textarea id={id} rows={2} value={text} disabled={busy || !state.fresh} placeholder={copy.chat.operator.answer.placeholder} onChange={e => setText(e.target.value)}
+      <textarea id={id} rows={2} value={text} disabled={busy || !state.fresh} placeholder={copy.cards.answerPlaceholder} onChange={e => setText(e.target.value)}
         className="w-full resize-none rounded-control border border-line bg-surface px-3 py-2.5 text-body text-fg" />
       {problem}
       {offline}

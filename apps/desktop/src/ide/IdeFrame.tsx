@@ -1,7 +1,7 @@
-import { useSyncExternalStore, type CSSProperties, type JSX, type ReactNode } from 'react';
+import { type CSSProperties, type JSX, type ReactNode } from 'react';
 import type { Session } from '@ledge/protocol';
 import { useI18n } from '../i18n/lang';
-import { RIGHT_WIDTH, rightShown, type IdeLayout, type LayoutAction } from '../workspace/layout';
+import type { IdeLayout, LayoutAction } from '../workspace/layout';
 import type { Tab } from '../workspace/model';
 import { ActivityBar } from './ActivityBar';
 import { BottomEdge } from './BottomEdge';
@@ -31,8 +31,8 @@ export { RoutinePage } from '../routines/RoutinePage';
 
 export interface IdeFrameProps {
   layout: IdeLayout; onLayout(a: LayoutAction): void;
-  /** The sidebar's view (Sidebar with `section`), the editing area (DockHost), the right panel's chat, the status bar's footer. */
-  explorer: ReactNode; editor: ReactNode; chat: ReactNode; footer: ReactNode;
+  /** The sidebar's view, the editing area (DockHost), the status bar's footer. */
+  explorer: ReactNode; editor: ReactNode; footer: ReactNode;
   /** The bottom panel (BottomPanel), under the editing area while the layout shows it. */
   bottom: ReactNode;
   /** The harnesses' limits, at the status bar's far right (not inside the footer, which starts it). */
@@ -58,24 +58,18 @@ export interface IdeFrameProps {
   dispositions: DispositionsProps;
 }
 
-const onResize = (cb: () => void) => { window.addEventListener('resize', cb); return () => window.removeEventListener('resize', cb); };
-const windowWidth = () => window.innerWidth;
-
-/** The IDE shell (mockup `titlebar()`, `activity()`, `sidebar()`, `editor()`, `bottomPanel()`, `rightPanel()`, `statusbar()`):
- *  the panels the layout shows, at the mockup's sizes. The right panel hides when the editing area would drop under its minimum. */
+/** The IDE shell (mockup `titlebar()`, `activity()`, `sidebar()`, `editor()`, `bottomPanel()`, `statusbar()`):
+ *  the panels the layout shows, at the mockup's sizes. The chat's right panel left with #40 PR 4. */
 export function IdeFrame(p: IdeFrameProps): JSX.Element {
   const { t } = useI18n();
-  const width = useSyncExternalStore(onResize, windowWidth, windowWidth);
   const { layout, onLayout } = p;
-  const right = rightShown(layout, width);
   const columns = {
     '--ide-side': layout.sideOpen ? `${layout.sideWidth}px` : '0px',
-    '--ide-right': right ? `${RIGHT_WIDTH}px` : '0px',
     '--ide-bottom': `${layout.bottomHeight}px`
   } as CSSProperties;
   return (
     <div className={`ide${p.dragging ? ' is-dragging' : ''}`} data-readonly={p.readOnly ? 'true' : undefined}>
-      <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} onReport={p.onReport} blocked={p.blocked} rightShown={right} />
+      <IdeTitleBar layout={layout} onLayout={onLayout} onSearch={p.onSearch} onReport={p.onReport} blocked={p.blocked} />
       <div className="ide-body" style={columns} inert={p.blocked}>
         <ActivityBar layout={layout} onLayout={onLayout} onTab={p.onTab} activeTab={p.activeTab} badge={p.badge} prsFailing={p.prsFailing} routinesBadge={p.routinesBadge} requestsBadge={p.requestsBadge} tasksBadge={p.tasksBadge} />
         {layout.sideOpen && <IdeExplorer width={layout.sideWidth} onLayout={onLayout}>{p.explorer}</IdeExplorer>}
@@ -84,7 +78,6 @@ export function IdeFrame(p: IdeFrameProps): JSX.Element {
           <div className="ide-dock-area">{p.editor}</div>
           {layout.bottom && <div className="ide-bottom-host"><BottomEdge onLayout={onLayout} />{p.bottom}</div>}
         </section>
-        {right && <div className="ide-right">{p.chat}</div>}
       </div>
       {/* The next waiting request opens a preview (spec 2026-11-26-preview-tabs §5.2). */}
       <div className="ide-status-row" inert={p.blocked} onClickCapture={e => noteClick(e.nativeEvent)}>

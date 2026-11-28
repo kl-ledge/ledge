@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test';
-import type { ClientMessage, HumanAsk, HumanChannel, Session, Task } from '@ledge/protocol';
+import type { HumanAsk, HumanChannel, Session, Task } from '@ledge/protocol';
 import { test, expect, seedAtelier } from './fixtures';
 import { fakeDaemon, session, twoProjects } from './daemon';
 
-// Lot 12 (docs/mockups/ledge-ide-tasks-history.html): « Tâches », a view of the activity bar since #40 D3, and « Historique », a tab of
-// the right panel's chat until #40 PR 4. « À toi » left with #40 PR 3.
+// Lot 12 (docs/mockups/ledge-ide-tasks-history.html): « Tâches », a view of the activity bar since #40 D3. « À toi » left with #40 PR 3,
+// the chat and its « Historique » with PR 4.
 test.use({ viewport: { width: 1920, height: 1080 } });
 test.setTimeout(90_000);
 
@@ -31,33 +31,28 @@ const ASKS: HumanAsk[] = [{
   questions: [{ id: 'q1', question: 'Fusionner ?', options: [{ id: 'now', label: 'Fusionner maintenant', recommended: true }, { id: 'wait', label: 'Attendre la relecture', recommended: false }], answer: null }],
   createdAt: iso(600_000), updatedAt: iso(600_000)
 }];
-const CHAT = { text: 'Nova attend ta décision sur le nom du dossier des captures.' };
 
 async function boot(page: Page, theme: 'dark' | 'light' = 'dark') {
   await page.addInitScript(t => { try { localStorage.setItem('desktop.lang', 'fr'); localStorage.setItem('desktop.theme', t); } catch { /* ignore */ } }, theme);
   await seedAtelier(page);
-  const daemon = await fakeDaemon(page, sessions, { projects: twoProjects, daemon: { version: '0.54.1', install: 'npm', systemd: true, openrigAsks: true } as never, tasks: TASKS, asks: { channel: READY, asks: ASKS }, chat: CHAT });
+  const daemon = await fakeDaemon(page, sessions, { projects: twoProjects, daemon: { version: '0.54.1', install: 'npm', systemd: true, openrigAsks: true } as never, tasks: TASKS, asks: { channel: READY, asks: ASKS } });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 30_000 });
   return daemon;
 }
-const panel = (page: Page) => page.getByRole('complementary', { name: 'Chat Ledge' });
-const rtab = (page: Page, name: RegExp) => panel(page).getByRole('tablist', { name: 'Vues de Ledge' }).getByRole('tab', { name });
 /** « Tâches », a view of the activity bar since #40 D3 (Ctrl+/ opens it; the right panel keeps Conversation and Historique). */
 const tasks = (page: Page) => page.getByRole('complementary', { name: 'Tâches' });
 const rows = (page: Page) => tasks(page).locator('.rt-trow');
 const openTasks = async (page: Page) => { await page.locator('body').click({ position: { x: 900, y: 500 } }); await page.keyboard.press('Control+/'); await expect(tasks(page)).toBeVisible(); };
-const rightToggle = (page: Page) => page.getByRole('button', { name: 'Panneau de droite' });
 const shot = async (page: Page, name: string, el: ReturnType<Page['locator']>) => {
   const b = (await el.boundingBox())!;
   await page.screenshot({ path: `e2e/.results/lot12-${name}.png`, clip: { x: b.x, y: b.y, width: b.width, height: b.height } });
 };
 
 for (const theme of ['dark', 'light'] as const) {
-  test(`(${theme}) the Tasks view (#40 D3): the right panel keeps Conversation · Historique; a task's detail in place of the list, « ‹ Tâches » and Échap back`, async ({ page }) => {
+  test(`(${theme}) the Tasks view (#40 D3): no chat panel; a task's detail in place of the list, « ‹ Tâches » and Échap back`, async ({ page }) => {
     await boot(page, theme);
-    await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
-    await expect(rtab(page, /^Tâches/)).toHaveCount(0);
+    await expect(page.getByRole('complementary', { name: 'Chat Ledge' })).toHaveCount(0);
     await openTasks(page);
     // The open tasks counted: t-11, t-13, t-14.
     await expect(tasks(page).locator('.ide-tasks-h')).toContainText('3 ouvertes');
@@ -92,27 +87,6 @@ for (const theme of ['dark', 'light'] as const) {
     await shot(page, `tasks-decision-${theme}`, tasks(page));
   });
 }
-
-test('« Historique »: the day\'s questions, the latest first; a click goes back to Conversation on that question, lit a moment', async ({ page }) => {
-  const daemon = await boot(page);
-  const field = panel(page).getByRole('textbox', { name: 'Demander à Ledge' });
-  for (const q of ['Qui a besoin de moi ?', 'Lance une session Codex sur ledge.']) {
-    await field.fill(q);
-    await field.press('Enter');
-    await expect(panel(page).locator('[data-question]').filter({ hasText: q })).toBeVisible();
-  }
-  await expect.poll(() => daemon.received.filter(m => m.type === 'chat.ask').length).toBe(2);
-  await rtab(page, /^Historique$/).click();
-  const h = panel(page).locator('.rt-hrow');
-  await expect(h).toHaveCount(2);
-  await expect(h.first()).toContainText('Lance une session Codex');
-  await shot(page, 'history-dark', panel(page));
-  await h.nth(1).click();
-  await expect(rtab(page, /^Conversation$/)).toHaveAttribute('aria-selected', 'true');
-  const q = panel(page).locator('[data-question]').filter({ hasText: 'Qui a besoin de moi ?' });
-  await expect(q).toHaveClass(/rt-flash/);
-  await expect(q).not.toHaveClass(/rt-flash/, { timeout: 4000 });
-});
 
 test('the local daemon goes away: the last list stays, dimmed under its banner; the rows still open, « Répondre » off', async ({ page }) => {
   const daemon = await boot(page);

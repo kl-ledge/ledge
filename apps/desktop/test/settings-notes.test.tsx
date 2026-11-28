@@ -32,7 +32,7 @@ function fakeClient() {
 }
 
 describe('Settings › Notes (docs/mockups/ledge-brain-notes.html, part 3)', () => {
-  it('lists each note with its scope, projects, date and flag; opens one; clears a flag', async () => {
+  it('lists each note with its projects, date and flag; a « chat only » note is « Plus lue » (#40 PR 4, A); opens one; clears a flag', async () => {
     const { client, sent } = fakeClient();
     const saved = vi.fn();
     const ctx = { client, machines: [], saved } as unknown as SettingsContext;
@@ -40,7 +40,8 @@ describe('Settings › Notes (docs/mockups/ledge-brain-notes.html, part 3)', () 
     expect(await screen.findByText('Les machines du homelab')).toBeVisible();
     expect(screen.getByText('/home/u/.ledge/context')).toBeVisible();
     expect(screen.getByText('2 notes')).toBeVisible();
-    expect(screen.getByText('Chat seulement')).toBeVisible();
+    expect(screen.queryByText('Chat seulement')).toBeNull();
+    expect(screen.getAllByText('Plus lue')).toHaveLength(1);   // reseau (scope chat), not machines (scope all)
     expect(screen.getByText('Projets : ledge')).toBeVisible();
     expect(screen.getByText('vérifiée le 01/11/2026')).toBeVisible();
     expect(screen.getByText('modifiée le 28/08/2026 · ancienne')).toBeVisible();

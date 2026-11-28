@@ -12,7 +12,7 @@ function peer() {
   return { client, sent, connects: () => connects, closes: () => closes, set(s: DaemonStatus) { status = s; onSt(s); }, emit(m: ServerMessage) { onMsg(m); } };
 }
 // A remote peer's snapshot must echo its ssh alias, or the fleet rejects it as an old local daemon.
-const snap = (ids: string[], sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: ids.map(id => fakeSession(id)), recents: [], daemon: { version: '0.4.0', install: 'npm', systemd: true, routing: true } });
+const snap = (ids: string[], sshAlias?: string): ServerMessage => ({ type: 'snapshot', ...(sshAlias ? { sshAlias } : {}), sessions: ids.map(id => fakeSession(id)), recents: [], daemon: { version: '0.4.0', install: 'npm', systemd: true } });
 const machinesMsg = (machines: Machines): ServerMessage => ({ type: 'machines', machines });
 const setSent = (p: { sent: unknown[] }) => p.sent.filter(m => (m as { type: string }).type === 'machines.set');
 function setup(initial = [LOCAL_MACHINE]) {
@@ -142,20 +142,6 @@ describe('migration of a stored list (the island starts from it)', () => {
     expect(server.closes()).toBe(0); expect(server.connects()).toBe(connects);
     expect(made.filter(u => u.endsWith('/ssh/dev-server'))).toHaveLength(1);
   });
-  it('a chat bound to the remote survives the migration', () => {
-    stored();
-    localStorage.setItem('ledge.fleet.history', JSON.stringify({ day: today, turns: [{ qid: 'q1', question: 'q', askedAt: at, steps: [], answer: 'a', answeredAt: at, machineId: 'server' }], bindings: [['q1', { machine: 'server', raw: 'q1' }]], resetAt: '' }));
-    const { api, local, server, got } = start();
-    local.emit(daemonLocalOnly);
-    local.emit(machinesMsg(wireList));
-    server.emit({ type: 'chat.history', turns: [{ qid: 'q1', question: 'q', askedAt: at, steps: [], answer: 'a', answeredAt: at }] });
-    const last = (got.filter(m => m.type === 'chat.history').at(-1) as Extract<ServerMessage, { type: 'chat.history' }>).turns;
-    expect(last.map(t => t.qid)).toEqual(['q1']);
-    expect(api.fleet!.turnMachine('q1')?.id).toBe('server');
-    api.send({ type: 'session.relay', qid: 'q1' });
-    expect(server.sent.at(-1)).toEqual({ type: 'session.relay', qid: 'q1' });
-    expect(got.some(m => m.type === 'error' && (m as { message: string }).message === 'Unknown conversation destination')).toBe(false);
-  });
 });
 
 describe('configure and old daemons', () => {
@@ -237,29 +223,3 @@ describe('loadMachines with a tunnel-era list', () => {
   });
 });
 
-describe('conversation bindings across a restart in daemon mode', () => {
-  const today = new Date().toISOString().slice(0, 10), at = `${today}T10:00:00.000Z`;
-  const persist = () => localStorage.setItem('ledge.fleet.history', JSON.stringify({ day: today, turns: [{ qid: 'q1', question: 'q', askedAt: at, steps: [], answer: 'a', answeredAt: at, machineId: 'server' }], bindings: [['q1', { machine: 'server', raw: 'q1' }]], resetAt: '' }));
-  const history = (): ServerMessage => ({ type: 'chat.history', turns: [{ qid: 'q1', question: 'server:q1', askedAt: at, steps: [], answer: 'a', answeredAt: at }] });
-  const histories = (got: ServerMessage[]) => got.filter(m => m.type === 'chat.history') as Extract<ServerMessage, { type: 'chat.history' }>[];
-  it('a remote binding survives the restart once the daemon confirms the machine', () => {
-    persist();
-    const { api, local, server, got } = setup();
-    local.emit(machinesMsg([{ id: 'local', label: 'Local' }, { id: 'server', label: 'dev-server', ssh: 'dev-server' }]));
-    server.set('open'); server.emit(snap([], remote.ssh)); server.emit(history());
-    expect(histories(got).at(-1)!.turns.map(t => t.qid)).toEqual(['q1']);
-    expect(api.fleet!.turnMachine('q1')?.id).toBe('server');
-    api.send({ type: 'session.relay', qid: 'q1' });
-    expect(server.sent.at(-1)).toEqual({ type: 'session.relay', qid: 'q1' });
-  });
-  it('a binding whose machine the daemon no longer lists is pruned', () => {
-    persist();
-    const { api, local, got } = setup();
-    const err = () => (got.filter(m => m.type === 'error').at(-1) as { message: string } | undefined)?.message;
-    api.send({ type: 'session.relay', qid: 'q1' });
-    expect(err()).toBe('server is offline'); // the binding is kept until the daemon answers
-    local.emit(machinesMsg([{ id: 'local', label: 'Local' }]));
-    api.send({ type: 'session.relay', qid: 'q1' });
-    expect(err()).toBe('Unknown conversation destination');
-  });
-});

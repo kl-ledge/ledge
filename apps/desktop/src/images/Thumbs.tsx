@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
 import type { DaemonClient } from '@ledge/fleet';
-import type { AttachmentRef, ChatTurn } from '@ledge/protocol';
+import type { AttachmentRef } from '@ledge/protocol';
 import { Thumbs as SharedThumbs, ThumbsViewer, type ThumbAction, type ThumbsCopy } from '@ledge/ui/images';
 import { useI18n } from '../i18n/lang';
 import { clock } from '../session/exchanges';
@@ -53,9 +53,3 @@ export function ImageViewer({ client, refs, route, index, onIndex, onClose, who,
   return <ThumbsViewer client={client} refs={refs} route={route} index={index} onIndex={onIndex} onClose={onClose} title={`${copy.capture} · ${who}, ${at}`} at={at} lang={lang} copy={copy} actions={a => <Actions {...a} />} />;
 }
 
-/** The images a question to Ledge carried, over its bubble: from the machine that holds them (`machineId`; the local one when absent). */
-export function TurnThumbs({ client, turn }: { client: DaemonClient; turn: ChatTurn }): JSX.Element | null {
-  const { t } = useI18n();
-  if (!turn.attachments?.length) return null;
-  return <Thumbs client={client} refs={turn.attachments} route={turn.machineId ? { machine: turn.machineId } : {}} max={{ w: 200, h: 130 }} who={t.session.thread.you} at={clock(turn.askedAt)} align="end" />;
-}

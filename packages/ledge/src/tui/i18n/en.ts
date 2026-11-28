@@ -1,5 +1,3 @@
-import { actionCopy } from '@ledge/ui/chat/actionCopy';
-import { pointCopy } from '@ledge/ui/chat/pointCopy';
 import { formatBytes } from '@ledge/ui/images/encode';
 import type { Messages } from './lang.js';
 import type { DeviceWord } from '@ledge/fleet';

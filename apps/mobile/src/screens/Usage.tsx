@@ -1,7 +1,7 @@
 import { copy } from '../copy';
 import { overWindows, resetIsDate, resetLabel, shownUsage } from '../model/usage';
 import { useMobile, type MobileStore } from '../state/store';
-import { Limits, windowLabel } from '../ui/chat/Limits';
+import { Limits, windowLabel } from '../ui/Limits';
 import { BackLink } from '../ui/Header';
 import { Notice } from '../ui/Notice';
 import { useNow } from '../useNow';
@@ -10,7 +10,8 @@ import { useNow } from '../useNow';
 export function useUsageAlert(store: MobileStore) {
   const state = useMobile(store);
   const now = useNow();
-  if (!state.daemon?.usage || !state.usage) return null;
+  // Never from values the link may have outdated, as the point did (M9): offline, no alert.
+  if (!state.daemon?.usage || !state.usage || !state.fresh) return null;
   const over = overWindows(shownUsage(state.usage, now, state.fresh), state.usageAlert, now);
   return over.find(o => o.tone === 'red') ?? over[0] ?? null;
 }
@@ -23,7 +24,7 @@ export function useUsageAlert(store: MobileStore) {
 export function Usage({ store }: { store: MobileStore }) {
   const state = useMobile(store);
   const now = useNow();
-  const P = copy.chat.point;
+  const P = copy.limits;
   const alert = useUsageAlert(store);
   const name = (h: string) => P.harness[h] ?? h;
   const said = alert && (() => {

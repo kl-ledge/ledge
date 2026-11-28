@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { layoutFor, layoutReducer, loadLayout, rightFits, rightShown, saveLayout, type IdeLayout } from '../../src/workspace/layout';
+import { layoutFor, layoutReducer, loadLayout, saveLayout, type IdeLayout } from '../../src/workspace/layout';
 
 const KEY = 'ledge.ide.layout';
 const base: IdeLayout = { sideOpen: true, sideWidth: 248, sideView: 'projects', bottom: false, bottomHeight: 240, right: true };
@@ -47,13 +47,11 @@ describe('layoutReducer', () => {
     const w = { ...base, sideWidth: 300 };
     expect(layoutReducer(w, { type: 'toggle', panel: 'side' })).toEqual({ ...w, sideOpen: false });
     expect(layoutReducer(w, { type: 'toggle', panel: 'bottom' }).bottom).toBe(true);
-    expect(layoutReducer(w, { type: 'toggle', panel: 'right' }).right).toBe(false);
     expect(layoutReducer(w, { type: 'show', panel: 'side', on: false })).toEqual({ ...w, sideOpen: false });
     expect(layoutReducer(w, { type: 'show', panel: 'bottom', on: true }).bottom).toBe(true);
   });
   it('an action that changes nothing returns the same object', () => {
     expect(layoutReducer(base, { type: 'show', panel: 'side', on: true })).toBe(base);
-    expect(layoutReducer(base, { type: 'show', panel: 'right', on: true })).toBe(base);
     expect(layoutReducer(base, { type: 'resetWidth' })).toBe(base);
     expect(layoutReducer(base, { type: 'drag', width: 248 })).toBe(base);
     expect(layoutReducer(base, { type: 'drop', width: 248 })).toBe(base);
@@ -69,31 +67,8 @@ describe('layoutReducer', () => {
   });
 });
 
-describe('rightFits', () => {
-  it('hides the right panel when the editor would drop under its minimum', () => {
-    expect(rightFits(base, 1920)).toBe(true);
-    expect(rightFits({ ...base, sideWidth: 440 }, 1000)).toBe(false);
-    expect(rightFits({ ...base, sideOpen: false }, 760)).toBe(true);
-  });
-});
-
-describe('layoutFor: the right panel asked for makes its room', () => {
-  const hidden = { ...base, right: false };
-  it('fits: shown as asked, the sidebar left alone', () => {
-    expect(layoutFor(hidden, { type: 'toggle', panel: 'right' }, 1200)).toEqual(base);
-  });
-  it('fits only folded: the sidebar folds (toggle, show, and a toggle while it is asked but off screen)', () => {
-    expect(layoutFor(hidden, { type: 'toggle', panel: 'right' }, 900)).toEqual({ ...base, sideOpen: false });
-    expect(layoutFor(hidden, { type: 'show', panel: 'right', on: true }, 900)).toEqual({ ...base, sideOpen: false });
-    expect(rightShown(base, 900)).toBe(false);
-    expect(layoutFor(base, { type: 'toggle', panel: 'right' }, 900)).toEqual({ ...base, sideOpen: false });
-  });
-  it('a toggle while it shows hides it; with no room even folded, nothing else moves', () => {
-    expect(layoutFor(base, { type: 'toggle', panel: 'right' }, 1200)).toEqual(hidden);
-    expect(layoutFor(hidden, { type: 'toggle', panel: 'right' }, 600)).toEqual(base);
-    expect(rightShown(layoutFor(hidden, { type: 'toggle', panel: 'right' }, 600), 600)).toBe(false);
-  });
-  it('other actions are layoutReducer\'s', () => {
+describe('layoutFor (#40 PR 4: the right panel, the chat\'s, is gone)', () => {
+  it('is layoutReducer\'s, whatever the width', () => {
     expect(layoutFor(base, { type: 'toggle', panel: 'bottom' }, 600)).toEqual(layoutReducer(base, { type: 'toggle', panel: 'bottom' }));
   });
 });

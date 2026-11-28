@@ -40,16 +40,6 @@ export const fr = {
       text: 'Le fil d’un agent avance sous vos yeux. Quand il demande un accord, autorisez, refusez, ou refusez en expliquant quoi faire à la place.',
       media: 'Une session en vidéo : le fil d\'Otto avance, la demande d\'accord arrive, on clique Autoriser, la commande tourne et les tests passent'
     },
-    yourTurn: {
-      tab: 'Tout ce qui vous attend',
-      text: 'Une seule page pour tout ce qui attend votre décision : les demandes des sessions, les questions de vos équipes, les PR prêtes à fusionner.',
-      media: 'La page À toi : demandes des sessions, questions des rigs, MR et PR à corriger ou fusionner, travaux terminés'
-    },
-    point: {
-      tab: 'Le point de Ledge',
-      text: 'Ledge prend la parole le premier : ce qui vous attend, ce qui est terminé, ce qui est en cours, vos rigs. Chaque ligne se règle sur place. Posez-lui aussi vos questions : il cite ses sources et propose l’action en carte.',
-      media: 'Le point de Ledge en vidéo : Ledge poste de lui-même ce qui attend, ce qui est terminé, ce qui est en cours et les rigs, une décision est réglée sur place, puis une question tapée reçoit sa réponse avec une carte pour passer le relais de Nova'
-    },
     launch: {
       tab: 'Lancer',
       text: 'Un premier message, puis l’agent, son modèle, le projet et la machine. La session rejoint sa table.',
@@ -68,7 +58,7 @@ export const fr = {
     phoneAlt: 'Le même rig sur le téléphone : ses cinq sièges, ses permissions, sa topologie et sa file',
     launch: { term: 'Lancer', text: 'Depuis une spec enregistrée, un rig arrêté, ou en décrivant le besoin : l\'operator propose l\'équipe.' },
     tune: { term: 'Régler', text: 'Le nombre de sièges par rôle, leur agent, leur modèle et leurs permissions, même quand le rig tourne.' },
-    answer: { term: 'Répondre', text: 'Les décisions et les questions de l\'équipe arrivent dans « À toi », sur le PC comme sur le téléphone.' },
+    answer: { term: 'Répondre', text: 'Les décisions et les questions de l\'équipe arrivent dans les demandes de la vue Rigs, sur le PC comme sur le téléphone.' },
     control: { term: 'Garder la main', text: 'Chaque action affiche la commande {rig} qu\'elle lance. Un instantané permet de revenir en arrière.' },
     note: 'OpenRig s\'installe à part. Ledge le pilote, il ne le remplace pas.',
     link: 'Découvrir OpenRig'
@@ -142,7 +132,7 @@ export const fr = {
     },
     notch: {
       title: 'En haut de l\'écran',
-      text: 'L\'encoche, sur Windows. Une demande d\'accord y arrive tout de suite, avec ses deux réponses. Le reste, Ledge le regroupe et vous le dit en une fois, sans une bulle par agent. Vous continuez à taper là où vous étiez.',
+      text: 'L\'encoche, sur Windows. Une demande d\'accord y arrive tout de suite, avec ses deux réponses. Le reste y passe une carte à la fois : un avis se ferme seul, une question attend votre réponse. Vous continuez à taper là où vous étiez.',
       videoLabel: 'L\'encoche en vidéo : une demande d\'accord arrive tout de suite et on clique Autoriser, puis Ledge annonce en une fois que Bix et Pim ont fini et qu\'une décision attend, puis la question urgente d\'un rig reçoit sa réponse sur place'
     },
     phone: {
@@ -156,7 +146,6 @@ export const fr = {
   security: {
     title: 'Rien sans votre clic.',
     lead: 'Ledge propose, vous décidez. Et personne d\'autre ne peut décider à votre place.',
-    readOnly: { term: 'L\'assistant lit, il n\'agit pas', text: 'Il tourne en lecture seule. Chaque action passe par une carte que vous confirmez.' },
     local: { term: 'Tout reste chez vous', text: 'Le démon n\'écoute que sur {ip}. Vos serveurs sont joints par votre SSH.' },
     relay: { term: 'Le relais ne lit rien', text: 'Entre le PC et le téléphone ne passent que des messages chiffrés. Vous pouvez héberger le relais.' },
     pairing: { term: 'Un code à comparer', text: 'Un appareil n\'accède à rien avant que vous ayez vérifié le même code à six chiffres sur les deux écrans.' },

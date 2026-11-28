@@ -61,7 +61,7 @@ export const UNCERTAIN_MS = 10_000;
  * « Activer » made before a reload is not made again after it.
  */
 const isVolatile = (m: { type: string }) => m.type === 'push.subscribe' || m.type === 'device.rename' || m.type === 'device.prefs' || m.type === 'context.set' || m.type.startsWith('project.') || m.type === 'push.unsubscribe' || m.type === 'chat.relay' || m.type === 'chat.relay.cancel' || m.type === 'chat.launch' || m.type === 'chat.close'
-  || m.type === 'chat.task' || m.type === 'task.seen'
+  || m.type === 'task.seen'
   || m.type === 'daemon.update' || m.type === 'daemon.restart' || m.type === 'session.model' || m.type === 'session.close' || m.type === 'session.resume' || m.type === 'session.launch'
   || m.type === 'openrig.answer' || m.type === 'routine.cmd';
 

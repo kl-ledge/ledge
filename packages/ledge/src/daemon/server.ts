@@ -1,12 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { homedir, hostname } from 'node:os';
-import { basename, join, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { NO_PROJECT, SESSION_LABEL_MAX, sessionOrderFor, type Projects, cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, contextNear, isArchived, givenByLedge, LEDGE_GIVER, MAX_PROPOSALS, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type Goal, type HumanAsk } from '@ledge/protocol';
-import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ChatErrorCode, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
+import { NO_PROJECT, SESSION_LABEL_MAX, sessionOrderFor, type Projects, cleanName, folderProblems, nameHolder, nameRefusal, nameTaken, namesInUse, openName, actionById, isArchived, LEDGE_GIVER, taskClosed, type BrainChoice, openDecision, REPORT_REPO, type ReportItem, transmissions, type Task, projectOf, type ChatAction, parseBroadcastAddress, type HumanAsk } from '@ledge/protocol';
+import { ATTACHMENT_LOCAL_MAX, ATTACHMENT_MAX, DEFAULT_RELAY_URL, NOTE_NOT_TYPED, PROTOCOL_PORT, SshAliasSchema, offers, parseClientMessage, pendingKey, type AttachmentRef, type ImageUpload, type ClientMessage, type DaemonInfo, type MobileState, type Decision, type DecidedBy, type Pending, type ServerMessage, type Session, type SessionEvent, type Tool, type OmpApproval, type CloseHow, type ModelRefusal, type RefusalCode, backendOf } from '@ledge/protocol';
 import type { Store } from './store.js';
 import type { History } from './history.js';
 import { AttachmentError, AttachmentStore } from './attachments.js';
@@ -31,9 +30,6 @@ import { extraRoots, scanRepos } from './scan.js';
 import { createFolder, listFolder, resolveFolder } from './folders.js';
 import { loginShellEnv } from '../shell-path.js';
 import { log } from '../log.js';
-import { type Chat, type ChatDeps } from '../chat/service.js';
-import { createChatThreads } from '../chat/threads.js';
-import { createForge } from '../chat/forge.js';
 import { paths } from '../paths.js';
 import { ensureDaemonToken, hostAllowed, requestAuthorized, selectDaemonProtocol, sessionKey, tokenEquals } from '../auth.js';
 import { readMachines, writeMachines } from './machines.js';
@@ -46,13 +42,8 @@ import { createOpenRig, execRun, type OpenRig } from './openrig.js';
 import { createHumanChannel, type HumanChannelService } from './openrigHuman.js';
 import { createGoals, type GoalsService } from './openrigGoals.js';
 import type { OpenRigState } from '@ledge/protocol';
-import { createRelay, free } from './relay.js';
-import { launchFromChat, LaunchRefused, refuseTooWide } from '../chat/launch.js';
-import { cardOf, closeFromChat, CloseRefused } from '../chat/close.js';
-import { actFromChat, ActRefused } from '../chat/act.js';
-import type { ChatMessage } from '../chat/service.js';
-import { actionMessage, cardRefusal, resolveAction, resolveRun, runGuard, type Resolved, type ResolveCtx } from './actions.js';
-import { createMailbox, type MailboxDeps, type MailJournal } from './mailbox.js';
+import { actionMessage, resolveRun, runGuard, type Resolved, type ResolveCtx } from './actions.js';
+import { createMailbox, free, type MailboxDeps, type MailJournal } from './mailbox.js';
 import { broadcastFromSession, broadcastFromUser } from './broadcast.js';
 import { addFromUser, applyProposal, checkProposal, clearFlag, markChecked, noteInfos } from '../brain/write.js';
 import { notesDir } from '../brain/notes.js';
@@ -61,14 +52,13 @@ import { createRoutines, routineSchemaRefusal, type Routines, type RoutinesJourn
 import { createHandovers, heldNames } from './handover.js';
 import { readTurn } from './context.js';
 import type { createDaemonUpdater } from '../update/run-update.js';
-import { createRouter } from '../chat/routing.js';
 import { serveSsh } from '../transport/ssh.js';
 import type { MobileService } from '../mobile/service.js';
 import { createPhoneGateway, type PhoneGateway } from '../mobile/gateway.js';
 import { phoneLaunch } from '../mobile/launch.js';
 import { createNotifier } from '../mobile/push/notifier.js';
-import { chatEndPayload, decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
-import { pointPush } from '../operator/notices.js';
+import { decisionPayload, rigAskPayload } from '../mobile/push/triggers.js';
+import { setAsideChatData, setAsideOperatorJournal } from './retired.js';
 import { createAskWatch, createNoticeFeed, noticesOf } from './notices.js';
 import { createAsides, type Asides } from './aside.js';
 import { pushFor, resolvedFor } from '../mobile/push/triggers.js';
@@ -87,10 +77,6 @@ import { execForge, installedCli, redact, type ForgeRun } from './forge/run.js';
 import { signedInHosts } from './forge/hosts.js';
 import { createIssue, issueBody, logExcerpt, systemLine } from './report.js';
 import { LEDGE_VERSION } from '../version.js';
-import type { OperatorWired } from '../operator/index.js';
-import { applySuggestionRow, createPointActor, rowWhere, type Fail } from '../operator/act.js';
-import { pointHandlers } from '../operator/point-handlers.js';
-import type { DeviceId } from '../operator/journal.js';
 import { withRule } from '@ledge/fleet/projects';
 
 /** A seat's session without what belonged to the harness it ran before: its request, its reply, its conversation, its model. */
@@ -221,13 +207,14 @@ function logDroppedRequest(id: string, ev: SessionEvent, before: Session | undef
 /** The reports an agent may have waiting on the user at once (issue #9). */
 const REPORTS_OPEN_MAX = 5;
 
-export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; chat?: Chat; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; asides?: Asides; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
+export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; asides?: Asides; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
   /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
   report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
   /** The pull and merge requests of the sessions' branches (lot 8a): the daemon's own, started with it; tests give one or none. */ forge?: ForgeService;
-  /** The operator (journal, wakes, points in every chat thread): the daemon's own; tests leave it out, so no wake ever runs a harness. */ operator?: boolean;
-  /** Loads the operator's module, which needs `node:sqlite` (Node >= 22.13); tests give one that fails. */ loadOperator?: () => Promise<typeof import('../operator/index.js')> }): Promise<ServerHandle> {
+  /** The daemon's own (#40, D11): OpenRig's asks followed from the start, for the island's notices and the urgent asks' push, and the
+   *  retired operator's journal (`ledge.sqlite`) and the removed chat's data (`chat.json`, `chat/`, `mobile/chat/`) set aside, never
+   *  deleted. Tests leave it out. */ followRigs?: boolean }): Promise<ServerHandle> {
   const { store, tmux } = opts;
   const now = opts.now ?? (() => new Date().toISOString());
   const launcher = opts.launcher ?? [process.execPath, process.argv[1] ?? 'ledge'];
@@ -236,18 +223,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const agentEnv = opts.agentEnv ?? (async () => ({ ...process.env, ...(await loginShellEnv()) }));
   const attachments = opts.attachments ?? new AttachmentStore(paths().attachments);
   const reducer = new CaptureReducer();
-  /** The operator, once the threads, the tasks and OpenRig's channel exist (`opts.operator`). */
-  let operator: OperatorWired | undefined;
-  /** OpenRig's asks and Max's goals as last read: what the chat's attentes.md and rigs.md say. */
-  let rigAsks: readonly HumanAsk[] | undefined, rigGoals: readonly Goal[] | undefined;
-  // The chat's queue rows per rig are left out: OpenRig's queue is read per rig through `rig`, too costly at every question.
-  /** The routines' scheduler, made once the tasks exist: the mailbox tells it how each firing's line went, the chat and the relief read it. */
+  /** The routines' scheduler, made once the tasks exist: the mailbox tells it how each firing's line went, the relief reads it. */
   let routines: Routines | undefined;
-  const chatDeps: ChatDeps = { routines: () => routines?.all() ?? [], attachments, store, tmux, home: paths().dir, notesDir: join(paths().dir, 'context'), userHome: opts.home, env: agentEnv, bin: opts.claudeBin, now, projects: () => projects, forge: createForge({ env: agentEnv }), tasks: () => tasks.all(), rigs: () => openrig.peek?.(), usage: () => opts.usage?.state().harnesses,
-    asks: () => rigAsks, goals: () => rigGoals, prs: () => opts.forge?.state().prs, ...(opts.operator ? { journal: (t: DeviceId) => operator?.journalFor(t) ?? [] } : {}) };
-  const threads = createChatThreads(chatDeps);
-  const chat: Chat = opts.chat ?? threads.desktop;
-  const router = createRouter({ env: agentEnv });
   const omp = opts.omp ?? createOmpHost({ store, env: agentEnv, dir: join(paths().dir, 'omp'), now, attachments });
   // OpenRig on this machine (docs/mockups/ledge-openrig.html): `rig` runs with the login shell's PATH, as an agent would.
   const openrig = opts.openrig ?? createOpenRig({ env: agentEnv });
@@ -337,7 +314,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   // An OMP seat drives its browser through `eval`: its result is a moment to keep an image.
   const ompSeats = opts.ompSeats ?? createOmpSeats({ store, onTool: (id, tool) => { if (tool === 'eval' || /browser/i.test(tool)) browserLive.poke(id); } });
   ompSeats.start();
-  const seatTimer = setInterval(() => { void openrig.state().then(st => { operator?.rigsRead(st); return discoverSeats(st); }).catch(e => log(`openrig: seats not read: ${(e as Error).message}`)); }, SEATS_EVERY_MS);
+  const seatTimer = setInterval(() => { void openrig.state().then(st => discoverSeats(st)).catch(e => log(`openrig: seats not read: ${(e as Error).message}`)); }, SEATS_EVERY_MS);
   seatTimer.unref?.();
   // « À toi » (docs/vision/ledge-human-channel-contract.md): what OpenRig asks the person, pushed whole to every front when it changes.
   // Lot 2 (docs/vision/ledge-goal-contract.md): goals given to Max, pushed whole to every front when OpenRig's queue moves, once a front
@@ -354,7 +331,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     goalsTimer = setTimeout(() => {
       goalsTimer = null;
       void goals.list().then(l => {
-        rigGoals = l.goals; operator?.goalsChanged(l);
         const key = JSON.stringify(l);
         if (key !== lastGoals) { lastGoals = key; broadcast({ type: 'openrig.goalsChanged', ...l }); }
       }).catch(e => log(`openrig goals: not read: ${(e as Error).message}`));
@@ -363,8 +339,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: pushGoals });
   /** « À toi »: OpenRig followed from the first front (desktop, TUI or phone) that asks; each change goes to all of them, and moves the goals. */
   const followAsks = () => human.start(l => {
-    rigAsks = l.asks; operator?.asksChanged(l);
-    // The island's notices and the urgent asks' push (#40, D11): the daemon's own, operator or not.
+    // The island's notices and the urgent asks' push (#40, D11): the daemon's own.
     const fresh = askWatch.read(l);
     if (fresh.length > 0) notifyAsks?.(fresh);
     tellNotices();
@@ -478,7 +453,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   // The pull and merge requests, after every snapshot and on each change: to the local clients, and to the phones that asked (B5), which
   // the gateway gives no CLI message.
   const forge = opts.forge;
-  const unsubscribeForge = forge?.onChange(() => { const m = forge.state(); operator?.forgeChanged(m); for (const c of localClients) send(c, m); gateway?.forward(m); });
+  const unsubscribeForge = forge?.onChange(() => { const m = forge.state(); for (const c of localClients) send(c, m); gateway?.forward(m); });
   /** A forge request that failed: a refusal keeps its code; an error of gh or glab its (redacted) message. */
   const forgeFailure = (e: unknown): { message: string; code?: RefusalCode } =>
     e instanceof ForgeRefusal ? { code: e.code, message: e.message } : e instanceof ForgeError ? { message: e.message } : { message: redact(e instanceof Error ? e.message : String(e)).slice(0, 400) };
@@ -493,33 +468,27 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const remoteClients = new Set<WebSocket>();
   /** The approved phones' way in and out, when mobile access is up; set once `dispatch` can run. */
   let gateway: PhoneGateway | undefined;
-  /** The notifier is made after the gateway: a chat end reaches it through this. */
-  let notifyChatEnd: ((deviceId: string, code?: ChatErrorCode) => void) | undefined;
   /** A new decision put to the user, pushed to the phones (set once the notifier is). */
   let notifyDecision: ((task: Task) => void) | undefined;
-  /** The operator's point, pushed to each paired phone with the chat turn it got (set once the notifier is). */
-  let notifyPoint: ((lead: string, qidByDevice: Map<DeviceId, string>) => void) | undefined;
   /** The urgent rig asks, pushed to every paired phone as they arrive (set once the notifier is). */
   let notifyAsks: ((asks: HumanAsk[]) => void) | undefined;
   /** The notices the island last got (`operator.state`), replayed after every snapshot: the daemon's own (#40, D11), told from the start. */
   const notices = createNoticeFeed(n => broadcast({ type: 'operator.state', notices: n }));
   /** OpenRig's asks as the notices and the urgent push see them (a channel not ready changes nothing). */
   const askWatch = createAskWatch();
-  /** Tells the island's notices again (only when they change): the urgent rig asks and the open decisions, and while the operator runs,
-   *  the chat point holding each ask, for the islands that still answer through it. */
-  const tellNotices = () => notices.tell(noticesOf(askWatch.asks(), tasks.all(), operator ? id => operator?.operator.holder(id) : undefined));
+  /** Tells the island's notices again (only when they change): the urgent rig asks and the open decisions. */
+  const tellNotices = () => notices.tell(noticesOf(askWatch.asks(), tasks.all()));
   /** Every local front gets it; the phone gateway passes on only what it knows. */
   const broadcast = (msg: ServerMessage) => { for (const c of localClients) send(c, msg); gateway?.forward(msg); };
   // The browsers' states reach the local fronts only: neither a phone nor a remote peer.
   emitBrowser = msg => { for (const c of localClients) send(c, msg); };
   browserLive.start();
-  threads.setEmitter('desktop', broadcast);
   const history = opts.history;
   await attachments.load().catch(e => log(`attachments not loaded: ${(e as Error).message}`));
-  // Unsent images go after a day; the ones a session history or a live chat turn refers to stay.
+  // Unsent images go after a day; the ones a session history refers to stay.
   const sweepAttachments = async () => {
     try {
-      const referenced = new Set([...(await history?.attachmentIds() ?? []), ...threads.attachmentIds(), ...chat.attachmentIds()]);
+      const referenced = new Set(await history?.attachmentIds() ?? []);
       const removed = await attachments.sweep(referenced);
       if (removed.length > 0) log(`attachments swept: ${removed.length}`);
     } catch (e) { log(`attachments sweep failed: ${(e as Error).message}`); }
@@ -594,12 +563,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   }) : null);
   /** Sessions being closed: neither the relay nor the mailbox delivers to them, even free; their queues fail once they exit. */
   const closing = new Set<string>();
-  // An injected chat (tests) is the only thread there is; otherwise the relay and the close cards work across the PC's and every device's.
-  const cardThreads: Pick<typeof threads, 'all' | 'owner' | 'emitterOf' | 'queuedRelays'> = opts.chat ? {
-    all: () => [['desktop', chat]], owner: qid => (chat.relay(qid) || chat.close(qid, 0) || chat.action(qid, 0) || chat.task(qid, 0) ? 'desktop' : undefined), emitterOf: () => broadcast,
-    queuedRelays: () => chat.queuedRelays(broadcast).map(q => ({ thread: 'desktop' as const, ...q }))
-  } : threads;
-  /** `replyTo` for the mailbox and the relay, which keep the refusal's text. */
+  /** `replyTo` for the mailbox, which keeps the refusal's text. */
   const replyText = async (id: string, text: string) => (await replyTo(id, text))?.message ?? null;
   /** The « sent » cards in the senders' threads: the mailbox's, and a broadcast's single one. */
   const mailSent: MailboxDeps['sent'] = { record: (id, m) => { history?.recordSent(id, m); }, mark: (id, rid, status) => history?.markSent(id, rid, status) };
@@ -608,17 +572,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const mailbox = createMailbox({
     store, replyTo: replyText, typing, closing, now, ...(opts.mail ? { journal: opts.mail } : {}),
     noticeDone: (rid, typed, reason) => routines?.noticeDone(rid, typed, reason),
-    relayQueued: id => cardThreads.queuedRelays().some(q => q.relay.id === id),
     sent: mailSent
   });
-  // The relay keeps the refusal's code too: a phone words its card's failure from it, never from the PC's text.
-  const relay = createRelay({ threads: cardThreads, store, replyTo: async (id, text) => { const r = await replyTo(id, text); return r && { message: r.message, code: r.code }; }, now, typing, closing, next: id => mailbox.kick(id) });
   const tasks = createTasks({ store, mailbox, now, ...(opts.tasks ? { journal: opts.tasks } : {}), brain: (p, answer, by, at) => applyProposal(p, answer, by, at, notesDir()), onTask: (task, entry) => {
     broadcast({ type: 'task.updated', task });
-    operator?.tasksChanged();
     tellNotices();
-    // The card that gave it follows it, on whichever thread holds it: only Ledge gives from a card.
-    if (givenByLedge(task)) for (const [thread, c] of cardThreads.all()) c.followTask?.(task, cardThreads.emitterOf(thread) ?? broadcast);
     // A session that handed it over sees it in its thread, as a message it sent (issue #92); Ledge has no thread.
     const index = entry ? task.log.lastIndexOf(entry) : -1;
     const tr = transmissions(task).find(x => x.index === index);
@@ -635,9 +593,8 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     launch: req => launch(req),
     // A routine's change also feeds « le point » (a new firing is a routine.fired event); `routines` is still unset when a firing
     // interrupted at restart is recorded failed during construction.
-    onChange: m => { broadcast(m); if (routines) operator?.routinesChanged(routines.all()); } });
+    onChange: m => broadcast(m) });
   const routineList = routines;
-  operator?.routinesChanged(routineList.all());
   // The island's notices from the start (the open decisions; the asks once OpenRig is read): replayed after every snapshot.
   tellNotices();
   /** Each session's state last seen: a turn's end (→ idle) is when its context is read again. */
@@ -694,7 +651,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
@@ -702,10 +659,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     else if (unavailable) reply({ type: 'mobile', state: unavailable });
     for (const [id, lines] of previews) if (store.get(id)) reply({ type: 'session.preview', id, lines });
     for (const [id, list] of asides?.all() ?? []) if (store.get(id)) for (const aside of list) reply({ type: 'session.aside', id, aside }); // the asides kept (#41)
-    reply({ type: 'chat.history', turns: chat.history() });
     reply(contextMsg()); // the context threshold (context handover spec §3.2)
     const u = usageMsg(); if (u) reply(u); // the harnesses' limits
-    const on = notices.current(); if (on) reply({ type: 'operator.state', notices: on }); // what the notch should show of the operator
+    const on = notices.current(); if (on) reply({ type: 'operator.state', notices: on }); // what the island should show (urgent asks, decisions)
     if (forge) reply(forge.state()); // the pull and merge requests of the sessions' branches
     for (const m of browserLive.states()) reply(m); // last: the agents' browsers that are not `none`
   };
@@ -944,7 +900,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   const typed = new Map<string, { ids: string[]; at: number }>();
   const TYPED_MS = 30_000;
 
-  /** session.reply's checks and typing (shared with the chat's relay): null once typed, the refusal otherwise; rejects when the injection fails. */
+  /** session.reply's checks and typing (shared with the mailbox): null once typed, the refusal otherwise; rejects when the injection fails. */
   async function replyTo(id: string, text: string, how: { steer?: boolean; attachments?: string[]; by?: DecidedBy } = {}): Promise<Refusal | null> {
     const s = store.get(id); if (!s) return unknownSession();
     if (s.source === 'hook_only') return readOnly();
@@ -1099,9 +1055,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     if (refusal) { store.patch(id, { modelNext: undefined }); return modelFailed(id, refusal.message, refusal.refused); }
     store.patch(id, { modelNext: later.model === s.model && later.effort === s.effort ? undefined : later });
   }
-  /** The session can take a model change at once: free, nothing typed into it, not being closed, no chat card waiting for it. */
+  /** The session can take a model change at once: free, nothing typed into it, not being closed. */
   function canApplyNow(id: string): boolean {
-    return free(store.get(id)) && !typing.has(id) && !closing.has(id) && !cardThreads.queuedRelays().some(q => q.relay.id === id);
+    return free(store.get(id)) && !typing.has(id) && !closing.has(id);
   }
   /** Why the session cannot change model, in the order a front is told (absent: it can). */
   function modelRefusal(s: Session, effort: string | null): { refused: ModelRefusal; message: string } | null {
@@ -1163,13 +1119,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     } finally { typing.delete(id); afterModelApply(id); }
   }
 
-  /** The chat cards being launched: a second click, or another overlay, is refused until the first one has answered. */
-  const chatLaunches = new Set<string>();
-  /** The close card rows being closed: a second click, or another overlay, is passed over until the first one has answered. */
-  const chatCloses = new Set<string>();
   /**
-   * The cards' closes under way, by session. Two cards can name one session (a phone's and Desktop's): the second waits for
-   * the first one's close and reads its outcome, closed rather than failed for a close another card is making.
+   * The closes under way through `action.run`, by session: a second one waits for the first one's close and reads its outcome,
+   * closed rather than failed for a close already being made.
    */
   const cardSessionCloses = new Map<string, Promise<{ how: CloseHow }>>();
   function closeForCard(id: string): Promise<{ how: CloseHow }> {
@@ -1182,12 +1134,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     p.then(done, done);
     return p;
   }
-  /** The generic card rows being applied: a second click, or another overlay, is passed over until the first one has answered. */
-  const chatActs = new Set<string>();
-  /**
-   * A generic card's rows (spec 2026-10-26 action registry §2.1), applied through the daemon's own handlers so their rules stay in
-   * one place: a row fails on the handler's `error`, or on the reason its `task.result` carries.
-   */
   /** The live state a row resolves against, read again for each row: an earlier row of the plan may have changed it. */
   const liveCtx = (): ResolveCtx => ({ sessions: store.all(), tasks: tasks.all(), rigs: openrig.peek?.(), projects, ...(forge ? { prs: forge.state().prs } : {}) });
   /** The asks and goals, read from OpenRig only for the rows that name them; a read that fails leaves them out, so those rows are refused. */
@@ -1198,21 +1144,10 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       return { asks: asked.asks, goals: given.goals };
     } catch (e) { log(`action: asks and goals not read: ${(e as Error).message}`); return {}; }
   }
-  async function actOnCard(card: { chat: Pick<Chat, 'action' | 'markAction'>; emit: (m: ChatMessage) => void }, qid: string, rid: string, rows?: number[], confirmed?: true, deny?: true, by?: DecidedBy) {
-    const rig = await rigCtx((rows ?? [...Array(MAX_PROPOSALS).keys()]).map(r => card.chat.action(qid, r)?.action));
-    return actFromChat({
-      chat: card.chat, emit: card.emit, inFlight: chatActs, now,
-      resolve: row => resolveAction(row.action, row.args, { ...liveCtx(), ...rig }),
-      apply: async (row, index) => { const r = await applyRow(row, rid, by, `${qid}#${index}`); if (r.failure !== undefined) throw new Error(r.failure); }
-    }, qid, rows, confirmed, deny);
-  }
-  /** The turn's cards were set aside (« Ignorer », on any thread's device): nothing of them applies until opened again. */
-  const setAside = (qid: string) => cardThreads.all().some(([, c]) => c.ignored(qid));
-  const SET_ASIDE = 'ignored card: open it again first';
   /** What a front may still send as `ledge` (#142): its lists, a task shown, a closed one marked seen. */
   const LEDGE_READS: ReadonlySet<Extract<ClientMessage, { type: 'task.cmd' }>['op']> = new Set(['list', 'show', 'seen']);
-  /** A resolved row through the daemon's own handler: its failure is the handler's `error`, or the reason its `task.result`
-   *  carries. Ledge's own task commands go straight to the tasks: `by: 'ledge'` is never taken from a client (handle refuses it). */
+  /** The chat left Ledge (#40): what an older front still sends for it is refused by name, nothing crashes. */
+  const NO_CHAT = 'the chat with Ledge was removed (#40): update this front';
   /** A proposal about the notes answered with its buttons (desktop, phone): closed by Ledge, written by the tasks' brain hook. */
   function answerProposal(task: string, choice: BrainChoice, rid: string): { reason?: string; result?: string } {
     const t = tasks.all().find(x => x.id === task);
@@ -1220,55 +1155,13 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     const r = tasks.run({ type: 'task.cmd', rid, by: LEDGE_GIVER, op: 'done', task, text: choice.yes ? 'oui' : 'non', choice });
     return r.reason !== undefined ? { reason: r.reason } : { ...(r.task?.result ? { result: r.task.result } : {}) };
   }
-  /**
-   * The operator's rows answered from a chat thread (`point.act`): each answer goes through the handler the daemon already has for what the
-   * row is about, so the guards are the cards' own. A destructive one (an accepted request, a decision) is refused unless `confirmed`.
-   */
-  const rowFail = async (id: 'session.decide' | 'task.answer', args: Record<string, unknown>, confirmed: boolean, by?: DecidedBy): Promise<Fail> => {
-    // A row the registry's own schema turns down (an answer too long, say) is the row's error, not an exception of the daemon.
-    const parsed = actionById(id)!.args.safeParse(args);
-    if (!parsed.success) return { message: parsed.error.issues.map(i => `${i.path.join('.') || '(root)'} ${i.message}`).join('; '), code: 'invalid' };
-    const r = resolveAction(id, parsed.data, liveCtx());
-    if ('refused' in r) return { message: r.refused, code: r.code };
-    const cut = id === 'session.decide' && args.decision === 'accept' ? cardRefusal(r) : null;
-    if (cut) return { message: cut.refused, code: cut.code };
-    if (r.risk === 'destructive' && !confirmed) return { message: 'confirm before applying a destructive action', code: 'confirm_required' };
-    const { failure } = await applyRow(r, randomUUID(), by);
-    return failure !== undefined ? { message: failure } : undefined;
-  };
-  const pointActor = createPointActor({
-    chatOf: device => { const c = cardThreads.all().find(([id]) => id === device)?.[1]; return c ? { chat: c, emit: cardThreads.emitterOf(device) ?? (() => {}) } : undefined; },
-    session: id => store.get(id), asks: () => rigAsks ?? [],
-    decide: (session, decision, confirmed, by) => rowFail('session.decide', { session, decision }, confirmed, by),
-    reply: async (id, text, by) => { const r = await replyTo(id, text, by ? { by } : {}); return r ? { message: r.message, ...(r.code ? { code: r.code } : {}) } : undefined; },
-    // Not `askAnswered`: the point settles the row itself, with where `chat`.
-    answerAsk: (qitem, answer) => human.answer(qitem, answer),
-    answerTask: (task, answer, confirmed) => rowFail('task.answer', { task, answer }, confirmed),
-    answerBrain: (task, yes) => { const r = answerProposal(task, { yes }, randomUUID()); return r.reason !== undefined ? { message: r.reason } : undefined; },
-    applySuggestion: (qid, itemId, row, confirmed, by, onMark) => applySuggestionRow(qid, itemId, row, confirmed, (card, cardQid, ok) => actOnCard(card, cardQid, randomUUID(), [0], ok, undefined, by), onMark),
-    isBrain: task => tasks.all().find(t => t.id === task)?.brain !== undefined,
-    // A routine's « À toi » row: « Relancer » fires it again as the owner would (routines spec §3.2).
-    routine: {
-      of: taskId => tasks.all().find(t => t.id === taskId)?.routine,
-      run: async id => { const r = await routineList.run({ type: 'routine.cmd', rid: randomUUID(), op: 'run', routine: id }, { kind: 'user' }); return r.code ? { message: r.reason ?? r.code } : undefined; }
-    },
-    operator: {
-      settle: (...a) => { try { operator?.operator.settle(...a); } catch (e) { log(`operator: point not settled: ${(e as Error).message}`); } },
-      expect: (...a) => operator?.operator.expect(...a) ?? (() => {})
-    }
-  });
-  const points = pointHandlers(pointActor, () => operator?.operator);
-  /** The rig asks a phone's card is answering now: the operator settles them `phone`, not the PC's `desktop`. */
-  const phoneAnswers = new Set<string>();
-  async function applyRow(row: Pick<ChatAction, 'action' | 'args'>, rid: string, by?: DecidedBy, card?: string): Promise<{ failure?: string }> {
-    const made = actionMessage(row, rid, card);
-    // A request answered from a device's card is that device's decision (`by`, the gateway's); from the PC's, none: the PC.
-    const out = by && made.type === 'session.decide' ? { ...made, by } : made;
+  /** A resolved row of the action registry through the daemon's own handler (`action.run`): its failure is the handler's `error`, or
+   *  the reason its result carries. Ledge's own task commands go straight to the tasks: `by: 'ledge'` is never taken from a client. */
+  async function applyRow(row: Pick<ChatAction, 'action' | 'args'>, rid: string): Promise<{ failure?: string }> {
+    const out = actionMessage(row, rid);
     if (out.type === 'task.cmd') { const r = tasks.run(out); return r.reason !== undefined ? { failure: r.reason } : {}; }
     let failure: string | undefined;
-    const fromPhone = out.type === 'openrig.answer' && rowWhere(by) === 'phone' && !phoneAnswers.has(out.qitemId) ? out.qitemId : undefined;
-    if (fromPhone) phoneAnswers.add(fromPhone);
-    try { await handle(out, m => {
+    await handle(out, m => {
       if (m.type === 'error') failure ??= m.message;
       else if (m.type === 'task.result' && m.reason) failure ??= m.reason;
       else if (m.type === 'brain.result' && m.reason) failure ??= m.reason;
@@ -1277,7 +1170,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       // The rows that answer an ask, give or answer a goal, or pass a session's relief end the same way.
       else if ((m.type === 'openrig.answered' || m.type === 'openrig.goal.sent' || m.type === 'openrig.goal.replied') && !m.ok) failure ??= m.message ?? m.error ?? 'failed';
       else if (m.type === 'session.handover.result' && !m.ok) failure ??= m.reason ?? 'failed';
-    }); } finally { if (fromPhone) phoneAnswers.delete(fromPhone); }
+    });
     return failure !== undefined ? { failure } : {};
   }
   /**
@@ -1442,19 +1335,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     return session;
   }
 
-  /** The chat's task card row: given by Ledge. */
-  function giveFromCard(msg: Extract<ClientMessage, { type: 'task.cmd' }>, reply: Reply): void {
-    const qid = msg.qid!; const row = msg.row ?? 0;
-    const card = cardOf(cardThreads, qid);
-    const c = card?.chat.task(qid, row);
-    if (!card || !c) return reply({ type: 'task.result', rid: msg.rid, reason: 'carte de tâche inconnue' });
-    if (c.taskId) return reply({ type: 'task.result', rid: msg.rid, reason: `déjà confiée (${c.taskId})` });
-    const r = tasks.run({ type: 'task.cmd', rid: msg.rid, by: LEDGE_GIVER, op: 'give', to: c.to, title: c.title, ...(c.text ? { text: c.text } : {}) });
-    if (r.task) card.chat.markTask(qid, row, { taskId: r.task.id, ownerName: r.task.ownerName, state: r.task.state, givenAt: now() }, card.emit);
-    else card.chat.markTask(qid, row, { error: r.reason ?? 'refusée' }, card.emit);
-    reply(r);
-  }
-
   /** The scan in flight (lot 11): a `repos.scan` arriving while one walks gets that walk's result, under its own requestId. */
   let scanning: ReturnType<typeof scanRepos> | null = null;
   function sharedScan(): ReturnType<typeof scanRepos> {
@@ -1506,7 +1386,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       case 'openrig.status': {
         adoptSeats();
         const state = await openrig.state();
-        operator?.rigsRead(state);
         void discoverSeats(state).catch(e => log(`openrig: seats not followed: ${(e as Error).message}`));
         return reply({ type: 'openrig.state', requestId: msg.requestId, state });
       }
@@ -1539,35 +1418,24 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       case 'openrig.asks': followAsks(); return reply({ type: 'openrig.asksChanged', requestId: msg.requestId, ...await human.list() });
       case 'openrig.answer': {
         const r = await human.answer(msg.qitemId, msg.answer);
-        operator?.askAnswered(msg.qitemId, phoneAnswers.has(msg.qitemId) ? 'phone' : 'desktop', r);
         return reply({ type: 'openrig.answered', requestId: msg.requestId, ...r });
       }
       // Lot 2: the goals given to Max. Followed from the first front that asks, on the same OpenRig events as « À toi ».
       case 'openrig.goals': {
         goalsFollowed = true; followAsks();
         const l = await goals.list();
-        lastGoals = JSON.stringify(l); rigGoals = l.goals; operator?.goalsChanged(l);
+        lastGoals = JSON.stringify(l);
         return reply({ type: 'openrig.goalsChanged', requestId: msg.requestId, ...l });
       }
       case 'openrig.goal.send': { const r = await goals.send(msg.goalId, msg.text, msg.folder); pushGoals(); return reply({ type: 'openrig.goal.sent', requestId: msg.requestId, goalId: msg.goalId, ...r }); }
       case 'openrig.goal.reply': { const r = await goals.reply(msg.goalId, msg.replyId, msg.text); pushGoals(); return reply({ type: 'openrig.goal.replied', requestId: msg.requestId, goalId: msg.goalId, replyId: msg.replyId, ...r }); }
       case 'openrig.act': {
-        // Every rig.act goes through here (a card, the Rigs view, the phone): a rig Ledge stops is not reported as fallen.
-        operator?.ledgeRigAct(msg.action);
         const done = await openrig.act(msg.action, { noPaths: msg.noPaths === true });
         reply({ type: 'openrig.done', requestId: msg.requestId, ...done });
         // Every front sees what the action changed, not only the one that asked.
         if (done.error !== 'busy') broadcast({ type: 'openrig.state', state: await openrig.state(true) });
         return;
       }
-      // The operator's point (Task 10): a row answered, the point set aside, the events read by this front's device (the PC's: `desktop`).
-      case 'point.act': {
-        const failed = await points.pc.act(msg);
-        if (failed) reply(failed);
-        return;
-      }
-      case 'point.later': return points.pc.later(msg.qid);
-      case 'operator.read': return points.pc.read(msg.eventId);
       case 'snapshot.request': return sendSnapshot(reply);
       case 'browser.watch': return browserLive.watch(msg.id, reply);
       case 'browser.unwatch': return browserLive.unwatch(msg.id, reply);
@@ -1686,24 +1554,9 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }
       case 'session.launch': {
         // Any failure (bad folder, tmux) reaches the requester as an `error` without id, through the caller's catch.
-        if (msg.qid === undefined) return reply({ type: 'session.launched', id: (await launch(msg)).id });
-        if (setAside(msg.qid)) return refuse(SET_ASIDE);
-        // A chat card (spec 2026-10-12 §4): the proposal's own fields, never the message's but the model chosen on the card (#58).
-        let failure: unknown = null;
-        try {
-          const done = await launchFromChat({
-            chat, emit: broadcast, inFlight: chatLaunches,
-            launch: async p => {
-              try {
-                const session = await launch({ tool: p.tool, cwd: p.cwd, prompt: p.prompt, model: msg.model ?? p.model, effort: msg.effort ?? p.effort });
-                reply({ type: 'session.launched', id: session.id });
-                return session.id;
-              } catch (e) { failure = e; throw e; }
-            }
-          }, msg.qid, msg.rows);
-          if (done.failed > 0 && failure) throw failure;
-        } catch (e) { if (e instanceof LaunchRefused) return refuse(e.message); throw e; }
-        return;
+        // A chat card's launch (`qid`) is from an older front: the chat left Ledge (#40).
+        if (msg.qid !== undefined) return refuse(NO_CHAT);
+        return reply({ type: 'session.launched', id: (await launch(msg)).id });
       }
       case 'folder.list': return reply(await listFolder(msg.path, opts.home, msg.requestId));
       case 'folder.create': {
@@ -1977,11 +1830,11 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         return r.task ? answer({ task: { id: r.task.id, state: r.task.state } }) : answer({ reason: r.reason ?? 'refusé' });
       }
       case 'task.cmd': {
-        // The chat's task card gives through its turn, which then follows its task.
-        if (msg.qid !== undefined && msg.op === 'give') return setAside(msg.qid) ? reply({ type: 'task.result', rid: msg.rid, reason: SET_ASIDE }) : giveFromCard(msg, reply);
-        // A client naming itself `ledge` only reads (#142): Ledge acts from its chat's cards (giveFromCard above, actOnCard) and
-        // answers a decision through task.answer (the user's, confirmed), both straight to the tasks, never through here.
-        if (msg.by === LEDGE_GIVER && !LEDGE_READS.has(msg.op)) return reply({ type: 'task.result', rid: msg.rid, reason: 'seul le chat de Ledge, ou ledge decide, agit sur une tâche au nom de Ledge' });
+        // A chat card's task (`qid`) is from an older front: the chat left Ledge (#40).
+        if (msg.qid !== undefined) return reply({ type: 'task.result', rid: msg.rid, reason: NO_CHAT });
+        // A client naming itself `ledge` only reads (#142): a decision is answered through task.answer (the user's, confirmed),
+        // straight to the tasks, never through here.
+        if (msg.by === LEDGE_GIVER && !LEDGE_READS.has(msg.op)) return reply({ type: 'task.result', rid: msg.rid, reason: 'seul ledge decide agit sur une tâche au nom de Ledge' });
         // A session acts on a task in its own name only, as `action.run` (#152): its key says who it is. Reading needs none.
         if (msg.by !== LEDGE_GIVER && !LEDGE_READS.has(msg.op)) {
           const wrong = notItsKey(msg.by, msg.key);
@@ -2009,11 +1862,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         return reply(await routineList.run(msg, { kind: 'session', session }));
       }
       case 'brain.answer': {
-        // From a local front: the PC's. A phone's goes through the gateway, which said `phone` first (the first hint wins).
-        const release = operator?.operator.expect('task', msg.task, 'desktop') ?? (() => {});
-        let r: ReturnType<typeof answerProposal>;
-        try { r = answerProposal(msg.task, msg.choice, msg.rid); } finally { release(); }
-        return reply({ type: 'brain.result', rid: msg.rid, ...r });
+        return reply({ type: 'brain.result', rid: msg.rid, ...answerProposal(msg.task, msg.choice, msg.rid) });
       }
       case 'brain.add': return reply({ type: 'brain.result', rid: msg.rid, ...addFromUser(msg.note, msg.fact, now(), notesDir(), msg.source) });
       case 'brain.list': return reply({ type: 'brain.result', rid: msg.rid, dir: notesDir(), notes: await noteInfos(notesDir()) });
@@ -2021,50 +1870,18 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         const reason = msg.op === 'checked' ? markChecked(msg.note, now().slice(0, 10), notesDir()) : clearFlag(msg.note, notesDir());
         return reply({ type: 'brain.result', rid: msg.rid, ...(reason ? { reason } : {}), dir: notesDir(), notes: await noteInfos(notesDir()) });
       }
-      // A chat card's instruction: a refusal reaches the requester as an `error`, the card's state everyone through chat.history.
-      case 'session.relay': return setAside(msg.qid) ? refuse(SET_ASIDE) : relay.request(msg.qid);
-      case 'session.relay.cancel': return relay.cancel(msg.qid);
-      // A chat's close card (spec 2026-10-21 close §4), on the thread that holds the turn: each row closed answers the
-      // requester, the card's state reaches the thread's clients through chat.history. A failed row is the requester's one
-      // `error`, once every row has settled.
-      case 'session.close': {
-        const card = cardOf(cardThreads, msg.qid);
-        if (!card) return refuse('unknown close');
-        if (setAside(msg.qid)) return refuse(SET_ASIDE);
-        try {
-          const done = await closeFromChat({
-            chat: card.chat, emit: card.emit, inFlight: chatCloses,
-            close: closeForCard,
-            onClosed: (row, id, how) => reply({ type: 'session.closed', qid: msg.qid, row, id, how })
-          }, msg.qid, msg.rows);
-          if (done.failed.length > 0) throw new Error(done.failed[0]!.message);
-        } catch (e) { if (e instanceof CloseRefused) return refuse(e.message); throw e; }
-        return;
-      }
+      // The chat's cards and its point left Ledge (#40): an older front's message is refused by name, nothing else happens.
+      case 'session.relay': case 'session.relay.cancel': case 'session.close': case 'chat.act': case 'chat.reset': case 'chat.ignore':
+      case 'point.act': case 'point.later': case 'operator.read':
+        return refuse(NO_CHAT);
       case 'action.run': return runAction(msg, reply);
-      // A chat's generic card (spec 2026-10-26 action registry §9.2), on the thread that holds the turn: the rows apply in order and
-      // stop at the first failure; the requester gets chat.acted, the thread's clients the rows' state through chat.history.
-      case 'chat.act': {
-        const card = cardOf(cardThreads, msg.qid);
-        if (!card) return refuse('unknown action');
-        if (setAside(msg.qid)) return reply({ type: 'error', message: SET_ASIDE, request: msg.type, code: 'ignored' });
-        try { return reply({ type: 'chat.acted', rid: msg.rid, qid: msg.qid, ...(await actOnCard(card, msg.qid, msg.rid, msg.rows, msg.confirmed, msg.deny)) }); }
-        catch (e) { if (e instanceof ActRefused) return reply({ type: 'error', message: e.message, request: msg.type, ...(e.code ? { code: e.code } : {}) }); throw e; }
-      }
       // Broadcast: every overlay shows the same progress, and the one that asked may be the one that reconnects.
       // A busy refusal goes to the asker only: it must not fail the flow the other overlays follow.
       case 'update.daemon':
         if (!opts.updater) return reply({ type: 'update.failed', version: msg.version, reason: 'no-systemd' });
         return opts.updater.update(msg.version, broadcast, reply);
-      case 'chat.ask': {
-        const uploads = msg.images ?? [];
-        // A refusal ends the asker's turn (a chat.error for its qid), as chat.route does: a generic error would leave it waiting.
-        if (msg.text.trim() === '' && uploads.length === 0) return reply({ type: 'chat.error', qid: msg.qid, message: 'empty question' });
-        const refs: AttachmentRef[] = [];
-        try { for (const u of uploads) refs.push(await storeUpload(u)); }
-        catch (e) { if (e instanceof AttachmentError) return reply({ type: 'chat.error', qid: msg.qid, message: `image refused: ${e.reason}` }); throw e; }
-        return chat.ask(msg.qid, msg.text, broadcast, msg.tool, refs);
-      }
+      // A question to Ledge's chat ends at once (its turn's `chat.error`): an older front stops waiting for it.
+      case 'chat.ask': case 'chat.route': return reply({ type: 'chat.error', qid: msg.qid, message: NO_CHAT });
       case 'attachment.put':
         try { return reply({ type: 'attachment.stored', requestId: msg.requestId, ref: await storeUpload(msg.image) }); }
         catch (e) { if (e instanceof AttachmentError) return reply({ type: 'attachment.error', requestId: msg.requestId, reason: e.reason }); throw e; }
@@ -2078,14 +1895,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         if (!found) return reply({ type: 'attachment.error', requestId: msg.requestId, reason: 'not_found' });
         return reply({ type: 'attachment.data', requestId: msg.requestId, attachment: msg.attachment, mime: found.mime, data: found.data.toString('base64') });
       }
-      case 'chat.route':
-        try { reply({ type: 'chat.routed', qid: msg.qid, result: await router.route(msg) }); }
-        catch (e) { reply({ type: 'chat.error', qid: msg.qid, message: (e as Error).message }); }
-        return;
-      case 'chat.cancel': router.cancel(msg.qid); return chat.cancel(msg.qid);
-      case 'chat.reset': return chat.reset(broadcast);
-      // « Ignorer » / « Revoir » a card of the PC's thread: every overlay gets the turn's ignoredAt through chat.history.
-      case 'chat.ignore': { const why = chat.ignore(msg.qid, msg.undo === true, broadcast); return why === null ? undefined : refuse(why); }
+      case 'chat.cancel': return;
       case 'session.focus':
         return; // handled by the overlay plan via wt.exe; the daemon only acknowledges
       // A refusal of the service (an unknown pairing, a sign-in while disabled) reaches the sender as an `error`.
@@ -2112,61 +1922,18 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     });
   }
 
-  // A passkey recovery moves the device's chat folder: its thread is quieted first, and the sessions its queued cards waited
-  // for go on, as when the thread is dropped.
-  mobile?.holdChats?.(async id => {
-    const waiting = [...new Set(threads.queuedRelays().filter(q => q.thread === `device:${id}`).map(q => q.relay.id))];
-    try { return await threads.hold(id); } finally { for (const sid of waiting) relay.settle(sid); }
-  });
   if (mobile) gateway = createPhoneGateway({
     mobile,
     // « À toi » on the phone (lot 3): this PC's OpenRig, as the desktop has it; a phone's answer goes through the same checks.
-    openrig: { list: () => human.list(), answer: async (qitemId, answer) => { const r = await human.answer(qitemId, answer); operator?.askAnswered(qitemId, 'phone', r); return r; }, follow: followAsks },
+    openrig: { list: () => human.list(), answer: (qitemId, answer) => human.answer(qitemId, answer), follow: followAsks },
     // Rigs and the kernel on the phone (refonte mobile B4): the Desktop's reads and actions through `dispatch`, and these two reads it does not make.
     ...(openrig.closed && openrig.routing ? { rigs: { closed: openrig.closed.bind(openrig), routing: openrig.routing.bind(openrig) } } : {}),
-    // A dropped device thread takes its queued cards with it: the sessions they waited for go on to what else waits.
-    chats: { ...threads, async drop(id: string) {
-      const waiting = [...new Set(threads.queuedRelays().filter(q => q.thread === `device:${id}`).map(q => q.relay.id))];
-      try { await threads.drop(id); } finally { for (const sid of waiting) relay.settle(sid); }
-    } },
     sessions: () => store.all(),
     session: id => store.get(id),
     thread: id => history?.items(id),
     preview: id => previews.get(id),
-    // A proposal answered from the phone is settled `phone`: said before the PC's own handler runs, whose hint is the PC's.
-    dispatch: (msg, reply) => {
-      const release = msg.type === 'brain.answer' ? operator?.operator.expect('task', msg.task, 'phone') : undefined;
-      return release ? dispatch(msg, reply).finally(release) : dispatch(msg, reply);
-    },
+    dispatch: (msg, reply) => dispatch(msg, reply),
     attachments,
-    relay,
-    launchChat: (thread, qid, rows) => {
-      const c = thread === 'desktop' ? threads.desktop : threads.device(thread.slice('device:'.length));
-      const userHome = resolve(opts.home ?? homedir());
-      return launchFromChat({
-        chat: c, emit: threads.emitterOf(thread) ?? (() => {}), inFlight: chatLaunches,
-        launch: async p => (await launch({ tool: p.tool, cwd: p.cwd, prompt: p.prompt, model: p.model, effort: p.effort })).id,
-        refuse: refuseTooWide(userHome)
-      }, qid, rows);
-    },
-    closeChat: (thread, qid, rows) => {
-      const card = cardOf(cardThreads, qid);
-      if (!card || card.thread !== thread) return Promise.reject(new CloseRefused('unknown close'));
-      // The phone learns of each row from chat.history, so nothing is sent on a close.
-      return closeFromChat({
-        chat: card.chat, emit: card.emit, inFlight: chatCloses,
-        close: closeForCard
-      }, qid, rows);
-    },
-    actChat: (thread, qid, rid, rows, confirmed, deny, by) => {
-      const card = cardOf(cardThreads, qid);
-      if (!card || card.thread !== thread) return Promise.reject(new ActRefused('unknown action'));
-      return actOnCard(card, qid, rid, rows, confirmed, deny, by);
-    },
-    point: {
-      ...points.phone
-    },
-    onChatEnd: (deviceId, end) => notifyChatEnd?.(deviceId, end.code),
     version: opts.daemon?.version ?? 'unknown',
     boot: randomUUID(),
     log,
@@ -2213,10 +1980,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
   let unsubscribePush: (() => void) | undefined;
   if (mobile) {
     const notifier = createNotifier({ mobile, presence: id => gateway?.visible(id) ?? false, log });
-    notifyChatEnd = (deviceId, code) => {
-      const badge = store.all().filter(s => s.pending).length;
-      void notifier.notify(chatEndPayload(code, badge), undefined, deviceId).catch(e => log(`push failed (${e instanceof Error ? e.name : 'error'})`));
-    };
     notifyDecision = task => {
       const badge = store.all().filter(s => s.pending).length + tasks.all().filter(openDecision).length;
       void notifier.notify(decisionPayload(task, badge), undefined).catch(e => log(`push failed (${e instanceof Error ? e.name : 'error'})`));
@@ -2224,13 +1987,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     notifyAsks = asks => {
       const badge = store.all().filter(s => s.pending).length + tasks.all().filter(openDecision).length;
       for (const a of asks) void notifier.notify(rigAskPayload(a, badge), undefined).catch(e => log(`push failed (${e instanceof Error ? e.name : 'error'})`));
-    };
-    notifyPoint = (lead, qidByDevice) => {
-      const badge = store.all().filter(s => s.pending).length + tasks.all().filter(openDecision).length;
-      for (const [device, qid] of qidByDevice) {
-        if (!device.startsWith('device:')) continue;
-        void notifier.notify(pointPush(lead, badge), undefined, device.slice('device:'.length)).catch(e => log(`push failed (${e instanceof Error ? e.name : 'error'})`));
-      }
     };
     /** Who answered each session's request, from its `Decided` (heard before the change it makes). */
     const answeredBy = new Map<string, DecidedBy | null>();
@@ -2247,36 +2003,14 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     unsubscribePush = () => { unsubscribeDecided(); unsubscribeApply(); };
   }
 
-  if (opts.operator) {
-    // OpenRig's asks are followed from the start where it is installed, operator or not: the island's notices and the urgent asks'
-    // push need them (#40, D11). The first list read is their baseline.
+  if (opts.followRigs) {
+    // OpenRig's asks are followed from the start where it is installed: the island's notices and the urgent asks' push need them
+    // (#40, D11). The first list read is their baseline.
     void openrig.state().then(st => { if (st.installed) followAsks(); }).catch(e => log(`openrig: asks not followed: ${(e as Error).message}`));
-    // The journal needs `node:sqlite`: on an older Node the daemon runs on without the operator rather than not at all.
-    let mod: typeof import('../operator/index.js') | undefined;
-    try { mod = await (opts.loadOperator ?? (() => import('../operator/index.js').then(m => { m.requireSqlite(); return m; })))(); }
-    catch (e) { log(`operator off: Node >= 22.13 needed (${(e as Error).message})`); }
-    if (mod) try {
-      operator = mod.wireOperator({ journalPath: join(paths().dir, 'ledge.sqlite'), machine: hostname(), threads, store, tasks: () => tasks.all(),
-        // Every paired phone gets its point, the ones that have not talked to this daemon run included.
-        devices: () => (mobile?.state().enabled ? mobile.state().devices.map(d => d.id) : []),
-        contextNear: () => contextPrefs.near, tool: () => threads.deviceTool(), chatDeps: { ...chatDeps, thread: 'desktop' },
-        // The notch hears the notices when they change; each paired phone gets its one push per point.
-        onPointsChanged: () => tellNotices(),
-        onPointPush: (lead, qidByDevice) => notifyPoint?.(lead, qidByDevice) });
-      operator.start();
-      // The routines as they are at start: their baseline, so a firing from before it is not news.
-      operator.routinesChanged(routineList.all());
-      // Max's goals are followed for the journal, where OpenRig is installed: the first list read is their baseline.
-      void openrig.state().then(st => {
-        if (!st.installed) return;
-        goalsFollowed = true;
-        void goals.list().then(l => { lastGoals = JSON.stringify(l); rigGoals = l.goals; operator?.goalsChanged(l); }).catch(e => log(`operator: goals not read: ${(e as Error).message}`));
-      }).catch(e => log(`operator: OpenRig not read: ${(e as Error).message}`));
-    } catch (e) {
-      // A start that failed half way closes the journal it opened.
-      try { operator?.stop(); } catch { /* already closed */ }
-      operator = undefined; log(`operator not started: ${(e as Error).message}`);
-    }
+    // The retired operator's journal and the removed chat's data are set aside, never deleted (the owner's condition, #40 D11).
+    const startedAt = new Date();
+    setAsideOperatorJournal(paths().dir, startedAt, log);
+    setAsideChatData(paths().dir, startedAt, log);
   }
 
   wss.on('connection', (ws, req) => {
@@ -2326,6 +2060,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     sweepAttachments,
     closeSession: id => { const s = store.get(id); return s ? closeSession(s) : Promise.reject(unknownSession()); },
     labelExited,
-    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); operator?.stop(); gateway?.stop(); relay.close(); mailbox.close(); tasks.close(); routineList.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
+    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); gateway?.stop(); mailbox.close(); tasks.close(); routineList.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
   };
 }

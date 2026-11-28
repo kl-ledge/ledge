@@ -23,9 +23,9 @@ function peer() {
   const client: DaemonClient = { connect: () => set('open'), close: () => set('unreachable'), status: () => status, send: m => { sent.push(m); }, onMessage: f => { messages.add(f); return () => { messages.delete(f); }; }, onStatus: f => { statuses.add(f); return () => { statuses.delete(f); }; } };
   return { client, sent, set, emit: (m: ServerMessage) => messages.forEach(f => f(m)) };
 }
-const daemon = { version: '0.35.0', install: 'npm' as const, systemd: true, routing: true, broadcast: true };
+const daemon = { version: '0.35.0', install: 'npm' as const, systemd: true, broadcast: true };
 /** A daemon (and its `ledge bridge`) from before broadcast: its snapshot does not announce it. */
-const old = { version: '0.34.0', install: 'npm' as const, systemd: true, routing: true };
+const old = { version: '0.34.0', install: 'npm' as const, systemd: true };
 function setup(o: { local?: typeof old; legion?: typeof old } = {}) {
   const local = peer(), legion = peer();
   const client = createFleetClient([LOCAL_MACHINE, remote], o => o.url === LOCAL_MACHINE.url ? local.client : legion.client);

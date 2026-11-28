@@ -3,15 +3,13 @@
 import { useSyncExternalStore } from 'react';
 import {
   PhoneClientMessageSchema, type PhoneSessionOrder, type Assertion, type DeviceKind, type DevicePrefs, type PcAction, type PhoneFolder, type PhoneLaunch, type OperationReason, type ProjectColor, type AttachmentRef, type CapabilitiesByTool, type Credential, type ImageUpload, type PhoneClientMessage, type PhonePending, type PhoneServerMessage,
-  type ModelRefusal, type PhoneChecklist, type PhoneModelChoice, type PhoneProject, type PhoneRigRow, type PhoneSlashCommand, type PhoneSession, type PhoneTask, type PushSubscription, type ThreadItem, type BrainChoice, type PhoneHarnessUsage, type HumanAsk, type HumanAnswer, type HumanChannel, type OpenRigAction, type ForgeAction, type PointAnswer, type PhoneRoutine, type PhoneRoutineDetail
+  type ModelRefusal, type PhoneChecklist, type PhoneModelChoice, type PhoneProject, type PhoneRigRow, type PhoneSlashCommand, type PhoneSession, type PhoneTask, type PushSubscription, type ThreadItem, type BrainChoice, type PhoneHarnessUsage, type HumanAsk, type HumanAnswer, type HumanChannel, type OpenRigAction, type ForgeAction, type PhoneRoutine, type PhoneRoutineDetail
 } from '@ledge/protocol';
 import type { PhoneLink } from '../link/link';
 import { getAssertion } from '../link/webauthn';
-import { actionChecked } from '../model/actionCard';
-import { pointCheck } from '../model/point';
 import { adoptRuns } from '../model/sessionEnd';
 import { createImages } from './images';
-import { asked, emptyChat, noConversations, reduceChat, type ChatAction, type ChatState, type Conversations } from './chat';
+import type { ActionResult } from './actionResult';
 import { PC_STALL_MS, pcFailed, pcProgress, pcRunning, pcSnapshot, type PcRun } from './pc';
 import { clearOps, expectKey, isLive, isNew, loadOps, newOperationId, pruneOps, resendable, saveOps, UNCERTAIN_MS, type Op, type OpMessage } from './operations';
 import { clearLastState, loadLastState, loadReads, saveLastState, saveReads } from './persist';
@@ -94,13 +92,9 @@ export type PhoneExpect = Extract<PhoneClientMessage, { type: 'session.decide' }
  */
 export type LaunchStart = { status: 'sent'; op: string } | { status: 'cancelled' } | { status: 'noAnswer' } | { status: 'failed' } | { status: 'rejected'; reason: OperationReason };
 export type ConfirmChallenge = Extract<PhoneServerMessage, { type: 'confirm.challenge' }>;
-export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: string; expect: PhoneExpect } | { purpose: 'launch'; qid: string } | { purpose: 'launch'; launch: PhoneLaunch } | { purpose: 'close'; qid: string }
+export type ConfirmRequest = { purpose: 'register' } | { purpose: 'decide'; id: string; expect: PhoneExpect } | { purpose: 'launch'; launch: PhoneLaunch }
   /** A decision a session put to Ledge, answered in its thread (#40 D2): bound to the decision and that exact answer. */
   | { purpose: 'decision'; task: string; taskAnswer: string }
-  /** A turn's generic card (`chat.act`). */
-  | { purpose: 'act'; qid: string }
-  /** A row of the operator's point (`point.act`): bound to the row and its exact answer, or to its suggestion. */
-  | { purpose: 'act'; qid: string; item: string; pointAnswer: PointAnswer } | { purpose: 'act'; qid: string; item: string; suggest: true }
   /** A session's own close (`session.close`) or resume (`session.resume`). */
   | { purpose: 'close' | 'act'; id: string }
   /** Taking the hand on a session's terminal (`term.hold`). */
@@ -165,14 +159,14 @@ export interface MobileStore {
   /** Asks the PC for a queue row's state (`daemon.rigRows`), once at a time per row; it lands in `getState().rigRows`. */
   requestRigRow(qitem: string): void;
   /** Changes a live session's model and effort (`null`: the agent's own default). Resolves when the PC answers; a late failure lands in `getState().modelFailures`. */
-  changeModel(id: string, model: string | null, effort: string | null): Promise<ChatAction>;
+  changeModel(id: string, model: string | null, effort: string | null): Promise<ActionResult>;
   /** Writes one message to several sessions at once (at most 32). Resolves when the PC answers, with who got it (`sent`, names) and who did not. */
-  broadcast(sessions: string[], text: string): Promise<ChatAction & { sent?: string[]; refused?: { name: string; reason: string }[] }>;
+  broadcast(sessions: string[], text: string): Promise<ActionResult & { sent?: string[]; refused?: { name: string; reason: string }[] }>;
   /**
    * Installs `version` on the PC then restarts its daemon (`update`), or restarts it alone (`restart`), after the device's
    * confirmation. Once applied, `getState().pc` follows it until the PC comes back with it, refuses, or `PC_STALL_MS` passes.
    */
-  pcAction(action: PcAction, version?: string): Promise<ChatAction>;
+  pcAction(action: PcAction, version?: string): Promise<ActionResult>;
   /** Forgets an update or a restart that ended (done or failed). */
   dismissPc(): void;
   /** Answers the questions of OMP's dialog `requestId` together, or declines it (`cancel`). The op's id, or null when nothing was sent. */
@@ -191,10 +185,10 @@ export interface MobileStore {
   rereadRoutine(id: string): void;
   /** « Lancer maintenant » / « Relancer » (`run`), « Pause », « Reprendre », and « Refuser » a routine a session asked for: no device
    *  check. One command per routine at a time. Resolves when the PC answers. */
-  routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse', others?: RoutineRef[]): Promise<ChatAction>;
+  routineCmd(id: string, action: 'run' | 'pause' | 'resume' | 'refuse', others?: RoutineRef[]): Promise<ActionResult>;
   /** « Activer » / « Activer les N »: ONE device check over every routine of the request and the key of what the phone showed of each,
    *  then `approve` (`others`: the rest of a grouped request). Resolves when the PC answers; a routine changed since is `stale`. */
-  approveRoutine(id: string, key: string, others?: RoutineRef[]): Promise<ChatAction>;
+  approveRoutine(id: string, key: string, others?: RoutineRef[]): Promise<ActionResult>;
   /** Registers the passkey with the PC. The op's id, or null when nothing was sent. */
   /** `userId`: the passkey's `user.id`, base64url (« L1 » ‖ the PC key's digest ‖ random), so the PC marks it `recover`. */
   registerCredential(c: Credential, userId?: string): string | null;
@@ -205,21 +199,21 @@ export interface MobileStore {
   /** Names this device on the PC (`device.rename`); its next snapshot carries the name. The op's id, or null when nothing was sent. */
   renameDevice(name: string): string | null;
   /** Stores this device's own settings on the PC, whole (`device.prefs`); its next snapshot carries them. Resolves when the PC answers. */
-  setDevicePrefs(prefs: DevicePrefs): Promise<ChatAction>;
+  setDevicePrefs(prefs: DevicePrefs): Promise<ActionResult>;
   /** Sets the PC's « Contexte max », shared with every front (`context.set`). Resolves when the PC answers. */
-  setContextNear(near: number): Promise<ChatAction>;
+  setContextNear(near: number): Promise<ActionResult>;
   /** Renames or recolours a project (`project.edit`); its folders stay as the PC has them. Resolves when the PC answers. */
-  editProject(id: string, change: { name?: string; color?: ProjectColor }): Promise<ChatAction>;
+  editProject(id: string, change: { name?: string; color?: ProjectColor }): Promise<ActionResult>;
   /** Puts the projects in this order, every one of them once (`project.order`). Resolves when the PC answers. */
-  orderProjects(ids: string[]): Promise<ChatAction>;
+  orderProjects(ids: string[]): Promise<ActionResult>;
   /** Issue #16: one project's sessions of this PC in a new order (`session.order`; `project` null: « Sans projet »). The other
    *  machines' sessions keep their places. Resolves when the PC answers. */
-  orderSessions(project: string | null, ids: string[]): Promise<ChatAction>;
+  orderSessions(project: string | null, ids: string[]): Promise<ActionResult>;
   /** Creates an empty project, named by the PC (`project.create`). Resolves when the PC answers. */
   /** Issue #2: with its first folder of this PC (`path`), confirmed by the device's passkey over that name and folder. */
-  createProject(name: string, color: ProjectColor, path?: string): Promise<ChatAction>;
+  createProject(name: string, color: ProjectColor, path?: string): Promise<ActionResult>;
   /** Deletes a project after the device's check; its agents, folders and rules go to `moveTo`, or nowhere (null). */
-  deleteProject(id: string, moveTo: string | null): Promise<ChatAction>;
+  deleteProject(id: string, moveTo: string | null): Promise<ActionResult>;
   /** Asks the PC for the subfolders of `path` (its home without one); the answer lands in `getState().folderListing`. */
   listFolder(path?: string): void;
   /** Asks the PC for its recent folders; they land in `getState().recentFolders`. */
@@ -227,9 +221,9 @@ export interface MobileStore {
   /** Asks the PC for a project's folders; they land in `getState().projectFolders`. */
   requestProjectFolders(id: string): void;
   /** Adds a folder of this PC to a project after the device's check. Resolves when the PC answers. */
-  addFolder(id: string, path: string): Promise<ChatAction>;
+  addFolder(id: string, path: string): Promise<ActionResult>;
   /** Removes a folder (of any machine) from a project. Resolves when the PC answers. */
-  removeFolder(id: string, machine: string, path: string): Promise<ChatAction>;
+  removeFolder(id: string, machine: string, path: string): Promise<ActionResult>;
   interrupt(id: string): string | null;
   /** Closes the session (`session.close`) with the device's assertion over it. The op's id, or null when nothing was sent (not ready, a close already on its way). */
   sessionClose(id: string, assertion: Assertion): string | null;
@@ -255,30 +249,6 @@ export interface MobileStore {
    * `FORGET_MS` without an answer, or when the link drops first.
    */
   forgetDevice(): Promise<boolean>;
-  /** The phone's chat with Ledge; the same object until it changes. */
-  chat(): ChatState;
-  /**
-   * Asks Ledge a question: the turn shows at once. Returns its qid. Offline, nothing is sent and `chat().error` is
-   * `offline` with the text; if the PC is busy the turn goes again and `error` is `busy` with the text.
-   */
-  ask(text: string, attachments?: string[]): string;
-  /** Stops the question being answered. */
-  cancelAsk(): void;
-  /** Starts the thread over. */
-  resetChat(): void;
-  /** The device's conversations (M3 §6); the same object until it changes. */
-  conversations(): Conversations;
-  /** Asks the PC for the list of conversations (a PC with `daemon.conversations`), which shows `null` until it comes. */
-  askConversations(): void;
-  /** Asks the PC for a past conversation's turns, read-only. */
-  openConversation(id: string): void;
-  clearChatError(): void;
-  /** Sends the turn's instruction to its session; resolves when the operation is final. */
-  relay(qid: string): Promise<ChatAction>;
-  /** Takes the turn's queued instruction back (the PC's « Annuler »); resolves when the operation is final. */
-  cancelRelay(qid: string): Promise<ChatAction>;
-  /** Launches the turn's proposals (`rows`, or all of them), after the device's confirmation. */
-  launch(qid: string, rows?: number[]): Promise<ChatAction>;
   /** « Nouvelle session » (§9): the device's check over this very launch, then `session.launch`. */
   launchSession(launch: PhoneLaunch): Promise<LaunchStart>;
   /** « Réessayer » after no answer: the same launch again, same op and assertion, so the PC never starts two (contract §6). False when it cannot go. */
@@ -290,30 +260,10 @@ export interface MobileStore {
    * would refuse it as if the first had been refused.
    */
   canLaunchAgain(op: string): boolean;
-  /** Closes the turn's sessions (`rows`, or all of them), after the device's confirmation. (Not `close`: that stops the store.) */
-  closeSessions(qid: string, rows?: number[]): Promise<ChatAction>;
-  /** Applies rows of the turn's generic card (action registry spec §9.2), in order; the device's check first when one of them
-   *  asks for it. `deny`: « Refuser » a session's request instead, with no check. */
-  act(qid: string, rows: number[], o?: { deny?: true }): Promise<ChatAction>;
-  /** « Ignorer » the turn's cards on every device, or `undo` (« Revoir »). */
-  ignoreTurn(qid: string, undo?: true): Promise<ChatAction>;
-  /** Gives the turn's task `row` to its session, in Ledge's name. */
-  giveTask(qid: string, row: number): Promise<ChatAction>;
-  /** Puts away a closed task Ledge gave: it leaves « À traiter ». */
-  seeTask(task: string): Promise<ChatAction>;
-  /** Answers a proposal about the notes from « Le point »: a « yes » asks for the device's check over that exact choice. */
-  answerNote(task: string, choice: BrainChoice): Promise<ChatAction>;
+  /** Answers a proposal about the notes, at the foot of its session's thread (#40 D2): a « yes » asks for the device's check over that exact choice. */
+  answerNote(task: string, choice: BrainChoice): Promise<ActionResult>;
   /** A decision a session put to Ledge, answered in its thread (#40 D2): `task.answer`, signed over that exact answer (purpose `decision`). */
-  answerTask(task: string, answer: string): Promise<ChatAction>;
-  /**
-   * Answers a row of the operator's point (`point.act`), or applies its suggestion (`'suggest'`): confirmed when the PC asks it, after the
-   * device's check when the answer needs one (`pointCheck`). Resolves when the operation is final.
-   */
-  pointAct(qid: string, item: string, answer: PointAnswer | 'suggest'): Promise<ChatAction>;
-  /** Sets the point aside until its next wake (`point.later`). Resolves when the operation is final. */
-  pointLater(qid: string): Promise<ChatAction>;
-  /** Marks the operator's journal read up to `eventId` for this device (`operator.read`): sent once per higher event, when ready. */
-  operatorRead(eventId: number): void;
+  answerTask(task: string, answer: string): Promise<ActionResult>;
   /** Stops listening to the link and every timer. */
   close(): void;
 }
@@ -399,17 +349,9 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   /** A preview changed since the cache was last written. */
   let previewsDirty = false;
   let closed = false;
-  let chatState: ChatState = emptyChat();
-  let convState: Conversations = noConversations();
-  /** `chat.history` was asked since the last ready; the snapshot of a first connection asks it when the ready could not. */
-  let historyAsked = false;
-  /** The highest operator event this device marked read (`operator.read`) since the store started. */
-  let readEvent = -1;
-  /** The questions asked since the last ready: only these may be newer than a history reply. */
-  const askedSinceReady = new Set<string>();
   const expirers = new Set<() => void>();
-  /** The relay or launch of a turn that is under way, shared by a second tap. */
-  const chatActions = new Map<string, Promise<ChatAction>>();
+  /** An operation under way, by what it is about: a second tap shares the first. */
+  const pendingActions = new Map<string, Promise<ActionResult>>();
   /** The `prepareConfirm` waiting for its challenge. */
   let preparing: { purpose: ConfirmChallenge['purpose']; resolve: (c: ConfirmChallenge) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> } | null = null;
   const settle = (outcome: ConfirmChallenge | Error) => {
@@ -438,14 +380,11 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   const images = createImages(m => { if (closed || !ready()) return false; send(m); return true; });
 
   const notify = () => { for (const fn of [...listeners]) fn(); };
-  const setChat = (c: ChatState) => { chatState = c; notify(); };
-  const setConversations = (c: Conversations) => { convState = c; notify(); };
   let asksAsked = false;
   /** The routines were asked on this link: once per link, the PC then sends each change. */
   let routinesAsked = false;
   /** The routines whose detail was asked on this link and not answered yet. */
   const detailAsks = new Set<string>();
-  const askHistory = () => { historyAsked = true; send({ type: 'chat.history' }); };
   const set = (patch: Partial<MobileState>) => { state = { ...state, ...patch }; notify(); };
   const persist = () => {
     previewsDirty = false;
@@ -504,20 +443,15 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     for (const [id, at] of Object.entries(reads)) send({ type: 'session.read', id, at });
     if (visible !== null) send({ type: 'presence', visible });
     if (lastThread && state.threads.get(lastThread)?.status !== 'gone') askThread(lastThread);
-    historyAsked = false;
     asksAsked = false;
     routinesAsked = false;
     detailAsks.clear();
-    askedSinceReady.clear();
-    if (state.device?.chat) askHistory();
   }
 
   function onLost() {
-    historyAsked = false;
     asksAsked = false;
     routinesAsked = false;
     detailAsks.clear();
-    askedSinceReady.clear();
     // A list asked on the lost channel never comes: it is asked again. Those already answered stay.
     for (const tool of [...modelAsks]) if (!state.models[tool]) modelAsks.delete(tool);
     commandAsks.clear();
@@ -559,7 +493,6 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         adoptRunsOf(m.sessions);
         // The instructions and interrupts left uncertain (those in flight on this link are `sending`) go again if this PC may not have applied them.
         if (ready()) resend(o => o.phase === 'uncertain' && expectKey(o.message) === undefined);
-        if (m.device?.chat && !historyAsked && ready()) askHistory();
         return;
       }
       case 'attachment.stored': case 'attachment.data': case 'attachment.error':
@@ -708,17 +641,6 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
         if (m.status === 'rejected' && m.reason === 'stale' && ready() && o.message.type.startsWith('session.') && 'id' in o.message && typeof o.message.id === 'string') send({ type: 'session.pending', id: o.message.id });
         return;
       }
-      case 'chat.history': case 'chat.step': case 'chat.delta': case 'chat.done': case 'chat.error': case 'chat.limits':
-        setChat(reduceChat(chatState, m, askedSinceReady));
-        return;
-      case 'chat.conversations':
-        setConversations({ ...convState, list: { ...(m.current ? { current: m.current } : {}), past: m.past } });
-        return;
-      case 'chat.conversation':
-        // Only one this phone asked for: a reply nobody waits for is not kept.
-        if (!(m.id in convState.open)) return;
-        setConversations({ ...convState, open: { ...convState.open, [m.id]: m.error ? { gone: true } : { turns: m.turns ?? [], limits: m.limits ?? [] } } });
-        return;
       case 'confirm.challenge':
         if (preparing?.purpose === m.purpose) settle(m);
         return;
@@ -754,18 +676,18 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   }
 
   /** A change of the projects (Réglages › Projets), for a PC that takes them; resolved with its outcome. */
-  function projectOp(build: (op: string) => OpMessage): Promise<ChatAction> {
+  function projectOp(build: (op: string) => OpMessage): Promise<ActionResult> {
     if (!state.daemon?.projectEdit) return Promise.resolve({ status: 'rejected', reason: 'unavailable' });
     const op = write(build);
     return op === null ? Promise.resolve({ status: 'failed' }) : finalOf(op);
   }
 
   /** Resolves when the operation is final; an op that was dropped, or stays uncertain for good, is `expired`. */
-  function finalOf(op: string): Promise<ChatAction> {
-    return new Promise<ChatAction>(resolve => {
+  function finalOf(op: string): Promise<ActionResult> {
+    return new Promise<ActionResult>(resolve => {
       const check = (): boolean => {
         const o = state.ops[op];
-        let out: ChatAction | null = null;
+        let out: ActionResult | null = null;
         if (!o) out = { status: 'expired' };
         else if (o.phase === 'applied') out = { status: 'applied', ...(o.reason === 'scheduled' ? { scheduled: true as const } : {}) };
         else if (o.phase === 'failed') out = { status: 'failed' };
@@ -785,7 +707,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
   }
 
   /** Asks the challenge of `prep`, has the passkey sign it, then writes the operation `build` makes with that assertion. */
-  async function signedOperation(prep: ConfirmRequest, build: (op: string, assertion: Assertion) => OpMessage): Promise<ChatAction> {
+  async function signedOperation(prep: ConfirmRequest, build: (op: string, assertion: Assertion) => OpMessage): Promise<ActionResult> {
     let challenge: ConfirmChallenge;
     try { challenge = await store.prepareConfirm(prep); }
     catch (e) { return { status: e instanceof Error && e.message === 'timeout' ? 'expired' : 'failed' }; }
@@ -801,12 +723,12 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     return op === null ? { status: 'failed' } : finalOf(op);
   }
 
-  /** One relay or launch per turn at a time: a second tap shares the first. */
-  function chatAction(key: string, run: () => Promise<ChatAction>): Promise<ChatAction> {
-    const held = chatActions.get(key);
+  /** One operation per subject at a time: a second tap shares the first. */
+  function once(key: string, run: () => Promise<ActionResult>): Promise<ActionResult> {
+    const held = pendingActions.get(key);
     if (held) return held;
-    const p = run().finally(() => { chatActions.delete(key); });
-    chatActions.set(key, p);
+    const p = run().finally(() => { pendingActions.delete(key); });
+    pendingActions.set(key, p);
     return p;
   }
 
@@ -814,7 +736,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
 
   /** The link has no PC any more (forgotten, or pairing a new one): nothing of the old PC is kept or sent again. */
   function forget() {
-    const held = chatState.turns.length || chatState.live || chatState.error || state.sessions.size || state.threads.size || state.previews.size || state.daemon || state.capabilities
+    const held = state.sessions.size || state.threads.size || state.previews.size || state.daemon || state.capabilities
       || state.device || state.syncedAt || Object.keys(state.models).length || Object.keys(state.modelFailures).length || state.tasks.size || Object.keys(state.ops).length || Object.keys(reads).length || lastThread !== null;
     if (!held) return;
     for (const id of [...timers.keys()]) stopTimer(id);
@@ -822,13 +744,9 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     boot = null;
     lastThread = null;
     threadAsks = [];
-    historyAsked = false;
     asksAsked = false;
     routinesAsked = false;
     detailAsks.clear();
-    readEvent = -1;
-    chatState = emptyChat();
-    convState = noConversations();
     settle(new Error('lost'));
     previewsDirty = false;
     clearLastState(storage);
@@ -1114,84 +1032,9 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
 
     loadPending(id) { if (!closed && ready()) send({ type: 'session.pending', id }); },
 
-    chat: () => chatState,
-
-    conversations: () => convState,
-
-    askConversations() {
-      if (closed || !ready() || !state.daemon?.conversations) return;
-      setConversations({ ...convState, list: null });
-      send({ type: 'chat.conversations' });
-    },
-
-    openConversation(id) {
-      if (closed || !ready() || !state.daemon?.conversations) return;
-      setConversations({ ...convState, open: { ...convState.open, [id]: null } });
-      send({ type: 'chat.conversation', id });
-    },
-
     putImage: image => images.putImage(image),
     imageUrl: (id, preview) => images.imageUrl(id, preview),
     knownImage: id => images.knownImage(id),
-
-    ask(text, attachments = []) {
-      const qid = newOperationId();
-      const m = PhoneClientMessageSchema.safeParse({ type: 'chat.ask', qid, text, ...(attachments.length ? { attachments } : {}) });
-      if (!m.success || m.data.type !== 'chat.ask') { setChat({ ...chatState, error: { code: 'failed', qid, text } }); return qid; }
-      if (closed || !ready()) { setChat({ ...chatState, error: { code: 'offline', text: m.data.text } }); return qid; }
-      askedSinceReady.add(qid);
-      const refs = attachments.flatMap(id => images.knownImage(id) ?? []);
-      setChat(asked(chatState, { qid, question: m.data.text, askedAt: new Date().toISOString(), steps: [], ...(refs.length ? { attachments: refs } : {}) }));
-      send(m.data);
-      return qid;
-    },
-
-    cancelAsk() {
-      const qid = chatState.live?.qid;
-      if (qid && !closed) send({ type: 'chat.cancel', qid });
-    },
-
-    resetChat() {
-      if (closed) return;
-      setChat(emptyChat());
-      if (ready()) { send({ type: 'chat.reset' }); send({ type: 'chat.history' }); }
-    },
-
-    clearChatError() { if (chatState.error) setChat({ ...chatState, error: null }); },
-
-    relay(qid) {
-      return chatAction(`relay:${qid}`, async () => {
-        const op = write(o => ({ type: 'chat.relay', op: o, qid }));
-        return op === null ? { status: 'failed' } : finalOf(op);
-      });
-    },
-
-    cancelRelay(qid) {
-      return chatAction(`relay-cancel:${qid}`, async () => {
-        const op = write(o => ({ type: 'chat.relay.cancel', op: o, qid }));
-        return op === null ? { status: 'failed' } : finalOf(op);
-      });
-    },
-
-    launch(qid, rows) {
-      return chatAction(`launch:${qid}:${rows?.join(',') ?? '*'}`, async () => {
-        // A phone without a passkey cannot confirm: the PC would refuse, and no prompt is worth showing.
-        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
-        let challenge: ConfirmChallenge;
-        try { challenge = await store.prepareConfirm({ purpose: 'launch', qid }); }
-        catch (e) { return { status: e instanceof Error && e.message === 'timeout' ? 'expired' : 'failed' }; }
-        if (!challenge.credentialId) return { status: 'rejected', reason: 'confirm_required' };
-        const at = Date.now();
-        const signed = await getAssertion({ challenge: challenge.challenge, rpId: challenge.rpId, credentialId: challenge.credentialId }).catch(() => 'failed' as const);
-        if (signed === 'cancelled') return { status: 'cancelled' };
-        if (signed === 'failed') return { status: 'failed' };
-        // Good for a minute: after that the PC would only refuse it.
-        if (Date.now() - at >= challenge.expiresInMs) return { status: 'expired' };
-        const op = write(o => ({ type: 'chat.launch', op: o, qid, ...(rows ? { rows } : {}), assertion: signed }));
-        // The link dropped after the passkey: the PC never got it, so the card stays as it was and can be tapped again.
-        return op === null ? { status: 'expired' } : finalOf(op);
-      });
-    },
 
     async launchSession(launch) {
       // A phone without a passkey cannot confirm: the PC would refuse, and no prompt is worth showing.
@@ -1223,60 +1066,6 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
       return true;
     },
 
-    closeSessions(qid, rows) {
-      return chatAction(`close:${qid}:${rows?.join(',') ?? '*'}`, async () => {
-        // A phone without a passkey cannot confirm: the PC would refuse, and no prompt is worth showing.
-        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
-        let challenge: ConfirmChallenge;
-        try { challenge = await store.prepareConfirm({ purpose: 'close', qid }); }
-        catch (e) { return { status: e instanceof Error && e.message === 'timeout' ? 'expired' : 'failed' }; }
-        if (!challenge.credentialId) return { status: 'rejected', reason: 'confirm_required' };
-        const at = Date.now();
-        const signed = await getAssertion({ challenge: challenge.challenge, rpId: challenge.rpId, credentialId: challenge.credentialId }).catch(() => 'failed' as const);
-        if (signed === 'cancelled') return { status: 'cancelled' };
-        if (signed === 'failed') return { status: 'failed' };
-        // Good for a minute: after that the PC would only refuse it.
-        if (Date.now() - at >= challenge.expiresInMs) return { status: 'expired' };
-        const op = write(o => ({ type: 'chat.close', op: o, qid, ...(rows ? { rows } : {}), assertion: signed }));
-        // The link dropped after the passkey: the PC never got it, so the card stays as it was and can be tapped again.
-        return op === null ? { status: 'expired' } : finalOf(op);
-      });
-    },
-
-    act(qid, rows, o) {
-      return chatAction(`act:${qid}:${rows.join(',')}${o?.deny ? ':deny' : ''}`, async () => {
-        const actions = chatState.turns.find(t => t.qid === qid)?.actions;
-        if (!actions || rows.some(r => !actions[r])) return { status: 'rejected', reason: 'invalid' };
-        if (o?.deny) {
-          const op = write(w => ({ type: 'chat.act', op: w, qid, rows, deny: true }));
-          return op === null ? { status: 'failed' } : finalOf(op);
-        }
-        const todo = rows.map(r => actions[r]!);
-        const confirmed = todo.some(a => a.risk === 'destructive') ? { confirmed: true as const } : {};
-        if (!todo.some(actionChecked)) {
-          const op = write(w => ({ type: 'chat.act', op: w, qid, rows, ...confirmed }));
-          return op === null ? { status: 'failed' } : finalOf(op);
-        }
-        // A phone without a passkey cannot confirm: the PC would refuse, and no prompt is worth showing.
-        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
-        return signedOperation({ purpose: 'act', qid }, (w, assertion) => ({ type: 'chat.act', op: w, qid, rows, ...confirmed, assertion }));
-      });
-    },
-
-    ignoreTurn(qid, undo) {
-      return chatAction(`ignore:${qid}`, async () => {
-        const op = write(w => ({ type: 'chat.ignore', op: w, qid, ...(undo ? { undo } : {}) }));
-        return op === null ? { status: 'failed' } : finalOf(op);
-      });
-    },
-
-    giveTask(qid, row) {
-      return chatAction(`task:${qid}:${row}`, async () => {
-        const op = write(o => ({ type: 'chat.task', op: o, qid, row }));
-        return op === null ? { status: 'failed' } : finalOf(op);
-      });
-    },
-
     showRoutine(id) {
       if (closed || !ready() || detailAsks.has(id) || state.routineDetails[id] !== undefined) return;
       detailAsks.add(id);
@@ -1290,14 +1079,14 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     },
 
     routineCmd(id, action, others) {
-      return chatAction(`routine:${id}`, async () => {
+      return once(`routine:${id}`, async () => {
         const op = write(o => ({ type: 'routine.cmd', op: o, action, routine: id, ...(others?.length ? { others } : {}) }));
         return op === null ? { status: 'failed' } : finalOf(op);
       });
     },
 
     approveRoutine(id, key, others) {
-      return chatAction(`routine:${id}`, async () => {
+      return once(`routine:${id}`, async () => {
         // A phone without a passkey cannot sign: the PC would refuse, and no prompt is worth showing.
         if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
         const rest = others?.length ? others : undefined;
@@ -1307,7 +1096,7 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     },
 
     answerNote(task, choice) {
-      return chatAction(`note:${task}`, async () => {
+      return once(`note:${task}`, async () => {
         if (!choice.yes) {
           const op = write(o => ({ type: 'brain.answer', op: o, task, choice }));
           return op === null ? { status: 'failed' } : finalOf(op);
@@ -1318,45 +1107,9 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     },
 
     answerTask(task, answer) {
-      return chatAction(`decision:${task}`, async () => {
+      return once(`decision:${task}`, async () => {
         if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
         return signedOperation({ purpose: 'decision', task, taskAnswer: answer }, (o, assertion) => ({ type: 'task.answer', op: o, task, answer, confirmed: true, assertion }));
-      });
-    },
-
-    pointAct(qid, item, answer) {
-      return chatAction(`point:${qid}:${item}`, async () => {
-        const row = chatState.turns.find(t => t.qid === qid)?.point?.items.find(i => i.id === item);
-        if (!row) return { status: 'rejected', reason: 'invalid' };
-        const need = pointCheck(qid, row, answer, { asks: state.asks, sessions: state.sessions, tasks: state.tasks });
-        if (!need) return { status: 'failed' };
-        const body = { qid, item, ...(answer === 'suggest' ? { suggest: true as const } : { answer }), ...(need.confirmed ? { confirmed: true as const } : {}) };
-        if (!need.check) {
-          const op = write(o => ({ type: 'point.act', op: o, ...body }));
-          return op === null ? { status: 'failed' } : finalOf(op);
-        }
-        // A phone without a passkey cannot sign: the PC would refuse, and no prompt is worth showing.
-        if (!state.device?.confirm) return { status: 'rejected', reason: 'confirm_required' };
-        return signedOperation(need.check, (o, assertion) => ({ type: 'point.act', op: o, ...body, assertion }));
-      });
-    },
-
-    pointLater(qid) {
-      return chatAction(`later:${qid}`, async () => {
-        const op = write(o => ({ type: 'point.later', op: o, qid }));
-        return op === null ? { status: 'failed' } : finalOf(op);
-      });
-    },
-
-    operatorRead(eventId) {
-      if (eventId <= readEvent || !ready()) return;
-      if (write(o => ({ type: 'operator.read', op: o, eventId })) !== null) readEvent = eventId;
-    },
-
-    seeTask(task) {
-      return chatAction(`seen:${task}`, async () => {
-        const op = write(o => ({ type: 'task.seen', op: o, task }));
-        return op === null ? { status: 'failed' } : finalOf(op);
       });
     },
 
@@ -1376,15 +1129,6 @@ export function createStore(link: PhoneLink, storage?: Storage): MobileStore {
     }
   };
   return store;
-}
-
-/** The chat in a component, re-rendered when it changes. */
-export function useChat(store: MobileStore): ChatState {
-  return useSyncExternalStore(store.subscribe, store.chat);
-}
-
-export function useConversations(store: MobileStore): Conversations {
-  return useSyncExternalStore(store.subscribe, store.conversations);
 }
 
 /** The routines shown whole that still are what the PC lists: one whose key changed, or that left, is read again. */

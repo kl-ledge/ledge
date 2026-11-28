@@ -1,4 +1,4 @@
-import { mkdir, readdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { ServerMessage } from '@ledge/protocol';
@@ -77,4 +77,31 @@ export async function createFolder(parent: string, name: string, home = homedir(
     return { ...at, error: code === 'EEXIST' ? `already exists: ${clean}` : `cannot create ${clean}: ${(e as Error).message}` };
   }
   return listFolder(join(at.path, clean), home, requestId);
+}
+
+/** A home folder (`/root`, `/home/<user>`, `/Users/<user>`): never a project's repository (the fleet's proposals.ts rule). */
+const HOME = /^\/(?:root|home\/[^/]+|Users\/[^/]+|mnt\/[^/]+\/Users\/[^/]+)$/;
+/** Where homes live: `/home`, `/Users`, a WSL drive (`/mnt/c`) and its `Users`. */
+const HOMES = /^\/(?:home|Users|mnt\/[^/]+(?:\/Users)?)$/;
+
+/** Why a folder is too wide to start an agent in (it would swallow every repository below it), or null: the root, a home (anyone's,
+ *  WSL's Windows ones included, or the user's), a folder of homes, a folder that holds the user's home, a top-level folder. */
+export function tooWide(path: string, userHome: string): string | null {
+  if (path === '/') return 'the root';
+  if (HOME.test(path) || path === userHome) return 'a home folder';
+  if (HOMES.test(path)) return 'a folder of homes';
+  if (userHome.startsWith(`${path}/`)) return 'a folder holding the home';
+  if (/^\/[^/]+$/.test(path)) return 'a top-level folder';
+  return null;
+}
+
+/**
+ * `tooWide` for a folder as named and for where it really leads: a link to the home folder or the root starts its agent there, so it is
+ * refused as they are. A folder that cannot be resolved is judged by its name alone; the launch then fails on its own.
+ */
+export async function folderTooWide(path: string, userHome: string): Promise<string | null> {
+  const named = tooWide(path, userHome);
+  if (named) return named;
+  const real = await realpath(path).catch(() => null);
+  return real === null ? null : tooWide(real, await realpath(userHome).catch(() => userHome));
 }

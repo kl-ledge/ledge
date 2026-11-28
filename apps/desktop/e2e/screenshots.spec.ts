@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, seedAtelier } from './fixtures';
 import { fileURLToPath } from 'node:url';
-import { fakeDaemon, twoProjects, type ChatReply } from './daemon';
+import { fakeDaemon, twoProjects } from './daemon';
 import { ideReady } from './ide';
 import { fleet, ottoThread } from './thread';
 
@@ -25,9 +25,9 @@ const busy = fleet.map(s => ({
   ...(s.id === 'nova' ? { helpers: [{ id: 'n1', kind: 'Explore', task: 'Relire le protocole', state: 'working' as const }, { id: 'n2', kind: 'general-purpose', task: 'Lancer les tests ssh', state: 'working' as const }] } : {})
 }));
 
-async function boot(page: Page, theme: 'dark' | 'light', chat?: ChatReply) {
+async function boot(page: Page, theme: 'dark' | 'light') {
   await page.addInitScript(t => { try { localStorage.setItem('desktop.lang', 'fr'); localStorage.setItem('desktop.theme', t); } catch { /* ignore */ } }, theme);
-  const daemon = await fakeDaemon(page, busy, { projects: twoProjects, threads: { otto: ottoThread }, ...(chat ? { chat } : {}) });
+  const daemon = await fakeDaemon(page, busy, { projects: twoProjects, threads: { otto: ottoThread } });
   await page.goto('/'); await ideReady(page);
   await expect(page.locator('.agent-seat').first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -58,21 +58,4 @@ test('launch, dark', async ({ page }) => {
   await expect(form).toBeVisible();
   await form.getByRole('textbox').first().fill('Ajoute un test pour la reconnexion ssh du fleet');
   await page.screenshot({ path: `${SCREENS}desktop-launch-dark.png` });
-});
-
-test('chat, dark', async ({ page }) => {
-  const chat: ChatReply = {
-    steps: [{ kind: 'sessions' }, { kind: 'pane', id: 'otto', name: 'Otto' }, { kind: 'pane', id: 'luna', name: 'Luna' }],
-    text: '**Otto** attend ton accord pour lancer `npm test` sur ledge. **Luna** te demande quel port utiliser pour la homepage. Les autres travaillent.\n\nJe peux démarrer une session pour corriger les tests qui échouent.',
-    proposal: { cwd: '/w/ledge', project: 'ledge', tool: 'claude', prompt: 'Corrige les tests de l\'overlay qui échouent' }
-  };
-  await boot(page, 'dark', chat);
-  // The right panel is open from the start, on Conversation.
-  const panel = page.getByRole('complementary', { name: 'Chat Ledge' });
-  const field = panel.getByRole('textbox').first();
-  await field.click();
-  await field.fill('Qui a besoin de moi ?');
-  await field.press('Enter');
-  await expect(panel.getByText('Les autres travaillent.', { exact: false })).toBeVisible();
-  await page.screenshot({ path: `${SCREENS}desktop-chat-dark.png` });
 });

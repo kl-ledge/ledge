@@ -6,11 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { connect as tcp } from 'node:net';
 import type { ChatAction, ChatClose, ChatProposal, ChatRelay, Projects, ServerMessage, Session, SessionEvent } from '@ledge/protocol';
 import { DEFAULT_ISLAND_PREFS, pendingKey } from '@ledge/protocol';
-import type { Chat } from '../src/chat/service.js';
 import { sessionKey } from '../src/auth.js';
 import { resolveAction } from '../src/daemon/actions.js';
 import { Store } from '../src/daemon/store.js';
-import { ledgeCard } from './helpers/ledge-card.js';
 import WebSocket from 'ws';
 import { startServer, ALLOWED_ORIGINS, launchArgs, resolveFolder } from '../src/daemon/server.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -979,25 +977,14 @@ describe('server', () => {
       expect((await c.next('task.result', 3000)).tasks!.map(t => t.id)).toEqual([task.id]);
       c.close();
     });
-    it('the sender’s thread gets the card of the task it handed over; Ledge’s give and seen add none (#92)', async () => {
+    it('the sender’s thread gets the card of the task it handed over (#92)', async () => {
       await srv.close();
-      const card = ledgeCard(); const history = new History({ dir: tmpDir() }); srv = await startServer({ store, tmux, port: 0, history, chat: card.chat });
+      const history = new History({ dir: tmpDir() }); srv = await startServer({ store, tmux, port: 0, history });
       store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
       c.send({ type: 'task.cmd', rid: 'g1', by: 'a', key: sessionKey('a'), op: 'give', to: 'Pim', title: 'Lance les tests' });
       const given = (await c.next('task.result', 3000)).task!;
       expect(history.items('a')).toEqual([expect.objectContaining({ kind: 'notice', id: `task-${given.id}-0`, taskOp: 'give', outgoing: true, name: 'Pim', peer: 'b' })]);
-      card.give(c, 'g2', { to: 'Pim', title: 'Relis' });
-      const mine = (await c.next('task.result', 3000)).task!;
-      c.send({ type: 'task.cmd', rid: 'd', by: 'b', key: sessionKey('b'), op: 'done', task: mine.id, text: 'ok' });
-      await c.next('task.result', 3000);
-      const outgoing = history.items('b').filter(i => i.kind === 'notice' && i.outgoing);
-      expect(outgoing).toEqual([expect.objectContaining({ id: `task-${mine.id}-1`, taskOp: 'done', name: 'Ledge', summary: 'Relis\nok' })]);
-      expect(outgoing[0]).not.toHaveProperty('peer');
-      const before = [history.items('a').length, history.items('b').length];
-      c.send({ type: 'task.cmd', rid: 's', by: 'ledge', op: 'seen', task: mine.id });
-      expect((await c.next('task.result', 3000)).task).toMatchObject({ seen: true });
-      expect([history.items('a').length, history.items('b').length]).toEqual(before);
       c.close();
     });
     it('the giver’s thread gets the card of the task it cancelled, as of the one it refused (#92)', async () => {
@@ -1017,14 +1004,14 @@ describe('server', () => {
       expect(cancels.map(i => i.id)).toEqual([`task-${a.id}-1`, `task-${b.id}-1`]);
       c.close();
     });
-    it('a task a session gave, cancelled by Ledge, reaches its giver’s thread; one Ledge gave reaches no thread (#92)', async () => {
+    it('a task a session gave, cancelled by Ledge, reaches its giver’s thread (#92)', async () => {
       await srv.close();
-      const card = ledgeCard(); const history = new History({ dir: tmpDir() }); srv = await startServer({ store, tmux, port: 0, history, chat: card.chat });
+      const history = new History({ dir: tmpDir() }); srv = await startServer({ store, tmux, port: 0, history });
       store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
       const c = await connect({ port: srv.port }); await c.next('snapshot');
       c.send({ type: 'task.cmd', rid: 'g1', by: 'a', key: sessionKey('a'), op: 'give', to: 'Pim', title: 'A' });
       const a = (await c.next('task.result', 3000)).task!;
-      // Ledge cancels over a session's head only as the user's action (the chat's card, action.run), never as a client's task.cmd.
+      // Ledge cancels over a session's head only as the user's action (action.run), never as a client's task.cmd.
       const cancel = async (task: string) => {
         c.send({ type: 'action.run', rid: `x-${task}`, action: 'task.cancel', args: { task }, confirmed: true } as never);
         expect((await c.next('action.result', 3000)).reason).toBeUndefined();
@@ -1033,11 +1020,6 @@ describe('server', () => {
       };
       expect((await cancel(a.id)).log.at(-1)).toMatchObject({ by: 'Ledge', op: 'cancel', from: 'a', to: 'b' });
       expect(history.items('a').filter(i => i.kind === 'notice' && i.taskOp === 'cancel')).toEqual([expect.objectContaining({ id: `task-${a.id}-1`, outgoing: true, name: 'Pim', peer: 'b' })]);
-      card.give(c, 'g2', { to: 'Pim', title: 'B' });
-      const b = (await c.next('task.result', 3000)).task!;
-      const before = [history.items('a').length, history.items('b').length];
-      expect((await cancel(b.id)).log.at(-1)).toMatchObject({ op: 'cancel', from: 'ledge', to: 'b' });
-      expect([history.items('a').length, history.items('b').length]).toEqual(before);
       c.close();
     });
     it('message.read gives a long body whole to its receiver, and refuses anyone else', async () => {
@@ -1415,24 +1397,24 @@ describe('server', () => {
     it('a client that connects later gets the last preview right after the snapshot', async () => {
       store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim' }));
       srv.preview('a', ['old']); srv.preview('a', ['● latest']);
-      const r = await recorder(); await r.until(8);
+      const r = await recorder(); await r.until(7);
       // The island's notices come last, always (#40, D11): the daemon's own, operator or not.
-      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'session.preview', 'chat.history', 'context.prefs', 'operator.state']);
+      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'session.preview', 'context.prefs', 'operator.state']);
       expect(r.got[4]).toEqual({ type: 'session.preview', id: 'a', lines: ['● latest'] });
       r.ws.terminate();
     });
     it('a snapshot.request gets the previews again after the snapshot', async () => {
       store.upsert(mk('a')); srv.preview('a', ['● hi']);
       const r = await recorder(); await r.until(3);
-      r.ws.send(JSON.stringify({ type: 'snapshot.request' })); await r.until(16);
-      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'session.preview', 'chat.history', 'context.prefs', 'operator.state', 'snapshot', 'machines', 'projects', 'island', 'session.preview', 'chat.history', 'context.prefs', 'operator.state']);
+      r.ws.send(JSON.stringify({ type: 'snapshot.request' })); await r.until(14);
+      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'session.preview', 'context.prefs', 'operator.state', 'snapshot', 'machines', 'projects', 'island', 'session.preview', 'context.prefs', 'operator.state']);
       r.ws.terminate();
     });
     it('a removed session drops its preview; a preview for an unknown session is ignored', async () => {
       store.upsert(mk('a')); srv.preview('a', ['● hi']); srv.preview('ghost', ['boo']);
       store.remove('a');
       const r = await recorder(); await r.until(1); await new Promise(res => setTimeout(res, 50));
-      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'chat.history', 'context.prefs', 'operator.state']);
+      expect(r.got.map(m => m.type)).toEqual(['snapshot', 'machines', 'projects', 'island', 'context.prefs', 'operator.state']);
       store.upsert(mk('a'));
       r.ws.send(JSON.stringify({ type: 'snapshot.request' })); await r.until(8); await new Promise(res => setTimeout(res, 50));
       expect(r.got.filter(m => m.type === 'session.preview')).toEqual([]);
@@ -1890,182 +1872,6 @@ describe('server', () => {
     });
   });
 
-  describe('launch from a chat card', () => {
-    const home = () => process.env.LEDGE_HOME!;
-    /** A chat holding one proposal for `q1`; the marks are recorded and broadcast as a history, like the real one. */
-    function stubChat(initial: ChatProposal | undefined) {
-      let proposal = initial; const marks: string[][] = [];
-      const chat: Chat = {
-        async ask() {}, attachmentIds: () => [], postPoint: () => '', updatePoint: () => false, points: () => [], cancel() {}, async reset() {}, history: () => [],
-        proposal: qid => (qid === 'q1' ? proposal : undefined),
-        markLaunched(qid, id, emit) { marks.push(['launched', qid, id]); proposal = { ...proposal!, launchedId: id }; emit({ type: 'chat.history', turns: [] }); },
-        markFailed(qid, message, emit) { marks.push(['failed', qid, message]); proposal = { ...proposal!, error: message }; emit({ type: 'chat.history', turns: [] }); },
-        relay: () => undefined, markRelay() {}, queuedRelays: () => [], close: () => undefined, markClosed() {}, markCloseFailed() {}, idle: async () => {}, task: () => undefined, markTask() {}, followTask() {}, action: () => undefined, markAction() {}, ignore: () => null, ignored: () => false
-      };
-      return { chat, marks };
-    }
-    const start = (chat: Chat) => startServer({ store, tmux, port: 0, home: home(), chat, agentEnv: async () => ({ ...process.env, PATH: '/login/bin:/usr/bin' }) });
-
-    it('launches the proposal\'s own fields, marks the turn for everyone, and refuses a second launch, even a simultaneous one', async () => {
-      mkdirSync(join(home(), 'ledge'));
-      const { chat, marks } = stubChat({ cwd: join(home(), 'ledge'), project: 'ledge', tool: 'claude', prompt: 'Corrige le build' });
-      const srv2 = await start(chat);
-      const c = await connect({ port: srv2.port }); await c.next('snapshot'); await c.next('chat.history');
-      const other = await connect({ port: srv2.port }); await other.next('snapshot'); await other.next('chat.history');
-      // The message's fields are ignored: only the qid names the card.
-      c.send({ type: 'session.launch', tool: 'codex', cwd: '/elsewhere', prompt: 'autre chose', qid: 'q1' });
-      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'ledge'), qid: 'q1' });
-      const launched = await c.next('session.launched');
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'already launched', request: 'session.launch' });
-      expect(tmux.created).toHaveLength(1);
-      expect(tmux.created[0]!.cwd).toBe(join(home(), 'ledge'));
-      expect(JSON.stringify(tmux.created[0]!.command)).toContain('Corrige le build');
-      expect(JSON.stringify(tmux.created[0]!.command)).not.toContain('autre chose');
-      expect(store.get(launched.id)).toMatchObject({ tool: 'claude', project: 'ledge', source: 'launcher' });
-      expect(marks).toEqual([['launched', 'q1', launched.id]]);
-      await other.next('chat.history');
-      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'ledge'), qid: 'q1' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'already launched', request: 'session.launch' });
-      expect(tmux.created).toHaveLength(1);
-      c.close(); other.close(); await srv2.close();
-    });
-
-    it('a card launches its rows with the model chosen on the card (#58)', async () => {
-      mkdirSync(join(home(), 'ledge'), { recursive: true });
-      const srv2 = await start(stubChat({ cwd: join(home(), 'ledge'), project: 'ledge', tool: 'claude', prompt: 'Corrige' }).chat);
-      const c = await connect({ port: srv2.port }); await c.next('snapshot');
-      c.send({ type: 'session.launch', tool: 'claude', cwd: '/x', qid: 'q1', model: 'haiku', effort: 'low' });
-      const { id } = await c.next('session.launched');
-      expect(tmux.created[0]!.command).toEqual(expect.arrayContaining(['--model', 'haiku', '--effort', 'low']));
-      expect(store.get(id)).toMatchObject({ model: 'haiku', effort: 'low' });
-      c.close(); await srv2.close();
-    });
-
-    it('refuses an unknown proposal without spawning', async () => {
-      const srv2 = await start(stubChat(undefined).chat);
-      const c = await connect({ port: srv2.port }); await c.next('snapshot');
-      c.send({ type: 'session.launch', tool: 'claude', cwd: '/w', qid: 'q1' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown proposal', request: 'session.launch' });
-      expect(tmux.created).toHaveLength(0);
-      c.close(); await srv2.close();
-    });
-
-    it('marks a failed launch, then lets the card retry', async () => {
-      const { chat, marks } = stubChat({ cwd: join(home(), 'gone'), project: 'gone', tool: 'claude' });
-      const srv2 = await start(chat);
-      const c = await connect({ port: srv2.port }); await c.next('snapshot');
-      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'gone'), qid: 'q1' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: `no such folder: ${join(home(), 'gone')}`, request: 'session.launch' });
-      expect(marks).toEqual([['failed', 'q1', `no such folder: ${join(home(), 'gone')}`]]);
-      mkdirSync(join(home(), 'gone'));
-      c.send({ type: 'session.launch', tool: 'claude', cwd: join(home(), 'gone'), qid: 'q1' });
-      const launched = await c.next('session.launched');
-      expect(marks.at(-1)).toEqual(['launched', 'q1', launched.id]);
-      c.close(); await srv2.close();
-    });
-
-    describe('several rows (#24)', () => {
-      /** A chat whose `q1` card holds these rows; marks are recorded per row. */
-      function rowsChat(initial: ChatProposal[]) {
-        const rows = [...initial]; const marks: Array<[string, number, string]> = [];
-        const chat: Chat = {
-          async ask() {}, attachmentIds: () => [], postPoint: () => '', updatePoint: () => false, points: () => [], cancel() {}, async reset() {}, history: () => [],
-          proposal: (qid, row = 0) => (qid === 'q1' ? rows[row] : undefined),
-          markLaunched(_qid, id, emit, row = 0) { marks.push(['launched', row, id]); rows[row] = { ...rows[row]!, launchedId: id }; emit({ type: 'chat.history', turns: [] }); },
-          markFailed(_qid, message, emit, row = 0) { marks.push(['failed', row, message]); rows[row] = { ...rows[row]!, error: message }; emit({ type: 'chat.history', turns: [] }); },
-          relay: () => undefined, markRelay() {}, queuedRelays: () => [], close: () => undefined, markClosed() {}, markCloseFailed() {}, idle: async () => {}, task: () => undefined, markTask() {}, followTask() {}, action: () => undefined, markAction() {}, ignore: () => null, ignored: () => false
-        };
-        return { chat, marks };
-      }
-      const row = (name: string): ChatProposal => ({ cwd: join(home(), name), project: name, tool: 'claude' });
-
-      it('launches the rows asked, one after the other, each with its own bot name', async () => {
-        for (const n of ['a', 'b', 'c']) mkdirSync(join(home(), n));
-        const { chat, marks } = rowsChat([row('a'), row('b'), row('c')]);
-        const srv2 = await start(chat);
-        const c = await connect({ port: srv2.port }); await c.next('snapshot');
-        c.send({ type: 'session.launch', tool: 'claude', cwd: '/x', qid: 'q1', rows: [2, 0] });
-        const first = await c.next('session.launched'); const second = await c.next('session.launched');
-        expect(tmux.created.map(t => t.cwd)).toEqual([join(home(), 'c'), join(home(), 'a')]);
-        expect(marks).toEqual([['launched', 2, first.id], ['launched', 0, second.id]]);
-        expect(store.get(first.id)!.name).not.toBe(store.get(second.id)!.name);
-        c.close(); await srv2.close();
-      });
-
-      it('skips a launched row, goes on past a failed one, then refuses with the failure', async () => {
-        mkdirSync(join(home(), 'c'));
-        const { chat, marks } = rowsChat([{ ...row('a'), launchedId: 'n0' }, row('gone'), row('c')]);
-        const srv2 = await start(chat);
-        const c = await connect({ port: srv2.port }); await c.next('snapshot');
-        c.send({ type: 'session.launch', tool: 'claude', cwd: '/x', qid: 'q1', rows: [0, 1, 2] });
-        const launched = await c.next('session.launched');
-        expect(await c.next('error')).toEqual({ type: 'error', message: `no such folder: ${join(home(), 'gone')}`, request: 'session.launch' });
-        expect(marks).toEqual([['failed', 1, `no such folder: ${join(home(), 'gone')}`], ['launched', 2, launched.id]]);
-        expect(tmux.created).toHaveLength(1);
-        c.close(); await srv2.close();
-      });
-
-      it('refuses when no row asked is left to launch, or none exists', async () => {
-        const { chat } = rowsChat([{ ...row('a'), launchedId: 'n0' }]);
-        const srv2 = await start(chat);
-        const c = await connect({ port: srv2.port }); await c.next('snapshot');
-        c.send({ type: 'session.launch', tool: 'claude', cwd: '/x', qid: 'q1', rows: [0] });
-        expect(await c.next('error')).toEqual({ type: 'error', message: 'already launched', request: 'session.launch' });
-        c.send({ type: 'session.launch', tool: 'claude', cwd: '/x', qid: 'q1', rows: [3] });
-        expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown proposal', request: 'session.launch' });
-        expect(tmux.created).toHaveLength(0);
-        c.close(); await srv2.close();
-      });
-    });
-  });
-
-  describe('relay from a chat card', () => {
-    function relayChat(relay: ChatRelay) {
-      let r: ChatRelay | undefined = relay;
-      const chat: Chat = {
-        async ask() {}, attachmentIds: () => [], postPoint: () => '', updatePoint: () => false, points: () => [], cancel() {}, async reset() {}, history: () => [], proposal: () => undefined, markLaunched() {}, markFailed() {},
-        relay: qid => (qid === 'q1' ? r : undefined),
-        markRelay(_qid, patch, emit) { const { id, name, tool, text } = r!; r = { id, name, tool, text, ...patch }; emit({ type: 'chat.history', turns: [] }); },
-        queuedRelays: () => (r?.status === 'queued' ? [{ qid: 'q1', relay: r, askedAt: '2026-10-12T08:00:00.000Z' }] : []),
-        close: () => undefined, markClosed() {}, markCloseFailed() {}, idle: async () => {}, task: () => undefined, markTask() {}, followTask() {}, action: () => undefined, markAction() {}, ignore: () => null, ignored: () => false
-      };
-      return { chat, current: () => r };
-    }
-
-    it('types the turn\'s own text into a free session and tells every client', async () => {
-      tmux = fakeTmux({ 'ledge-a': ['> '] });
-      const { chat, current } = relayChat({ id: 'a', name: 'Otto', tool: 'claude', text: 'Lance les tests' });
-      const srv2 = await startServer({ store, tmux, port: 0, chat });
-      store.upsert(mk('a', { state: 'idle' }));
-      const c = await connect({ port: srv2.port }); await c.next('snapshot'); await c.next('chat.history');
-      const other = await connect({ port: srv2.port }); await other.next('snapshot'); await other.next('chat.history');
-      c.send({ type: 'session.relay', qid: 'q1' });
-      await other.next('chat.history', 3000);
-      expect(tmux.sent).toEqual([['text', 'ledge-a', 'Lance les tests'], ['keys', 'ledge-a', 'Enter']]);
-      expect(current()).toMatchObject({ status: 'sent' });
-      c.close(); other.close(); await srv2.close();
-    });
-
-    it('queues for a busy session, then cancel; refusals reach the requester as errors', async () => {
-      const { chat, current } = relayChat({ id: 'a', name: 'Otto', tool: 'claude', text: 'x' });
-      const srv2 = await startServer({ store, tmux, port: 0, chat });
-      store.upsert(mk('a', { state: 'working' }));
-      const c = await connect({ port: srv2.port }); await c.next('snapshot'); await c.next('chat.history');
-      c.send({ type: 'session.relay', qid: 'q1' }); await c.next('chat.history');
-      expect(current()!.status).toBe('queued');
-      c.send({ type: 'session.relay', qid: 'q1' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'already queued', request: 'session.relay' });
-      c.send({ type: 'session.relay.cancel', qid: 'q1' }); await c.next('chat.history');
-      expect(current()).not.toHaveProperty('status');
-      c.send({ type: 'session.relay.cancel', qid: 'q1' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'nothing queued', request: 'session.relay.cancel' });
-      c.send({ type: 'session.relay', qid: 'q9' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown relay', request: 'session.relay' });
-      expect(tmux.sent).toEqual([]);
-      c.close(); await srv2.close();
-    });
-  });
-
   describe('launch from the overlay', () => {
     const home = () => process.env.LEDGE_HOME!;
     it('creates the tmux session in the folder, registers it starting, answers the requester and broadcasts', async () => {
@@ -2345,42 +2151,32 @@ describe('server', () => {
   });
 });
 
-describe('chat', () => {
-  it('answers a question with steps, deltas and a result, then serves it in the history', async () => {
-    store.upsert(mk('a', { topic: 'Hooks' }));
+describe('the chat, removed (#40)', () => {
+  it('an older front gets a clean refusal: a question ends at once, a card or point message is refused by name, nothing else happens', async () => {
     const c = await connect({ port: srv.port }); await c.next('snapshot');
-    expect((await c.next('chat.history')).turns).toEqual([]);
-    c.send({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' });
-    const step = await c.next('chat.step'); expect(step.step).toEqual({ kind: 'sessions' });
-    expect((await c.next('chat.step')).step).toEqual({ kind: 'pane', id: 'a', name: 'Otto' });
-    expect((await c.next('chat.delta')).text).toBe('Deux ');
-    const done = await c.next('chat.done', 5000); expect(done.text).toContain('Question : Où en sont les autres ?');
+    c.send({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' } as never);
+    expect(await c.next('chat.error')).toMatchObject({ qid: 'q1', message: expect.stringContaining('#40') });
+    c.send({ type: 'point.act', qid: 'q1', item: 'x', answer: { id: 'allow' } } as never);
+    expect(await c.next('error')).toMatchObject({ request: 'point.act', message: expect.stringContaining('#40') });
+    c.send({ type: 'session.close', qid: 'q1' } as never);
+    expect(await c.next('error')).toMatchObject({ request: 'session.close' });
+    c.send({ type: 'session.launch', tool: 'claude', cwd: '/tmp', qid: 'q1' } as never);
+    expect(await c.next('error')).toMatchObject({ request: 'session.launch', message: expect.stringContaining('#40') });
+    c.send({ type: 'task.cmd', rid: 't', by: 'ledge', op: 'give', qid: 'q1', row: 0 } as never);
+    expect((await c.next('task.result')).reason).toContain('#40');
     await c.close();
-    const c2 = await connect({ port: srv.port }); await c2.next('snapshot');
-    const h = await c2.next('chat.history'); expect(h.turns).toHaveLength(1); expect(h.turns[0]).toMatchObject({ qid: 'q1', answer: done.text, steps: [{ kind: 'sessions' }, { kind: 'pane', id: 'a', name: 'Otto' }] });
-    await c2.close();
   });
-  it('tells a client connected before the question about the turn before its first step', async () => {
-    const got: Array<{ type: string; turns?: Array<Record<string, unknown>> }> = [];
+  it('the snapshot no longer carries the chat: no chat.history, no routing', async () => {
+    await srv.close();
+    srv = await startServer({ store, tmux, port: 0, agentEnv: async () => ({ ...process.env }), daemon: { version: '0.2.2', install: 'npm', systemd: true } });
+    const got: Array<{ type: string; daemon?: Record<string, unknown> }> = [];
     const ws = new WebSocket(`ws://127.0.0.1:${srv.port}`, { headers: authHeaders() });
-    const finished = new Promise<void>(res => ws.on('message', d => { const m = JSON.parse(String(d)); got.push(m); if (m.type === 'chat.done') res(); }));
+    ws.on('message', d => got.push(JSON.parse(String(d))));
     await new Promise(r => ws.once('open', r));
-    const c = await connect({ port: srv.port }); await c.next('snapshot');
-    c.send({ type: 'chat.ask', qid: 'q1', text: 'a' });
-    await finished;
-    const chat = got.filter(m => m.type.startsWith('chat.'));
-    // The connect-time history (empty), then the in-flight turn (no answer yet), then the first step.
-    expect(chat.slice(0, 3).map(m => m.type)).toEqual(['chat.history', 'chat.history', 'chat.step']);
-    expect(chat[1]!.turns).toEqual([expect.objectContaining({ qid: 'q1', question: 'a' })]);
-    expect(chat[1]!.turns![0]).not.toHaveProperty('answer');
-    ws.terminate(); await c.close();
-  });
-  it('refuses a second question while one runs', async () => {
-    const c = await connect({ port: srv.port }); await c.next('snapshot');
-    c.send({ type: 'chat.ask', qid: 'q1', text: 'a' }); c.send({ type: 'chat.ask', qid: 'q2', text: 'b' });
-    const err = await c.next('chat.error'); expect(err.qid).toBe('q2');
-    await c.next('chat.done', 5000);
-    await c.close();
+    await until(() => got.some(m => m.type === 'operator.state'));
+    expect(got.some(m => m.type === 'chat.history')).toBe(false);
+    expect(got.find(m => m.type === 'snapshot')!.daemon).not.toHaveProperty('routing');
+    ws.terminate();
   });
 });
 
@@ -2402,7 +2198,7 @@ describe('update.daemon', () => {
       updater: { running: () => false, update: async (v, send) => { seen.push(v); send({ type: 'update.progress', version: v, step: 'installing' }); }, restart: async () => {} } });
     const c = await connect({ port: srv.port });
     const snap = await c.next('snapshot');
-    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, routing: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true });
+    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true });
     c.send({ type: 'update.daemon', version: '0.3.0' });
     expect(await c.next('update.progress')).toMatchObject({ step: 'installing' });
     expect(seen).toEqual(['0.3.0']);
@@ -2590,21 +2386,6 @@ describe('projects', () => {
     await until(() => gotC.filter(m => m.type === 'projects').length === 3);
     expect(last(gotC).projects.order).toEqual({});
     c.close(); await s2.close();
-  });
-  it('the chat reads the projects the daemon holds at each question: a later projects.set is in the next context', async () => {
-    const s = await startServer({ store: new Store(), tmux: fakeTmux({}), port: 0, agentEnv: async () => ({ ...process.env, FAKE_CLAUDE_MODE: 'projects' }), claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))] });
-    const ws = await open(s.port); const got = collect(ws);
-    await until(() => got.some(m => m.type === 'projects'));
-    const answer = async (qid: string) => {
-      ws.send(JSON.stringify({ type: 'chat.ask', qid, text: 'Which projects?', tool: 'claude' }));
-      await until(() => got.some(m => m.type === 'chat.done' && m.qid === qid));
-      return (got.find(m => m.type === 'chat.done' && m.qid === qid) as Extract<ServerMessage, { type: 'chat.done' }>).text;
-    };
-    expect(await answer('q1')).toBe('(no projects.md)');
-    ws.send(JSON.stringify({ type: 'projects.set', projects: projectsState }));
-    await until(() => got.filter(m => m.type === 'projects').length === 2);
-    expect(await answer('q2')).toContain('## Ledge');
-    ws.close(); await s.close();
   });
   it('honours a projects file given at start', async () => {
     const f = join(mkdtempSync(join(tmpdir(), 'ledge-projects-srv-')), 'projects.json');
@@ -3305,7 +3086,7 @@ describe('server: a seat that changes harness under the same name', () => {
 describe('close a session', () => {
   const CLOSE = { freeMs: 200, exitMs: 200 };
   /** A fake terminal whose agent leaves when the exit command is submitted (`leaves`): its pane goes, the poller sees it gone. */
-  async function closing(panes: Record<string, string[]>, o: { leaves?: boolean; close?: { freeMs: number; exitMs: number }; history?: History; chat?: Chat; omp?: Parameters<typeof startServer>[0]['omp'] } = {}) {
+  async function closing(panes: Record<string, string[]>, o: { leaves?: boolean; close?: { freeMs: number; exitMs: number }; history?: History; omp?: Parameters<typeof startServer>[0]['omp'] } = {}) {
     tmux = fakeTmux(panes);
     const keys = tmux.sendKeys.bind(tmux);
     tmux.sendKeys = async (n, k) => {
@@ -3318,7 +3099,7 @@ describe('close a session', () => {
       if (s) store.apply(s.id, { name: 'PaneGone', at: new Date().toISOString(), source: 'pane' });
     };
     await srv.close();
-    srv = await startServer({ store, tmux, port: 0, close: o.close ?? CLOSE, ...(o.history ? { history: o.history } : {}), ...(o.chat ? { chat: o.chat } : {}), ...(o.omp ? { omp: o.omp } : {}) });
+    srv = await startServer({ store, tmux, port: 0, close: o.close ?? CLOSE, ...(o.history ? { history: o.history } : {}), ...(o.omp ? { omp: o.omp } : {}) });
   }
   const texts = () => tmux.sent.filter(x => x[0] === 'text');
   const logged = () => (existsSync(paths().log) ? readFileSync(paths().log, 'utf8') : '');
@@ -3562,272 +3343,9 @@ describe('close a session', () => {
     expect(texts()).toEqual([['text', 'ledge-a', '/exit']]);
   });
 
-  describe('from a chat card', () => {
-    /** A chat whose `q1` card closes these rows; the marks are recorded per row and broadcast as a history, like the real one. */
-    function closeChat(initial: ChatClose[]) {
-      const rows = [...initial]; const marks: Array<[string, number, string]> = [];
-      const chat: Chat = {
-        async ask() {}, attachmentIds: () => [], postPoint: () => '', updatePoint: () => false, points: () => [], cancel() {}, async reset() {}, history: () => [], proposal: () => undefined, markLaunched() {}, markFailed() {},
-        relay: () => undefined, markRelay() {}, queuedRelays: () => [],
-        close: (qid, row) => (qid === 'q1' ? rows[row] : undefined),
-        markClosed(_qid, row, how, emit) { marks.push(['closed', row, how]); rows[row] = { ...rows[row]!, closedAt: new Date().toISOString(), how }; emit({ type: 'chat.history', turns: [] }); },
-        markCloseFailed(_qid, row, message, emit) { marks.push(['failed', row, message]); rows[row] = { ...rows[row]!, error: message }; emit({ type: 'chat.history', turns: [] }); },
-        idle: async () => {}, task: () => undefined, markTask() {}, followTask() {}, action: () => undefined, markAction() {}, ignore: () => null, ignored: () => false
-      };
-      return { chat, marks };
-    }
-    const otto: ChatClose = { id: 'a', name: 'Otto', tool: 'claude' };
-    const pim: ChatClose = { id: 'b', name: 'Pim', tool: 'claude' };
-    const byRow = (a: { row: number }, b: { row: number }) => a.row - b.row;
-
-    it('closes every row for the requester, and every client gets the history', async () => {
-      const { chat, marks } = closeChat([otto, pim]);
-      await closing({ 'ledge-a': ['> '], 'ledge-b': ['> '] }, { chat });
-      store.upsert(mk('a', { state: 'idle' })); store.upsert(mk('b', { name: 'Pim', state: 'idle' }));
-      const c = await connect({ port: srv.port }); await c.next('snapshot'); await c.next('chat.history');
-      const other = await connect({ port: srv.port }); await other.next('snapshot'); await other.next('chat.history');
-      c.send({ type: 'session.close', qid: 'q1' });
-      const closed = [await c.next('session.closed', 3000), await c.next('session.closed', 3000)].sort(byRow);
-      expect(closed).toEqual([{ type: 'session.closed', qid: 'q1', row: 0, id: 'a', how: 'exit' }, { type: 'session.closed', qid: 'q1', row: 1, id: 'b', how: 'exit' }]);
-      await c.next('chat.history'); await other.next('chat.history');
-      await expect(other.next('session.closed', 100)).rejects.toThrow(/timeout/);
-      expect(marks.sort((x, y) => x[1] - y[1])).toEqual([['closed', 0, 'exit'], ['closed', 1, 'exit']]);
-      expect(store.get('a')).toMatchObject({ state: 'exited' }); expect(store.get('b')).toMatchObject({ state: 'exited' });
-      expect(texts()).toEqual(expect.arrayContaining([['text', 'ledge-a', '/exit'], ['text', 'ledge-b', '/exit']]));
-      // Closed, the card refuses a second click.
-      c.send({ type: 'session.close', qid: 'q1', rows: [1] });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'already closed', request: 'session.close' });
-      c.close(); other.close();
-    });
-
-    it('refuses an unknown card, and an unknown row, without typing anything', async () => {
-      await closing({ 'ledge-a': ['> '] }, { chat: closeChat([otto]).chat });
-      store.upsert(mk('a', { state: 'idle' }));
-      const c = await connect({ port: srv.port }); await c.next('snapshot');
-      c.send({ type: 'session.close', qid: 'q9' });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown close', request: 'session.close' });
-      c.send({ type: 'session.close', qid: 'q1', rows: [3] });
-      expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown close', request: 'session.close' });
-      expect(tmux.sent).toEqual([]);
-      c.close();
-    });
-
-    it('two cards closing the same session share its close: both rows read closed, neither failed', async () => {
-      // q1 and q2 each name session `a` (a phone's card and Desktop's, say): their rows are not the same, their session is.
-      const cards: Record<string, ChatClose[]> = { q1: [otto], q2: [otto] }; const marks: Array<[string, string, number]> = [];
-      const chat: Chat = {
-        ...closeChat([]).chat,
-        close: (qid, row) => cards[qid]?.[row],
-        markClosed(qid, row, how, emit) { marks.push([how, qid, row]); cards[qid]![row] = { ...cards[qid]![row]!, closedAt: new Date().toISOString(), how }; emit({ type: 'chat.history', turns: [] }); },
-        markCloseFailed(qid, row, message, emit) { marks.push([message, qid, row]); cards[qid]![row] = { ...cards[qid]![row]!, error: message }; emit({ type: 'chat.history', turns: [] }); }
-      };
-      await closing({ 'ledge-a': ['> '] }, { chat });
-      store.upsert(mk('a', { state: 'idle' }));
-      const c = await connect({ port: srv.port }); await c.next('snapshot');
-      c.send({ type: 'session.close', qid: 'q1' });
-      c.send({ type: 'session.close', qid: 'q2' });
-      const closed = [await c.next('session.closed', 3000), await c.next('session.closed', 3000)].sort((x, y) => (x as { qid: string }).qid.localeCompare((y as { qid: string }).qid));
-      expect(closed).toEqual([{ type: 'session.closed', qid: 'q1', row: 0, id: 'a', how: 'exit' }, { type: 'session.closed', qid: 'q2', row: 0, id: 'a', how: 'exit' }]);
-      expect(marks.sort()).toEqual([['exit', 'q1', 0], ['exit', 'q2', 0]]);
-      await expect(c.next('error', 100)).rejects.toThrow(/timeout/);
-      // One close typed one exit command.
-      expect(texts()).toEqual([['text', 'ledge-a', '/exit']]);
-      c.close();
-    });
-
-    it('a failed row reaches the requester as one error once every row has settled', async () => {
-      const { chat, marks } = closeChat([otto, { id: 'gone', name: 'Zed', tool: 'claude' }]);
-      await closing({ 'ledge-a': ['> '] }, { chat });
-      store.upsert(mk('a', { state: 'idle' }));
-      const c = await connect({ port: srv.port }); await c.next('snapshot');
-      c.send({ type: 'session.close', qid: 'q1' });
-      const error = await c.next('error', 3000);
-      expect(error).toEqual({ type: 'error', message: 'unknown session', request: 'session.close' });
-      // The failure came first, but the error waited for the other row.
-      expect(marks.sort((x, y) => x[1] - y[1])).toEqual([['closed', 0, 'exit'], ['failed', 1, 'unknown session']]);
-      expect(await c.next('session.closed')).toEqual({ type: 'session.closed', qid: 'q1', row: 0, id: 'a', how: 'exit' });
-      await expect(c.next('error', 100)).rejects.toThrow(/timeout/);
-      c.close();
-    });
-
-    describe('a generic card (chat.act, spec 2026-10-26 action registry §9.2)', () => {
-      /** A chat whose `q1` card holds these generic rows, marked as the real one marks them. */
-      function actChat(initial: ChatAction[]) {
-        const rows = [...initial]; const marks: string[] = [];
-        const chat: Chat = {
-          ...closeChat([]).chat,
-          action: (qid, row) => (qid === 'q1' ? rows[row] : undefined),
-          markAction(_qid, row, patch, emit) { marks.push(`${row}:${patch.state}`); rows[row] = { ...rows[row]!, ...patch }; emit({ type: 'chat.history', turns: [] }); }
-        };
-        return { chat, rows, marks };
-      }
-      const archiveOf = (id: string): ChatAction => ({ action: 'session.archive', args: { session: id }, summary: `Archiver ${id}`, risk: 'reversible', session: id });
-
-      it('applies the rows through the daemon\'s handlers in order and stops at the first failure', async () => {
-        const { chat, rows, marks } = actChat([archiveOf('a'), archiveOf('zz'), archiveOf('b')]);
-        await closing({}, { chat });
-        store.upsert(mk('a', { state: 'exited' })); store.upsert(mk('b', { state: 'exited' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1' });
-        expect(await c.next('chat.acted', 3000)).toEqual({ type: 'chat.acted', rid: 'r1', qid: 'q1', done: [0], failed: [{ row: 1, message: 'unknown session zz', refused: true }] });
-        expect(marks).toEqual(['0:running', '0:done', '1:running', '1:refused']);
-        expect(store.get('a')?.archivedAt).toBeDefined(); expect(store.get('b')?.archivedAt).toBeUndefined();
-        expect(rows[2]).not.toHaveProperty('state');
-        c.close();
-      });
-      it('a row whose handler answers nothing is done', async () => {
-        const { chat, rows } = actChat([{ action: 'session.restore', args: { session: 'a' }, summary: 'x', risk: 'reversible' }]);
-        await closing({}, { chat });
-        store.upsert(mk('a', { state: 'idle', archivedAt: '2026-10-26T08:00:00.000Z' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1' });
-        expect(await c.next('chat.acted', 3000)).toMatchObject({ done: [0], failed: [] });
-        expect(store.get('a')?.archivedAt).toBeUndefined();
-        expect(rows[0]).toMatchObject({ state: 'done' });
-        c.close();
-      });
-      it('« Refuser » a request row: answered with deny, unconfirmed, the row denied', async () => {
-        const pending = { kind: 'permission' as const, text: 'mkdir zz-ledge-probe', tool: 'Bash', source: 'hook' as const };
-        const session = mk('a', { state: 'waiting_permission', pending });
-        const accept = resolveAction('session.decide', { session: 'a', decision: 'accept' }, { sessions: [session], tasks: [] });
-        if ('refused' in accept) throw new Error(accept.refused);
-        const { chat, marks } = actChat([accept]);
-        const rest = fx('claude2-rest-after-deny');
-        await closing({ 'ledge-a': [fx('claude2-permission-bash'), rest, rest] }, { chat });
-        store.upsert(session);
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1', deny: true });
-        expect(await c.next('chat.acted', 3000)).toEqual({ type: 'chat.acted', rid: 'r1', qid: 'q1', done: [0], failed: [] });
-        expect(marks).toEqual(['0:running', '0:denied']);
-        expect(tmux.sent[0]).toEqual(['keys', 'ledge-a', 'Escape']);
-        // The PC's own card: the request is said answered by the PC, under its key.
-        expect(store.get('a')?.lastAnswer).toMatchObject({ key: pendingKey(pending), by: { kind: 'pc' }, decision: 'deny' });
-        c.close();
-      });
-      it('refuses an unknown card, and a destructive row without the confirmation', async () => {
-        const { chat, marks } = actChat([{ action: 'task.cancel', args: { task: 't1' }, summary: 'x', risk: 'destructive' }]);
-        await closing({}, { chat });
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q9' });
-        expect(await c.next('error')).toEqual({ type: 'error', message: 'unknown action', request: 'chat.act' });
-        c.send({ type: 'chat.act', rid: 'r2', qid: 'q1' });
-        expect(await c.next('error')).toMatchObject({ code: 'confirm_required', request: 'chat.act' });
-        expect(marks).toEqual([]);
-        c.close();
-      });
-      it('a card set aside (« Ignorer ») applies no more; chat.ignore reaches the chat and its refusal the requester', async () => {
-        const { chat, marks } = actChat([archiveOf('a')]);
-        let ignored = false; const calls: Array<[string, boolean]> = [];
-        chat.ignored = qid => qid === 'q1' && ignored;
-        chat.ignore = (qid, undo, emit) => { calls.push([qid, undo]); if (qid !== 'q1') return 'unknown card'; ignored = !undo; emit({ type: 'chat.history', turns: [] }); return null; };
-        await closing({}, { chat });
-        store.upsert(mk('a', { state: 'exited' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'chat.ignore', qid: 'q1' });
-        await c.next('chat.history', 3000);
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1' });
-        expect(await c.next('error')).toEqual({ type: 'error', message: 'ignored card: open it again first', request: 'chat.act', code: 'ignored' });
-        c.send({ type: 'session.close', qid: 'q1' });
-        expect(await c.next('error')).toMatchObject({ message: 'ignored card: open it again first', request: 'session.close' });
-        c.send({ type: 'chat.ignore', qid: 'q9' });
-        expect(await c.next('error')).toMatchObject({ message: 'unknown card', request: 'chat.ignore' });
-        c.send({ type: 'chat.ignore', qid: 'q1', undo: true });
-        await c.next('chat.history', 3000);
-        c.send({ type: 'chat.act', rid: 'r2', qid: 'q1' });
-        expect(await c.next('chat.acted', 3000)).toMatchObject({ done: [0] });
-        expect(calls).toEqual([['q1', false], ['q9', false], ['q1', true]]);
-        expect(marks).toEqual(['0:running', '0:done']);
-        c.close();
-      });
-      it('Ledge cancels or passes a task from its card only: a client naming itself ledge is refused', async () => {
-        const { chat, rows } = actChat([]);
-        await closing({}, { chat });
-        store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'task.cmd', rid: 't1', by: 'a', key: sessionKey('a'), op: 'give', to: 'Pim', title: 'Lance les tests' });
-        const id = (await c.next('task.result', 3000)).task!.id;
-        c.send({ type: 'task.cmd', rid: 't2', by: 'ledge', op: 'cancel', task: id });
-        expect((await c.next('task.result', 3000)).reason).toBe('seul le chat de Ledge, ou ledge decide, agit sur une tâche au nom de Ledge');
-        c.send({ type: 'task.cmd', rid: 't3', by: 'ledge', op: 'pass', task: id, to: 'a' });
-        expect((await c.next('task.result', 3000)).reason).toBe('seul le chat de Ledge, ou ledge decide, agit sur une tâche au nom de Ledge');
-        // The card's own row goes through: Ledge cancels it.
-        rows.push({ action: 'task.cancel', args: { task: id }, summary: 'x', risk: 'destructive', session: 'b' });
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1', confirmed: true });
-        expect(await c.next('chat.acted', 3000)).toMatchObject({ done: [0], failed: [] });
-        c.close();
-      });
-      it('#142: a client naming itself ledge only reads (list, show, seen): a decision is answered through task.answer alone', async () => {
-        const { chat, rows } = actChat([]);
-        await closing({}, { chat });
-        store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        c.send({ type: 'task.cmd', rid: 't1', by: 'a', key: sessionKey('a'), op: 'give', to: 'ledge', title: 'Merger ?', text: 'oui / non' });
-        const id = (await c.next('task.result', 3000)).task!.id;
-        const refused = 'seul le chat de Ledge, ou ledge decide, agit sur une tâche au nom de Ledge';
-        for (const op of [
-          { op: 'done', task: id, text: 'oui' }, { op: 'take', task: id }, { op: 'refuse', task: id, text: 'non' },
-          { op: 'give', to: 'Pim', title: 'Relire' }
-        ] as const) {
-          c.send({ type: 'task.cmd', rid: `x-${op.op}`, by: 'ledge', ...op });
-          expect((await c.next('task.result', 3000)).reason, op.op).toBe(refused);
-        }
-        c.send({ type: 'task.cmd', rid: 'l', by: 'ledge', op: 'list' });
-        expect((await c.next('task.result', 3000)).tasks?.map(t => t.id)).toEqual([id]);
-        c.send({ type: 'task.cmd', rid: 's', by: 'ledge', op: 'show', task: id });
-        expect((await c.next('task.result', 3000)).task).toMatchObject({ id, state: 'open' });
-        // The user's answer, through the card's row (task.answer), still goes.
-        rows.push({ action: 'task.answer', args: { task: id, answer: 'oui' }, summary: 'x', risk: 'destructive', session: 'a' });
-        c.send({ type: 'chat.act', rid: 'r1', qid: 'q1', confirmed: true });
-        expect(await c.next('chat.acted', 3000)).toMatchObject({ done: [0], failed: [] });
-        c.send({ type: 'task.cmd', rid: 's2', by: 'ledge', op: 'show', task: id });
-        expect((await c.next('task.result', 3000)).task).toMatchObject({ id, state: 'done', result: 'oui' });
-        c.close();
-      });
-      it('#142: `ledge task` from a session still gives, takes, passes, refuses and closes in its own name', async () => {
-        const { taskOnClient } = await import('../src/cli/task.js');
-        await closing({});
-        store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' })); store.upsert(mk('c', { name: 'Ida', state: 'idle' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        const run = async (by: string, ...args: string[]) => (await taskOnClient(c, args, by, 3000, sessionKey(by))).line;
-        const id = (await run('a', 'give', 'Pim', 'Lance les tests')).match(/t[0-9a-f]{6}/)![0];
-        expect(await run('b', 'take', id)).toBe(`tâche ${id} prise`);
-        expect(await run('b', 'pass', id, 'Ida')).toBe(`tâche ${id} passée à Ida`);
-        expect(await run('c', 'refuse', id, 'pas pour moi')).toBe(`tâche ${id} refusée ; Ledge prévient Otto`);
-        const again = (await run('a', 'give', 'Pim', 'Relis')).match(/t[0-9a-f]{6}/)![0];
-        expect(await run('b', 'done', again, 'relu')).toBe(`tâche ${again} terminée ; Ledge prévient Otto`);
-        c.close();
-      });
-      it('#152: a session acts on a task only with its own key; reads need none', async () => {
-        await closing({});
-        store.upsert(mk('a')); store.upsert(mk('b', { name: 'Pim', tool: 'codex', state: 'idle' }));
-        const c = await connect({ port: srv.port }); await c.next('snapshot');
-        let n = 0;
-        const ask = async (m: Record<string, unknown>) => { c.send({ type: 'task.cmd', rid: `k${++n}`, ...m } as never); return c.next('task.result', 3000); };
-        const id = (await ask({ by: 'a', key: sessionKey('a'), op: 'give', to: 'Pim', title: 'Lance les tests' })).task!.id;
-        // Another session's key, or none: refused, and the task is untouched.
-        expect((await ask({ by: 'b', key: sessionKey('a'), op: 'take', task: id })).reason).toContain('ne correspond pas');
-        for (const op of [{ op: 'take', task: id }, { op: 'done', task: id, text: 'x' }, { op: 'refuse', task: id, text: 'x' }, { op: 'pass', task: id, to: 'Otto' }, { op: 'cancel', task: id }, { op: 'give', to: 'Otto', title: 'x' }])
-          expect((await ask({ by: 'b', ...op })).reason, op.op).toContain('pas de clé');
-        expect((await ask({ by: 'b', op: 'show', task: id })).task).toMatchObject({ id, state: 'open', owner: 'b' });
-        expect((await ask({ by: 'b', op: 'list' })).tasks?.map(t => t.id)).toEqual([id]);
-        // Its own key: it acts.
-        expect((await ask({ by: 'b', key: sessionKey('b'), op: 'take', task: id })).task).toMatchObject({ id, state: 'taken' });
-        c.close();
-      });
-    });
-  });
-
   it('delivers nothing to a closing session', async () => {
-    let r: ChatRelay | undefined = { id: 'a', name: 'Otto', tool: 'claude', text: 'Lance les tests', status: 'queued' };
-    const chat: Chat = {
-      async ask() {}, attachmentIds: () => [], postPoint: () => '', updatePoint: () => false, points: () => [], cancel() {}, async reset() {}, history: () => [], proposal: () => undefined, markLaunched() {}, markFailed() {},
-      relay: qid => (qid === 'q1' ? r : undefined),
-      markRelay(_qid, patch, emit) { const { id, name, tool, text } = r!; r = { id, name, tool, text, ...patch }; emit({ type: 'chat.history', turns: [] }); },
-      queuedRelays: () => (r?.status === 'queued' ? [{ qid: 'q1', relay: r, askedAt: '2026-10-12T08:00:00.000Z' }] : []),
-      close: () => undefined, markClosed() {}, markCloseFailed() {}, idle: async () => {}, task: () => undefined, markTask() {}, followTask() {}, action: () => undefined, markAction() {}, ignore: () => null, ignored: () => false
-    };
     const history = new History({ dir: tmpDir() });
-    await closing({ 'ledge-a': ['Running…'] }, { history, chat });
+    await closing({ 'ledge-a': ['Running…'] }, { history });
     store.upsert(mk('a', { state: 'working' })); store.upsert(mk('b', { name: 'Pim', state: 'idle' }));
     const c = await connect({ port: srv.port }); await c.next('snapshot');
     c.send({ type: 'session.message', rid: 'r1', from: 'b', to: 'Otto', text: 'Salut' });
@@ -3837,7 +3355,6 @@ describe('close a session', () => {
     store.upsert({ ...store.get('a')!, state: 'idle' });
     expect(await closed).toEqual({ how: 'exit' });
     expect(texts().filter(t => t[1] === 'ledge-a')).toEqual([['text', 'ledge-a', '/exit']]);
-    expect(r).toMatchObject({ error: 'Otto stopped before it got the instruction' });
     await until(() => history.items('b').some(i => i.kind === 'sent' && i.status === 'failed'), 3000);
     // The sender, free, is told its message never reached Otto.
     await until(() => texts().some(t => t[1] === 'ledge-b'), 3000);

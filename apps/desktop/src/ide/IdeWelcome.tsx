@@ -7,7 +7,7 @@ import { providerOf } from '../workspace/sessionTab';
 import { ProviderLogo } from './ProviderLogo';
 import { SessionName } from '@ledge/ui/ui/SessionName';
 
-export type EmptyPick = 'terminal' | 'launch' | 'search' | 'ledge' | 'next' | 'openrig' | 'atelier' | 'shell' | 'settings';
+export type EmptyPick = 'terminal' | 'launch' | 'search' | 'next' | 'openrig' | 'atelier' | 'shell' | 'settings';
 
 /** How many sessions « Récentes » lists. */
 export const RECENT_MAX = 4;
@@ -47,7 +47,6 @@ export function IdeWelcome(p: {
             {p.terminal !== null && row('terminal', p.seat ? w.capture(p.terminal) : w.terminal(p.terminal), undefined, true)}
             {row('launch', w.newSession, 'N')}
             {row('search', w.search, 'Ctrl K')}
-            {row('ledge', w.askLedge, '/')}
             {p.waiting && row('next', w.nextAsk)}
             {row('openrig', w.openrig)}
             {row('atelier', w.atelier)}

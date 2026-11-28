@@ -7,7 +7,7 @@ describe('« Open in Ledge » targets from the island', () => {
     expect(parseTarget('{"kind":"terminal","id":"dev:x"}')).toEqual({ kind: 'terminal', id: 'dev:x' });
     expect(parseTarget('{"kind":"document","path":"/w/plan.md"}')).toEqual({ kind: 'document', path: '/w/plan.md' });
     for (const kind of ['settings', 'launch', 'update', 'machines']) expect(parseTarget(JSON.stringify({ kind }))).toEqual({ kind });
-    expect(parseTarget('{"kind":"point","qid":"p-1"}')).toEqual({ kind: 'point', qid: 'p-1' });
+    expect(parseTarget('{"kind":"point","qid":"p-1"}')).toBeNull();   // the point left with the chat (#40 PR 4)
     expect(parseTarget('{"kind":"ask","id":"qitem-9"}')).toEqual({ kind: 'ask', id: 'qitem-9' });
     expect(parseTarget('{"kind":"atoi"}')).toBeNull();   // « À toi » is gone (#40 PR 3)
     expect(parseTarget('{"kind":"routine","machine":"local","id":"r1a2b3c"}')).toEqual({ kind: 'routine', machine: 'local', id: 'r1a2b3c' });
@@ -22,6 +22,6 @@ describe('« Open in Ledge » targets from the island', () => {
     expect(targetAction({ kind: 'update' })).toEqual({ type: 'settings', section: 'about' });
     expect(targetAction({ kind: 'launch' })).toEqual({ type: 'modal', modal: { kind: 'launch' } });
     expect(targetAction({ kind: 'document', path: '/w/plan.md' })).toEqual({ type: 'home' });
-    expect(targetAction({ kind: 'point', qid: 'p-1' })).toEqual({ type: 'chat', open: true });
+    expect(targetAction({ kind: 'task', id: 't-1' })).toEqual({ type: 'tasks', task: 't-1' });
   });
 });

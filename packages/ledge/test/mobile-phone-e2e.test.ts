@@ -150,61 +150,6 @@ describe('phone protocol end to end', () => {
     expect(answered).toEqual(['qitem-n seen']);
   }, 20_000);
 
-  it('a signed chat.close closes the sessions of the phone\'s close card, and the phone reads it in chat.history', async () => {
-    const panes: Record<string, string[]> = { 'ledge-a': ['> '] };
-    const { store, tmux, phone, relayUrl } = await linked({
-      panes, localhost: true,
-      tmux: t => {
-        // A pane leaves once `/exit` is entered, like a session that quits.
-        const keys = t.sendKeys.bind(t);
-        t.sendKeys = async (n, k) => {
-          const prev = t.sent.filter(x => x[1] === n).at(-1);
-          await keys(n, k);
-          if (!k.includes('Enter') || prev?.[0] !== 'text' || prev[2] !== '/exit') return;
-          delete panes[n];
-          const s = store.all().find(x => x.tmuxSession === n);
-          if (s) store.apply(s.id, { name: 'PaneGone', at: new Date().toISOString(), source: 'pane' });
-        };
-      },
-      server: {
-        close: { freeMs: 200, exitMs: 200 },
-        agentEnv: async () => ({ ...process.env, FAKE_ANSWER: 'Je la ferme.\n```ledge-close\n{"session": "a"}\n```' }),
-        claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))]
-      }
-    });
-    store.upsert({
-      id: 'a', name: 'Otto', tool: 'claude', cwd: tmpdir(), project: 'repo', title: 'Otto · repo', tmuxSession: 'ledge-a', state: 'idle',
-      helpers: [], startedAt: T0, lastActivityAt: T0, source: 'launcher'
-    });
-    const rp = rpOf(relayUrl)!;
-    const auth = softAuthenticator();
-    const ask = (m: object) => phone.send(JSON.stringify(m));
-    const challenge = async (purpose: 'register' | 'close', qid?: string) => {
-      const before = parsed(phone).length;
-      await ask({ type: 'confirm.prepare', purpose, ...(qid ? { qid } : {}) });
-      await until(() => parsed(phone).slice(before).some(m => m.type === 'confirm.challenge'), `the ${purpose} challenge`);
-      const m = parsed(phone).slice(before).find(x => x.type === 'confirm.challenge');
-      if (m?.type !== 'confirm.challenge') throw new Error('no challenge');
-      return m.challenge;
-    };
-    await ask({ type: 'credential.register', op: randomUUID(), credential: auth.create(rp, await challenge('register')) });
-    await until(() => results(phone).some(r => r.status === 'applied'), 'the credential registered');
-
-    const qid = randomUUID();
-    await ask({ type: 'chat.ask', qid, text: 'ferme Otto' });
-    const closes = () => parsed(phone).flatMap(m => (m.type === 'chat.history' ? m.turns : m.type === 'chat.done' ? [m.turn] : [])).filter(t => t.qid === qid).at(-1)?.closes;
-    await until(() => closes() !== undefined, 'the close card');
-    expect(closes()).toEqual([{ id: 'a', name: 'Otto', tool: 'claude' }]);
-
-    const op = randomUUID();
-    await ask({ type: 'chat.close', op, qid, assertion: auth.get(rp, await challenge('close', qid), { counter: 1 }) });
-    await until(() => results(phone).some(r => r.op === op && r.status === 'applied'), 'the close applied');
-    await until(() => closes()?.[0]?.closedAt !== undefined, 'the closed row in chat.history');
-    expect(closes()?.[0]).toMatchObject({ id: 'a', how: 'exit' });
-    expect(store.get('a')?.state).toBe('exited');
-    expect(tmux.sent.filter(x => x[0] === 'text')).toEqual([['text', 'ledge-a', '/exit']]);
-  }, 20_000);
-
   it("a signed session.close ends the session from its page, then a signed session.resume starts it again on its conversation", async () => {
     const panes: Record<string, string[]> = { 'ledge-a': ['> '] };
     const created: string[][] = [];
@@ -262,73 +207,6 @@ describe('phone protocol end to end', () => {
     expect(store.get('a')?.state).not.toBe('exited');
   }, 20_000);
 
-  it('a chat.close and a session.close of the same session at once: the second waits for the first, one /exit is typed, both are applied', async () => {
-    const panes: Record<string, string[]> = { 'ledge-a': ['> '] };
-    const { store, tmux, phone, relayUrl } = await linked({
-      panes, localhost: true,
-      tmux: t => {
-        // The agent takes a moment to leave after `/exit`: long enough for the second close to arrive while the first runs.
-        const keys = t.sendKeys.bind(t);
-        t.sendKeys = async (n, k) => {
-          const prev = t.sent.filter(x => x[1] === n).at(-1);
-          await keys(n, k);
-          if (!k.includes('Enter') || prev?.[0] !== 'text' || prev[2] !== '/exit') return;
-          setTimeout(() => {
-            delete panes[n];
-            const s = store.all().find(x => x.tmuxSession === n);
-            if (s) store.apply(s.id, { name: 'PaneGone', at: new Date().toISOString(), source: 'pane' });
-          }, 300);
-        };
-      },
-      server: {
-        close: { freeMs: 1_000, exitMs: 2_000 },
-        agentEnv: async () => ({ ...process.env, FAKE_ANSWER: 'Je la ferme.\n```ledge-close\n{"session": "a"}\n```' }),
-        claudeBin: [process.execPath, fileURLToPath(new URL('./fake-claude.mjs', import.meta.url))]
-      }
-    });
-    store.upsert({
-      id: 'a', name: 'Otto', tool: 'claude', cwd: tmpdir(), project: 'repo', title: 'Otto · repo', tmuxSession: 'ledge-a', state: 'idle',
-      helpers: [], startedAt: T0, lastActivityAt: T0, source: 'launcher'
-    });
-    const rp = rpOf(relayUrl)!;
-    const auth = softAuthenticator();
-    const ask = (m: object) => phone.send(JSON.stringify(m));
-    const challenge = async (req: object) => {
-      const before = parsed(phone).length;
-      await ask({ type: 'confirm.prepare', ...req });
-      await until(() => parsed(phone).slice(before).some(m => m.type === 'confirm.challenge'), 'the challenge');
-      const m = parsed(phone).slice(before).find(x => x.type === 'confirm.challenge');
-      if (m?.type !== 'confirm.challenge') throw new Error('no challenge');
-      return m.challenge;
-    };
-    await ask({ type: 'snapshot.request' });
-    await until(() => parsed(phone).some(m => m.type === 'snapshot'), 'the snapshot');
-    await ask({ type: 'credential.register', op: randomUUID(), credential: auth.create(rp, await challenge({ purpose: 'register' })) });
-    await until(() => results(phone).some(r => r.status === 'applied'), 'the credential registered');
-    const qid = randomUUID();
-    await ask({ type: 'chat.ask', qid, text: 'ferme Otto' });
-    const closes = () => parsed(phone).flatMap(m => (m.type === 'chat.history' ? m.turns : m.type === 'chat.done' ? [m.turn] : [])).filter(t => t.qid === qid).at(-1)?.closes;
-    await until(() => closes() !== undefined, 'the close card');
-
-    // Both signed first, then sent one right after the other.
-    const card = { type: 'chat.close', op: randomUUID(), qid, assertion: auth.get(rp, await challenge({ purpose: 'close', qid }), { counter: 1 }) };
-    const page = { type: 'session.close', op: randomUUID(), id: 'a', assertion: auth.get(rp, await challenge({ purpose: 'close', id: 'a' }), { counter: 2 }) };
-    await ask(card);
-    await ask(page);
-    await until(() => [card.op, page.op].every(op => results(phone).some(r => r.op === op && r.status !== 'received')), 'both closes answered');
-    expect(results(phone).find(r => r.op === card.op && r.status !== 'received')).toMatchObject({ status: 'applied' });
-    expect(results(phone).find(r => r.op === page.op && r.status !== 'received')).toMatchObject({ status: 'applied', how: 'exit' });
-    // They overlapped: the second was received before the first was answered.
-    const order = results(phone).map(r => `${r.op === card.op ? 'card' : r.op === page.op ? 'page' : 'other'}:${r.status}`);
-    const firstDone = Math.min(order.indexOf('card:applied'), order.indexOf('page:applied'));
-    expect(order.indexOf('card:received')).toBeLessThan(firstDone);
-    expect(order.indexOf('page:received')).toBeLessThan(firstDone);
-    expect(tmux.sent.filter(x => x[0] === 'text')).toEqual([['text', 'ledge-a', '/exit']]);
-    expect(store.get('a')?.state).toBe('exited');
-    await until(() => closes()?.[0]?.closedAt !== undefined, 'the card row closed');
-  }, 20_000);
-
-  // Added by the tester (task tc26198), acceptance criterion 2 of mobile-session-close: a session at work with a request waiting.
   it('a signed session.close of a session with a request waiting interrupts its turn, refuses the request, then exits', async () => {
     const panes: Record<string, string[]> = { 'ledge-a': [DIALOG] };
     const { store, tmux, phone, relayUrl } = await linked({

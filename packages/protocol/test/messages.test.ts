@@ -109,8 +109,6 @@ describe('protocol', () => {
     expect(() => parseClientMessage({ type: 'session.reply', id: 's', text: 'x', attachments: Array(6).fill(id) })).toThrow();
     expect(() => parseClientMessage({ type: 'session.reply', id: 's', text: 'x', attachments: ['nope'] })).toThrow();
     const image = { mime: 'image/png', data: 'iVBORw0KGgo=' };
-    expect(parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'look', images: [image] })).toEqual({ type: 'chat.ask', qid: 'q1', text: 'look', images: [image] });
-    expect(() => parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'look', images: Array(6).fill(image) })).toThrow();
     expect(parseServerMessage({ type: 'session.queue.restored', id: 's', texts: ['a'], entries: [{ text: 'a', attachments: [id] }, { text: 'b' }], imagesDropped: true }).type).toBe('session.queue.restored');
     expect(parseServerMessage({ type: 'session.queue.restored', id: 's', texts: ['a'] }).type).toBe('session.queue.restored');
     expect(SessionEventSchema.parse({ name: 'UserPromptSubmit', at: T0, source: 'daemon', attachments: [id] }).attachments).toEqual([id]);
@@ -128,46 +126,19 @@ describe('protocol', () => {
     expect(RefusalCodeSchema.parse('attachments_not_accepted')).toBe('attachments_not_accepted');
   });
 
-  it('carries the chat messages', () => {
-    expect(parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' })).toEqual({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?' });
-    expect(parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'x', tool: 'codex' })).toEqual({ type: 'chat.ask', qid: 'q1', text: 'x', tool: 'codex' });
-    // Empty text is the daemon's to refuse (an image may carry the question), not the schema's.
-    expect(parseClientMessage({ type: 'chat.ask', qid: 'q1', text: '' }).type).toBe('chat.ask');
-    expect(() => parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'x', tool: 'gemini' })).toThrow();
-    expect(parseClientMessage({ type: 'chat.reset' }).type).toBe('chat.reset');
-    expect(parseServerMessage({ type: 'chat.step', qid: 'q1', step: { kind: 'pane', id: 'a', name: 'Nova' } }).type).toBe('chat.step');
-    expect(parseServerMessage({ type: 'chat.history', turns: [{ qid: 'q1', question: 'x', askedAt: T0, steps: [] }] }).type).toBe('chat.history');
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0 }).type).toBe('chat.done');
-  });
-
-  it('carries a launch proposal on a turn, on chat.done, and the card qid on session.launch', () => {
-    const proposal = { cwd: '/w/ledge', project: 'ledge', prompt: 'Corrige le build', tool: 'claude' as const };
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal })).toEqual({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal });
-    const launched = { ...proposal, launchedId: 'n1' };
-    const h = parseServerMessage({ type: 'chat.history', turns: [{ qid: 'q1', question: 'x', askedAt: T0, steps: [], answer: 'ok', answeredAt: T0, proposal: launched }] });
-    expect(h.type === 'chat.history' && h.turns[0]!.proposal).toEqual(launched);
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal: { ...proposal, tool: 'vim' } })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal: { ...proposal, cwd: '' } })).toThrow();
-    expect(parseClientMessage({ type: 'session.launch', tool: 'claude', cwd: '/w/ledge', qid: 'q1' })).toEqual({ type: 'session.launch', tool: 'claude', cwd: '/w/ledge', qid: 'q1' });
-    // Older messages stay valid.
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0 })).not.toHaveProperty('proposal');
-    expect(parseClientMessage({ type: 'session.launch', tool: 'claude', cwd: '/w' })).not.toHaveProperty('qid');
-  });
 });
 
-describe('protocol: several sessions in one answer (#24)', () => {
-  const a = { cwd: '/w/a', project: 'a', tool: 'claude' as const }, b = { cwd: '/w/b', project: 'b', tool: 'codex' as const, launchedId: 'n2' };
-  it('chat.done and a turn carry the list beside the first proposal', () => {
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal: a, proposals: [a, b] })).toEqual({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal: a, proposals: [a, b] });
-    const h = parseServerMessage({ type: 'chat.history', turns: [{ qid: 'q1', question: 'x', askedAt: T0, steps: [], proposal: a, proposals: [a, b] }] });
-    expect(h.type === 'chat.history' && h.turns[0]!.proposals).toEqual([a, b]);
+describe('protocol: the chat, removed (#40, D12)', () => {
+  it('an older front’s chat and point messages still parse by their name only, so the daemon refuses them by name', () => {
+    expect(parseClientMessage({ type: 'chat.ask', qid: 'q1', text: 'Où en sont les autres ?', images: [] })).toEqual({ type: 'chat.ask', qid: 'q1' });
+    expect(parseClientMessage({ type: 'chat.route', qid: 'q1', text: 'x' })).toEqual({ type: 'chat.route', qid: 'q1' });
+    for (const type of ['chat.cancel', 'chat.reset', 'chat.act', 'chat.ignore', 'point.act', 'point.later', 'operator.read', 'session.relay', 'session.relay.cancel', 'session.close'])
+      expect(parseClientMessage({ type, qid: 'q1', rows: [0] })).toEqual({ type });
+    expect(() => parseClientMessage({ type: 'chat.ask' })).toThrow();
   });
-  it('holds at most 8 sessions', () => {
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposals: Array(9).fill(a) })).toThrow();
-  });
-  it('session.launch names the card rows to launch, each once, within the 8', () => {
-    expect(parseClientMessage({ type: 'session.launch', tool: 'claude', cwd: '/w/a', qid: 'q1', rows: [0, 2] })).toMatchObject({ rows: [0, 2] });
-    for (const rows of [[], [8], [-1], [1, 1], [0.5]]) expect(() => parseClientMessage({ type: 'session.launch', tool: 'claude', cwd: '/w/a', qid: 'q1', rows })).toThrow();
+  it('the daemon answers an older front’s question with chat.error; the chat’s other answers are gone', () => {
+    expect(parseServerMessage({ type: 'chat.error', qid: 'q1', message: 'le chat a quitté Ledge (#40)' }).type).toBe('chat.error');
+    for (const type of ['chat.done', 'chat.history', 'chat.step', 'chat.delta', 'chat.acted', 'chat.routed', 'session.closed']) expect(() => parseServerMessage({ type, qid: 'q1' })).toThrow();
   });
 });
 
@@ -256,40 +227,6 @@ describe('protocol: launching with several folders and inspecting repos', () => 
     expect(parseServerMessage({ ...found, repos: [], error: 'offline' })).toEqual({ ...found, repos: [], error: 'offline' });
     expect(() => parseServerMessage({ ...found, truncated: undefined })).toThrow();
     expect(() => parseServerMessage({ ...found, repos: Array.from({ length: 501 }, (_, i) => ({ path: `/w/${i}`, branch: null })) })).toThrow();
-  });
-});
-
-describe('relay from the chat (spec 2026-10-12 relay §5)', () => {
-  const relay = { id: 's1', name: 'Otto', tool: 'claude', text: 'Lance les tests' };
-  it('a turn and chat.done carry a relay; old messages still parse', () => {
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', relay })).toMatchObject({ relay });
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z' })).not.toHaveProperty('relay');
-    const turn = { qid: 'q1', question: 'dis à Otto', askedAt: '2026-10-12T10:00:00.000Z', steps: [], relay: { ...relay, status: 'sent', sentAt: '2026-10-12T10:01:00.000Z' } };
-    expect(parseServerMessage({ type: 'chat.history', turns: [turn] })).toEqual({ type: 'chat.history', turns: [turn] });
-  });
-  it('rejects an unknown status and an empty text', () => {
-    expect(() => parseServerMessage({ type: 'chat.history', turns: [{ qid: 'q1', question: 'x', askedAt: '2026-10-12T10:00:00.000Z', steps: [], relay: { ...relay, status: 'lost' } }] })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', relay: { ...relay, text: '' } })).toThrow();
-  });
-  it('session.relay and session.relay.cancel name the turn', () => {
-    expect(parseClientMessage({ type: 'session.relay', qid: 'q1' })).toEqual({ type: 'session.relay', qid: 'q1' });
-    expect(parseClientMessage({ type: 'session.relay.cancel', qid: 'q1' })).toEqual({ type: 'session.relay.cancel', qid: 'q1' });
-    expect(() => parseClientMessage({ type: 'session.relay', qid: '' })).toThrow();
-  });
-});
-
-describe('project proposal from the chat (lot 11 task 5)', () => {
-  const projectProposal = { name: 'Paper', description: 'Les polices', repos: [{ path: '/w/paper-fonts', why: 'Nommé paper-*' }], addTo: 'Ledge' };
-  it('a turn and chat.done carry a project proposal; old messages still parse', () => {
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', projectProposal })).toMatchObject({ projectProposal });
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z' })).not.toHaveProperty('projectProposal');
-    const turn = { qid: 'q1', question: 'crée un projet', askedAt: '2026-10-12T10:00:00.000Z', steps: [], projectProposal };
-    expect(parseServerMessage({ type: 'chat.history', turns: [turn] })).toEqual({ type: 'chat.history', turns: [turn] });
-  });
-  it('rejects a proposal without repositories, or with a path over 4096 characters', () => {
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', projectProposal: { ...projectProposal, repos: [] } })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', projectProposal: { ...projectProposal, repos: [{ path: '/' + 'x'.repeat(4096), why: 'x' }] } })).toThrow();
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: '2026-10-12T10:00:00.000Z', projectProposal: { ...projectProposal, repos: [{ path: '/' + 'x'.repeat(4095), why: 'x' }] } })).toHaveProperty('projectProposal');
   });
 });
 
@@ -468,29 +405,6 @@ describe('protocol: model and effort (#58)', () => {
     expect(() => parseClientMessage({ type: 'session.model', id: 's1', model: '--yolo', effort: null })).toThrow();
     expect(() => parseClientMessage({ type: 'session.model', id: 's1', model: 'opus' })).toThrow();
   });
-  it('session.close takes the card qid and optional rows, session.closed answers each row', () => {
-    expect(parseClientMessage({ type: 'session.close', qid: 'q1' })).toEqual({ type: 'session.close', qid: 'q1' });
-    expect(parseClientMessage({ type: 'session.close', qid: 'q1', rows: [0, 7] })).toMatchObject({ rows: [0, 7] });
-    for (const rows of [[], [8], [1, 1], [0, 1, 2, 3, 4, 5, 6, 7, 0]]) expect(() => parseClientMessage({ type: 'session.close', qid: 'q1', rows })).toThrow();
-    const closed = { type: 'session.closed', qid: 'q1', row: 0, id: 's1', how: 'killed' };
-    expect(parseServerMessage(closed)).toEqual(closed);
-    expect(() => parseServerMessage({ ...closed, how: 'quit' })).toThrow();
-  });
-  it('chat.act takes the card qid, optional rows and a literal confirmed; chat.acted answers it', () => {
-    expect(parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1' })).toEqual({ type: 'chat.act', rid: 'r1', qid: 'q1' });
-    expect(parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1', rows: [2, 0], confirmed: true })).toMatchObject({ rows: [2, 0], confirmed: true });
-    expect(() => parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1', confirmed: false })).toThrow();
-    expect(() => parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1', rows: [1, 1] })).toThrow();
-    // « Refuser »: the rows' requests answered with deny, never confirmed; only a literal true.
-    expect(parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1', rows: [0], deny: true })).toEqual({ type: 'chat.act', rid: 'r1', qid: 'q1', rows: [0], deny: true });
-    expect(() => parseClientMessage({ type: 'chat.act', rid: 'r1', qid: 'q1', deny: false })).toThrow();
-    const turn = { qid: 'q1', question: '?', askedAt: T0, steps: [] };
-    const denied = { action: 'session.decide', args: { session: 's1', decision: 'accept' }, summary: 'Accepter', risk: 'destructive', state: 'denied', doneAt: T0 };
-    expect(ChatTurnSchema.parse({ ...turn, actions: [denied] }).actions?.[0]).toMatchObject({ state: 'denied', doneAt: T0 });
-    const acted = { type: 'chat.acted', rid: 'r1', qid: 'q1', done: [0], failed: [{ row: 1, message: 'unknown session', refused: true }, { row: 2, message: 'busy' }] };
-    expect(parseServerMessage(acted)).toEqual(acted);
-    expect(() => parseServerMessage({ ...acted, failed: [{ row: 1, message: 'x', refused: false }] })).toThrow();
-  });
   it('action.run names a registry action and its args, by a session or the user; action.result answers it with the row or why not', () => {
     const run = { type: 'action.run', rid: 'r1', by: 's1', action: 'task.cancel', args: { task: 't91b0d4' }, confirmed: true };
     expect(parseClientMessage(run)).toEqual(run);
@@ -504,21 +418,6 @@ describe('protocol: model and effort (#58)', () => {
     expect(parseServerMessage(refused)).toEqual(refused);
     expect(parseServerMessage({ type: 'action.result', rid: 'r1', action: 'task.cancel', reason: 'x', code: 'something-newer' })).toMatchObject({ code: 'something-newer' });
   });
-  it('chat.done and a turn carry the generic rows, one to eight, each a registry action', () => {
-    const row = { action: 'task.cancel', args: { task: 't91b0d4' }, summary: 'Annuler **Pagination**', risk: 'destructive' };
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [row] })).toMatchObject({ actions: [row] });
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [] })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: Array(9).fill(row) })).toThrow();
-    // An action this front does not know yet still parses: it is drawn from its summary (spec §5.2).
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [{ ...row, action: 'session.later' }] })).toMatchObject({ actions: [{ action: 'session.later' }] });
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [{ ...row, action: '' }] })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [{ ...row, summary: 'x'.repeat(301) }] })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions: [{ ...row, risk: 'harmless' }] })).toThrow();
-    const turn = { qid: 'q1', question: '?', askedAt: T0, steps: [] };
-    expect(ChatTurnSchema.parse({ ...turn, actions: [{ ...row, state: 'done', doneAt: T0 }] }).actions?.[0]?.state).toBe('done');
-    // Refused: nothing was sent (a target changed, a request answered meanwhile); failed: sent, and it went wrong.
-    expect(ChatTurnSchema.parse({ ...turn, actions: [{ ...row, state: 'refused', error: 'unknown task' }] }).actions?.[0]?.state).toBe('refused');
-  });
   it('a generic row carries its words for each front (vars), a cut detail and an error code', () => {
     const row = { action: 'session.decide', args: { session: 's1', decision: 'deny' }, summary: 'Refuser la demande de plan de **Nova**', risk: 'reversible',
       vars: { session: 'Nova', decision: 'deny', kind: 'plan', note: 'Pas sur main' }, detail: 'Le plan…', detailCut: true, state: 'refused', error: 'Nova has exited', code: 'exited' };
@@ -526,24 +425,6 @@ describe('protocol: model and effort (#58)', () => {
     expect(ChatTurnSchema.parse({ ...turn, actions: [row] }).actions?.[0]).toMatchObject({ vars: row.vars, detailCut: true, code: 'exited' });
     expect(() => ChatTurnSchema.parse({ ...turn, actions: [{ ...row, vars: { note: 'x'.repeat(301) } }] })).toThrow();
     expect(() => ChatTurnSchema.parse({ ...turn, actions: [{ ...row, detailCut: false }] })).toThrow();
-  });
-  it('a turn may be ignored, and chat.ignore ignores it or opens it again', () => {
-    const turn = { qid: 'q1', question: '?', askedAt: T0, steps: [], ignoredAt: T0 };
-    expect(ChatTurnSchema.parse(turn).ignoredAt).toBe(T0);
-    expect(parseClientMessage({ type: 'chat.ignore', qid: 'q1' })).toEqual({ type: 'chat.ignore', qid: 'q1' });
-    expect(parseClientMessage({ type: 'chat.ignore', qid: 'q1', undo: true })).toEqual({ type: 'chat.ignore', qid: 'q1', undo: true });
-    expect(() => parseClientMessage({ type: 'chat.ignore', qid: '' })).toThrow();
-    expect(() => parseClientMessage({ type: 'chat.ignore', qid: 'q1', undo: false })).toThrow();
-  });
-  it('chat.done and a turn carry the close rows, one to eight', () => {
-    const row = { id: 's1', name: 'Arlo', tool: 'claude' };
-    expect(parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, closes: [row] })).toMatchObject({ closes: [row] });
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, closes: [] })).toThrow();
-    expect(() => parseServerMessage({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, closes: Array(9).fill(row) })).toThrow();
-    const turn = { qid: 'q1', question: '?', askedAt: T0, steps: [] };
-    expect(ChatTurnSchema.parse({ ...turn, closes: [row] }).closes).toEqual([row]);
-    expect(() => ChatTurnSchema.parse({ ...turn, closes: [] })).toThrow();
-    expect(() => ChatTurnSchema.parse({ ...turn, closes: Array(9).fill(row) })).toThrow();
   });
 });
 

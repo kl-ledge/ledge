@@ -21,7 +21,7 @@ describe('the IDE chrome', () => {
     fr(<IdeTitleBar layout={L} onLayout={onLayout} onSearch={vi.fn()} blocked={false} />);
     const bottom = screen.getByRole('button', { name: /Panneau du bas/ });
     expect(bottom).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: /Panneau de droite/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: /Panneau de droite/ })).toBeNull();   // the chat's panel left (#40 PR 4)
     expect(screen.getByRole('button', { name: /Barre latérale/ })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(bottom);
     expect(onLayout).toHaveBeenCalledWith({ type: 'toggle', panel: 'bottom' });

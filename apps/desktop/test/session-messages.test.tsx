@@ -6,7 +6,6 @@ import type { ThreadItem } from '@ledge/protocol';
 import { createMockDaemon } from '@ledge/fleet/test/mockDaemon';
 import { App } from '../src/App';
 import { loadIde } from '../src/ide/lazy';
-import { loadChat } from '../src/chat/lazy';
 import { createDesktopFleet } from '../src/fleet/useFleet';
 import { loadWorkspace } from '../src/session/lazy';
 import { listSessions, PROJECTS, seedAtelier, type MockDaemon, unfoldPast } from './helpers';
@@ -25,7 +24,7 @@ const received = (id: string, s: number, turn: number, extra: Partial<Extract<Th
 
 /** Otto's page in French, its thread `items`. */
 async function openOtto(items: ThreadItem[]) {
-  await Promise.all([loadWorkspace(), loadIde(), loadChat()]);
+  await Promise.all([loadWorkspace(), loadIde()]);
   seedAtelier();
   localStorage.setItem('desktop.lang', 'fr');
   localStorage.setItem('desktop.overview', JSON.stringify({ view: 'list', helpers: true, paused: false }));

@@ -54,15 +54,13 @@ async function until(check: () => boolean) {
 const counts = () => ({ thread: marks.n, groups: Object.fromEntries(groups) });
 
 describe('the thread renders only for what it shows', () => {
-  it('a preview of another session and a chat delta leave the thread and its action groups alone', async () => {
+  it('a preview of another session leaves the thread and its action groups alone', async () => {
     const { d } = await openOtto();
     // Both exchanges are among the last three, open: each one's actions render.
     expect([...groups.keys()].sort()).toEqual(['t1', 't4', 't5']);
     const before = counts();
     d.preview('nova', ['$ npm run build']);
     await until(() => daemonStore.getState().previews.get('local:nova')?.[0] === '$ npm run build');
-    act(() => { daemonStore.apply({ type: 'chat.delta', qid: 'q1', text: 'Je regarde' }); });
-    expect(daemonStore.getState().chatLive).toEqual({ qid: 'q1', text: 'Je regarde' });
     expect(counts()).toEqual(before);
   });
 

@@ -4,14 +4,13 @@ import { render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../../src/App';
 import { forgetTabs } from '../../src/shell/tabs';
-import { forgetLedgePane } from '../../src/state/ledgePane';
 import { session } from '../model/fixtures';
 import { snapshot } from '../state/helpers';
 import { meStub } from '../screens/app-setup';
 import { setup } from '../screens/setup';
 
 const before = globalThis.matchMedia;
-afterEach(() => { globalThis.matchMedia = before; forgetLedgePane(); forgetTabs(); });
+afterEach(() => { globalThis.matchMedia = before; forgetTabs(); });
 
 function upright(hash: string) {
   globalThis.history.replaceState(null, '', `/${hash}`);

@@ -3,8 +3,7 @@
 import { projectOf, type Machines, type Projects } from '@ledge/protocol';
 import { readMachines } from '../daemon/machines.js';
 import { readProjects } from '../daemon/projects.js';
-import { installedAgents, ledgeMd, readGuide } from '../chat/guide.js';
-import { projectsMd } from '../chat/context.js';
+import { installedAgents, ledgeMd, projectsMd, readGuide } from './guide.js';
 import { LEDGE_VERSION } from '../version.js';
 import { forSession, NOTE_MAX, noteDate, notesDir, oldFor, oneLine, readNotes, type Note } from './notes.js';
 
@@ -68,7 +67,7 @@ export interface BrainOptions {
   from?: string;
   /** Where the command runs: its project decides which notes the index offers. */
   cwd?: string;
-  /** Inside a session Ledge launched (LEDGE_SESSION): a `chat` note is neither listed nor read. */
+  /** Inside a session Ledge launched (LEDGE_SESSION): a `chat` note (Ledge's chat, removed: « plus lue ») is neither listed nor read. */
   inSession?: boolean;
 }
 
@@ -89,7 +88,7 @@ export async function runBrain(args: string[], o: BrainOptions = {}): Promise<{ 
       ...Object.entries(GENERATED).map(([k, v]) => `- ${k} — ${v}`),
       '',
       `Notes de l'utilisateur (${from})${inSession && project ? `, pour le projet ${project.name}` : ''} :`,
-      ...(offered.length ? offered.map(n => `${indexLine(n)}${!inSession && n.scope !== 'all' ? ` — réservée ${n.scope === 'chat' ? 'au chat' : 'aux sessions'}` : ''}`) : ['- (aucune)']),
+      ...(offered.length ? offered.map(n => `${indexLine(n)}${!inSession && n.scope !== 'all' ? (n.scope === 'chat' ? ' — plus lue' : ' — réservée aux sessions') : ''}`) : ['- (aucune)']),
       ...(others.length ? [`- et ${others.length} note(s) d'autres projets : ${others.map(n => n.name).join(', ')}`] : []),
       ...(more > 0 ? [`- et ${more} note(s) au-delà de 200, jamais lues`] : []),
       '',
@@ -99,7 +98,7 @@ export async function runBrain(args: string[], o: BrainOptions = {}): Promise<{ 
   if (name in GENERATED) return { line: (await generated(name as Generated)).trimEnd(), code: 0 };
   const note = notes.find(n => n.name.toLowerCase() === name.toLowerCase() || n.file.toLowerCase() === name.toLowerCase());
   if (!note) return { line: `Ledge ne connaît pas « ${name} » : \`ledge brain\` liste ce qu'il sait.`, code: 1 };
-  if (inSession && note.scope === 'chat') return { line: `La note « ${note.name} » est réservée au chat de Ledge.`, code: 1 };
+  if (inSession && note.scope === 'chat') return { line: `${note.name} : note plus lue, sa portée était le chat de Ledge.`, code: 1 };
   return { code: 0, line: [
     `# ${note.name} — « ${note.title} » — ${noteDate(note)} (${note.path})`,
     '',

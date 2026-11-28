@@ -1,11 +1,13 @@
 import { backendOf, isArchived, type ClientMessage, type MessageAck, type ServerMessage, type Session, type Tool } from '@ledge/protocol';
 import type { Store } from './store.js';
 import { formatLedgeMessage, formatLedgeNotice, inline, mailId } from './crossSession.js';
-import { free } from './relay.js';
 import { bareName } from './peers.js';
 import { reliefOf } from './handover.js';
 import { log } from '../log.js';
 import { jsonJournal, type Journal } from './journal.js';
+
+/** Free to take a typed instruction: its turn (or in error, where session.reply types too), nothing pending. */
+export const free = (s: Session | undefined): s is Session => !!s && (s.state === 'idle' || s.state === 'error') && !s.pending;
 
 /** What the mailbox journals: the messages still to type, and the bodies `ledge read` can still give. */
 export interface MailState { queue: Queued[]; bodies: Body[] }
@@ -17,8 +19,6 @@ export interface MailboxDeps {
   replyTo: (id: string, text: string) => Promise<string | null>;
   /** Shared with the relay: a session being typed into. */
   typing: Set<string>;
-  /** A chat relay instruction is queued for the session: it goes first. */
-  relayQueued: (id: string) => boolean;
   /** Sessions Ledge is closing: never delivered to, even free; their messages fail once they exit. */
   closing?: ReadonlySet<string>;
   sent: { record(senderId: string, item: { rid: string; at: string; to: string; peer?: string; text: string; summary?: string }): void; mark(senderId: string, rid: string, status: 'delivered' | 'failed'): void };
@@ -93,7 +93,7 @@ export function createMailbox(d: MailboxDeps): Mailbox {
     d.journal?.save({ queue: [...queue], bodies: [...bodies.values()] });
   };
 
-  const ready = (id: string) => free(d.store.get(id)) && !d.typing.has(id) && !d.closing?.has(id) && !d.relayQueued(id);
+  const ready = (id: string) => free(d.store.get(id)) && !d.typing.has(id) && !d.closing?.has(id);
 
   /** The card fails; a message's sender, still there to read it, is told why at its own next free moment. */
   function fail(m: Queued, reason: string): void {

@@ -26,7 +26,7 @@ test('the grid has the mockup\'s sizes', async ({ page }) => {
   expect((await box(page.locator('.ide-status'))).height).toBe(30);
   expect((await box(page.getByRole('navigation', { name: 'Activity bar' }))).width).toBe(48);
   expect((await box(side(page))).width).toBe(248);
-  expect((await box(page.locator('.ide-right'))).width).toBe(300);
+  await expect(page.locator('.ide-right')).toHaveCount(0);   // the chat's panel left (#40 PR 4)
 });
 
 test('dragging the sidebar edge under 150 px collapses it; Ctrl+B gives it back at 248 px', async ({ page }) => {

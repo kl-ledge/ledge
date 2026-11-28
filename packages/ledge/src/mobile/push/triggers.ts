@@ -1,4 +1,4 @@
-import { pendingKey, type ChatErrorCode, type DecidedBy, type HumanAsk, type PushPayload, type Session, type Task } from '@ledge/protocol';
+import { pendingKey, type DecidedBy, type HumanAsk, type PushPayload, type Session, type Task } from '@ledge/protocol';
 
 const TAG_MAX = 32;
 const TITLE_MAX = 80;
@@ -30,7 +30,7 @@ function requestBody(s: Session): string {
 
 /**
  * What the phone should be told about this change of a session, or nothing: a new request or question. A turn that ended
- * is no longer a push of its own: the operator's point says it. Pure.
+ * is no longer a push of its own. Pure.
  */
 export function pushFor(before: Session | undefined, after: Session, all: readonly Session[]): PushPayload | null {
   const badge = Math.min(999, all.filter(s => s.pending).length);
@@ -56,22 +56,6 @@ export function resolvedFor(before: Session | undefined, after: Session, all: re
   return { v: 1, kind: 'resolved', title: cut(`${after.name} · traitée`, TITLE_MAX), name: cut(after.name, NAME_MAX), body, url: `/#/thread/${encodeURIComponent(after.id)}`, badge, tag: safeTag(after.id) };
 }
 
-/** The phone's own words for a question that ended without an answer (a copy of apps/mobile/src/copy.ts: the daemon never imports the phone). */
-const CHAT_ERROR_BODY: Record<ChatErrorCode, string> = {
-  busy: 'Ledge répond déjà à d\'autres questions. Réessayez dans un instant.',
-  timeout: 'Ledge n\'a pas répondu à temps.',
-  failed: 'Ledge n\'a pas pu répondre.',
-  cancelled: 'Question arrêtée.'
-};
-
-/** The end of a device's question: never the text of the answer, only the code's own sentence on an error. */
-export function chatEndPayload(code: ChatErrorCode | undefined, badge: number): PushPayload {
-  return {
-    v: 1, kind: 'chat', title: 'Ledge a répondu', body: code ? CHAT_ERROR_BODY[code] : 'Touchez pour lire la réponse.',
-    url: '/#/chat', badge: Math.max(0, Math.min(999, badge)), tag: 'chat'
-  };
-}
-
 /** A decision a session just put to the user (`ledge task give ledge …`): it opens that session's thread, whose foot answers it
  *  (#40 D2, docs/mockups/ledge-remove-chat-d1-d3-d6.html, card 8). */
 export function decisionPayload(t: Task, badge: number): PushPayload {
@@ -82,7 +66,7 @@ export function decisionPayload(t: Task, badge: number): PushPayload {
 }
 
 /**
- * An urgent or critical question of a rig, pushed at once (it does not wait for the operator's point): titled « Ledge », the body
+ * An urgent or critical question of a rig, pushed at once: titled « Ledge », the body
  * names the seat, and it opens the ask itself, « Retour » leading to the Rigs tab's requests (#40 D1, card 8). A question with options
  * asks; one without is still a request to read.
  */

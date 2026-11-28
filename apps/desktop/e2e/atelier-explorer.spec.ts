@@ -56,7 +56,7 @@ async function scene(page: Page, theme: 'dark' | 'light', sessions: Session[] = 
       { id: 'g2', window: 'main', tabs: [{ kind: 'session', ref: 'local:nova' }, { kind: 'session', ref: 'local:ida' }], active: 0, link: 'teal' }
     ], focus: 'g1', next: 3 })));
   }, [theme, sidebar ? JSON.stringify(sidebar) : '', String(sideWidth)]);
-  await fakeDaemon(page, sessions, { projects: PROJECTS, daemon: { version: '0.63.0', install: 'npm', systemd: true, routing: true } });
+  await fakeDaemon(page, sessions, { projects: PROJECTS, daemon: { version: '0.63.0', install: 'npm', systemd: true } });
   await page.goto('/');
   await expect(page.locator('.ide')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole('tree').getByRole('button', { name: /^Pim/ })).toBeVisible({ timeout: 15_000 });
