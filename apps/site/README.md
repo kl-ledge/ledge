@@ -61,7 +61,6 @@ never in the repository; copy the ones you keep into `public/media/`. `ffmpeg` m
 | Media | How |
 |---|---|
 | `atelier.mp4`, `session.mp4` (and an earlier `chat.mp4`) | `capture/run-desktop.sh`: copies `zz-rec.ts` and `zz-video.spec.ts` into `apps/desktop/e2e`, writes `zz-daemon.ts` (the e2e fake daemon with its chat answer paced) and runs Playwright there |
-| `chat.mp4` | `capture/run-chat.sh`: the same with `zz-chat-video.spec.ts` |
 | `rig.mp4` | `capture/run-rig.sh`: the same with `zz-rig-video.spec.ts`, the fake daemon answering the OpenRig messages |
 | `notch.mp4`, `notch-poster.png`, `notch60-*.png` | `capture/run-overlay.sh`: copies `zz-rec.ts` and `zz-notch-video.spec.ts` into `apps/overlay/e2e` (`zz-notch-video-058.spec.ts` is the older 0.58.0 story, kept for reference) |
 | `phone.mp4`, `phone-*.png` | `zz-video60.spec.ts`, copied by hand into `apps/mobile/e2e` and run with `pnpm --filter @ledge/mobile exec playwright test e2e/zz-video60.spec.ts`; it writes the frames and a `frames.txt` list that `ffmpeg -f concat` assembles, and the stills in `mobile60/` |

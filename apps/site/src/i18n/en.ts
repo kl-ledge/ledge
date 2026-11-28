@@ -1,7 +1,7 @@
 import type { Catalogue } from './fr.ts';
 
 // The English copy: the same meaning as the French, in plain product English. The media are still the French captures, so
-// the labels read on them (« À toi », « Autoriser », « Nouvelle session ») are quoted as the screens show them.
+// the labels read on them (« Demandes », « Autoriser », « Nouvelle session ») are quoted as the screens show them.
 export const en: Catalogue = {
   meta: {
     title: 'Ledge, the workshop for your coding agents',
@@ -42,16 +42,6 @@ export const en: Catalogue = {
       text: 'An agent\'s thread moves forward as you watch. When it asks for approval, allow it, deny it, or deny it and say what to do instead.',
       media: 'A session on video: Otto\'s thread moves forward, the approval request arrives, "Allow" is clicked, the command runs and the tests pass'
     },
-    yourTurn: {
-      tab: 'Everything waiting for you',
-      text: 'One page for everything that is waiting for your decision: requests from sessions, questions from your teams, PRs ready to merge.',
-      media: 'The "For you" page: requests from sessions, questions from rigs, MRs and PRs to fix or merge, finished work'
-    },
-    point: {
-      tab: 'The point',
-      text: 'Ledge speaks first: what is waiting for you, what is finished, what is in progress, your rigs. Each line can be settled on the spot. Ask it your questions too: it cites its sources and offers the action as a card.',
-      media: 'The point on video: Ledge posts by itself what is waiting, what is finished, what is in progress and the rigs, a decision is settled on the spot, then a typed question gets its answer with a card to hand off Nova\'s context'
-    },
     launch: {
       tab: 'Launch',
       text: 'A first message, then the agent, its model, the project and the machine. The session joins its table.',
@@ -70,7 +60,7 @@ export const en: Catalogue = {
     phoneAlt: 'The same rig on the phone: its five seats, its permissions, its topology and its queue',
     launch: { term: 'Launch', text: 'From a saved spec, a stopped rig, or by describing what you need: the operator suggests the team.' },
     tune: { term: 'Adjust', text: 'The number of seats per role, their agent, their model and their permissions, even while the rig is running.' },
-    answer: { term: 'Answer', text: 'The team\'s decisions and questions arrive in "For you", on the PC and on the phone.' },
+    answer: { term: 'Answer', text: 'The team\'s decisions and questions arrive in the Rigs view\'s requests, on the PC and on the phone.' },
     control: { term: 'Stay in control', text: 'Every action shows the {rig} command it runs. A snapshot lets you go back.' },
     note: 'OpenRig is installed separately. Ledge drives it, it does not replace it.',
     link: 'Discover OpenRig'
@@ -158,7 +148,6 @@ export const en: Catalogue = {
   security: {
     title: 'Nothing without your click.',
     lead: 'Ledge suggests, you decide. And nobody else can decide for you.',
-    readOnly: { term: 'The assistant reads, it does not act', text: 'It runs read-only. Every action goes through a card that you confirm.' },
     local: { term: 'Everything stays with you', text: 'The daemon only listens on {ip}. Your servers are reached through your own SSH.' },
     relay: { term: 'The relay reads nothing', text: 'Only encrypted messages travel between the PC and the phone. You can host the relay yourself.' },
     pairing: { term: 'A code to compare', text: 'A device gets access to nothing until you have checked the same six-digit code on both screens.' },
