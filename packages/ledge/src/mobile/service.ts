@@ -1,6 +1,5 @@
 // Mobile access: files, relay link, sign-in, pairing and channels put together, as one state and a set of commands
 // for the local fronts. Nothing secret (relay token, device code, keys, nonces, message texts) reaches the state or the log.
-import { existsSync, renameSync } from 'node:fs';
 import { hostname } from 'node:os';
 import type WebSocket from 'ws';
 import { DEFAULT_DEVICE_PREFS, DeviceNameSchema, DevicePrefsSchema, PushSendResultSchema, SealedFrameSchema, deviceKindOfLabel, type DeviceKind, type DevicePrefs, type PushSend, type PushSendResult, type MobileClientMessage, type MobileConfig, type MobileRecoveryEvent, type MobileState, type RelayServerMessage, type SealedFrame } from '@ledge/protocol';
@@ -14,8 +13,6 @@ import { signOut, startSignIn } from './signin.js';
 import { createPairing } from './pairing.js';
 import { createChannels } from './channels.js';
 import { createRecovery } from './recover.js';
-import { deviceChatDir } from '../chat/threads.js';
-import { paths } from '../paths.js';
 import { log } from '../log.js';
 
 /** `resolved`: the device's service worker shows a `resolved` push (it replaces a request's notification). */
@@ -55,11 +52,6 @@ export interface MobileService {
   pcKey(): string;
   /** Each passkey recovery event as it happens (for the local fronts' toast); returns the unsubscribe. */
   onRecovery(fn: (e: MobileRecoveryEvent) => void): () => void;
-  /**
-   * How a passkey recovery quiets a device's chat before its folder moves: `hold` stops its question and waits for every write
-   * under way, so nothing lands in the old path; the returned function lets the thread open again.
-   */
-  holdChats?(hold: (deviceId: string) => Promise<() => void>): void;
   /** Texts opened from approved devices' sealed messages; returns the unsubscribe. */
   onMessage(fn: (deviceId: string, text: string) => void): () => void;
   stop(): Promise<void>;
@@ -190,12 +182,8 @@ export async function createMobileService(opts: {
   /** What a device is called on the PC's screens and the phone's: its name, else its pairing label. */
   const shownName = (d: ApprovedDevice) => (d.name ?? d.label).slice(0, 40);
   const online = (id: string) => linkState.state === 'online' && channels.online().has(id);
-
-  /** Set by the daemon once its chat threads exist; without it (tests, no chat) there is nothing to quiet. */
-  let holdChat: ((deviceId: string) => Promise<() => void>) | null = null;
   const recovery = createRecovery({
     pc,
-    hold: (id) => (holdChat ? holdChat(id) : Promise.resolve(() => {})),
     pcName: () => hostname().slice(0, 40) || undefined,
     send: sendFrame,
     rp: () => rpOf(config.relayUrl),
@@ -217,22 +205,7 @@ export async function createMobileService(opts: {
         ...kept, id: next.id, publicKey: next.publicKey, lastPeer: next.peer, peers: [next.peer],
         credential: { ...d.credential, counter: next.counter }, recovering: { at, ...(next.model ? { model: next.model } : {}) }
       };
-      // The thread's folder first: the old id leaving the list drops its thread, folder included. A folder that cannot be moved
-      // stops the restore with nothing changed, and a list that cannot be written puts the folder back: the thread is never lost.
-      const from = deviceChatDir(paths().dir, old.id);
-      const to = deviceChatDir(paths().dir, next.id);
-      if (existsSync(to)) throw new Error('the new key already has a chat folder');
-      let moved = false;
-      try { renameSync(from, to); moved = true; }
-      catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error(`its chat was not moved (${(e as NodeJS.ErrnoException).code ?? 'error'})`); }
-      try { saveDevices([...devices.filter((x) => x.id !== old.id).map((x) => withoutPeer(x, next.peer)), entry]); }
-      catch (e) {
-        if (moved) {
-          try { renameSync(to, from); }
-          catch (back) { log(`mobile recovery: chat of ${old.id} left at ${next.id} (${(back as NodeJS.ErrnoException).code ?? 'error'})`); }
-        }
-        throw e;
-      }
+      saveDevices([...devices.filter((x) => x.id !== old.id).map((x) => withoutPeer(x, next.peer)), entry]);
       channels.dropDevice(old.id);
       // The old app's relay sessions go, as in a revocation, but its passkey lives on in the new entry: no tombstone.
       const others = new Set(devices.flatMap(peersOf));
@@ -665,8 +638,6 @@ export async function createMobileService(opts: {
       recoveryListeners.add(fn);
       return () => { recoveryListeners.delete(fn); };
     },
-
-    holdChats(hold) { holdChat = hold; },
 
     onMessage(fn) {
       messageListeners.add(fn);

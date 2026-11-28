@@ -24,7 +24,7 @@ describe('screen keys', () => {
     fireEvent.keyDown(document.body, { key: 'n' });
     expect(dispatch).toHaveBeenCalled();
   });
-  it('never while typing, under a dialog or with the chat open; Escape and Alt stay global', () => {
+  it('never while typing or under a dialog; Escape and Alt stay global', () => {
     const handler = vi.fn(() => true);
     const dispatch = vi.fn();
     const { rerender } = render(<Harness state={base} keys={{ current: handler }} dispatch={dispatch} />);
@@ -33,13 +33,11 @@ describe('screen keys', () => {
     (document.activeElement as HTMLElement).blur();
     rerender(<Harness state={{ ...base, modal: { kind: 'shortcuts' } }} keys={{ current: handler }} dispatch={dispatch} />);
     fireEvent.keyDown(document.body, { key: 'j' });
-    rerender(<Harness state={{ ...base, chat: true }} keys={{ current: handler }} dispatch={dispatch} />);
-    fireEvent.keyDown(document.body, { key: 'j' });
     rerender(<Harness state={base} keys={{ current: handler }} dispatch={dispatch} />);
     fireEvent.keyDown(document.body, { key: '1', altKey: true });
     expect(handler).not.toHaveBeenCalled();
   });
-  it('Escape goes to the screen after a dialog and the chat, before navigation; a screen that takes it keeps the place', () => {
+  it('Escape goes to the screen after a dialog, before navigation; a screen that takes it keeps the place', () => {
     const handler = vi.fn((e: KeyboardEvent) => e.key === 'Escape');
     const dispatch = vi.fn();
     const { rerender } = render(<Harness state={base} keys={{ current: handler }} dispatch={dispatch} />);
@@ -52,10 +50,8 @@ describe('screen keys', () => {
     (document.activeElement as HTMLElement).blur();
     rerender(<Harness state={{ ...base, modal: { kind: 'shortcuts' } }} keys={{ current: handler }} dispatch={dispatch} />);
     fireEvent.keyDown(document.body, { key: 'Escape' });
-    rerender(<Harness state={{ ...base, chat: true }} keys={{ current: handler }} dispatch={dispatch} />);
-    fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(handler).toHaveBeenCalledTimes(2);
-    expect(dispatch.mock.calls).toEqual([[{ type: 'escape' }], [{ type: 'escape' }]]);
+    expect(dispatch.mock.calls).toEqual([[{ type: 'escape' }]]);
   });
   it('a screen that declines Escape lets navigation have it', () => {
     const dispatch = vi.fn();
@@ -63,7 +59,7 @@ describe('screen keys', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(dispatch).toHaveBeenCalledWith({ type: 'escape' });
   });
-  it('Ctrl K still opens the search while typing, under a dialog or with the chat open; J reaches the screen again once they close', () => {
+  it('Ctrl K still opens the search while typing or under a dialog; J reaches the screen again once it closes', () => {
     const handler = vi.fn((e: KeyboardEvent) => e.key === 'j');
     const dispatch = vi.fn();
     const search = { type: 'modal', modal: { kind: 'search' } };
@@ -79,14 +75,8 @@ describe('screen keys', () => {
     rerender(<Harness state={base} keys={{ current: handler }} dispatch={dispatch} />);         // the dialog closed
     fireEvent.keyDown(document.body, { key: 'j' });
     expect(handler).toHaveBeenCalledTimes(1);
-    rerender(<Harness state={{ ...base, chat: true }} keys={{ current: handler }} dispatch={dispatch} />);
-    fireEvent.keyDown(document.body, { key: 'j' });
     fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
     expect(dispatch).toHaveBeenLastCalledWith(search);
-    expect(handler).toHaveBeenCalledTimes(1);
-    rerender(<Harness state={{ ...base, chat: false }} keys={{ current: handler }} dispatch={dispatch} />);   // the chat closed
-    fireEvent.keyDown(document.body, { key: 'j' });
-    expect(handler).toHaveBeenCalledTimes(2);
     expect(dispatch).toHaveBeenCalledTimes(3);
   });
   it('useScreenKeys registers while mounted and always calls the latest handler', () => {

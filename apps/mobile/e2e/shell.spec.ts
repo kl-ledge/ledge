@@ -87,7 +87,7 @@ for (const theme of ['dark', 'light'] as const) {
       const rail = nav(page);
       // No Ledge in the rail any more (#40 D6, card 10).
       await expect(rail.getByRole('link')).toHaveText([/^Sessions/, 'MR/PR', 'Rigs', 'Réglages']);
-      await expect(rail.getByRole('button', { name: copy.nav.chat })).toHaveCount(0);
+      await expect(rail.getByRole('button', { name: 'Ledge' })).toHaveCount(0);
       const box = (await rail.boundingBox())!;
       expect.soft(box.x).toBe(0);
       expect.soft(box.width).toBe(76);

@@ -1,6 +1,6 @@
 // What a passkey-confirmed operation came to, as a sheet says it: « Le PC »'s update or restart.
 import { copy } from '../copy';
-import type { ChatAction } from '../state/chat';
+import type { ActionResult } from '../state/actionResult';
 
 export interface OutcomeNote { text: string; quiet: boolean }
 
@@ -8,7 +8,7 @@ export interface OutcomeNote { text: string; quiet: boolean }
  * A passkey that was cancelled or expired is a quiet note; a refusal says why when the phone has words for it (`copy.confirm.refused`),
  * otherwise `fallback` says only that nothing was done.
  */
-export function outcomeNote(r: ChatAction, fallback: string): OutcomeNote {
+export function outcomeNote(r: ActionResult, fallback: string): OutcomeNote {
   switch (r.status) {
     case 'applied': return { text: fallback, quiet: false };
     case 'cancelled': return { text: copy.confirm.cancelled, quiet: true };

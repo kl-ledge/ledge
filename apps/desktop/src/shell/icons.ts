@@ -67,7 +67,6 @@ export const SHELL_ICONS = {
   tasks: ['M4 4h16v16H4z', 'm8 12 3 3 5-6'],
   panelLeft: ['M3 4h18v16H3z', 'M9 4v16'],
   panelBottom: ['M3 4h18v16H3z', 'M3 14h18'],
-  panelRight: ['M3 4h18v16H3z', 'M15 4v16'],
   // The bottom panel's tabs (mockup `bottomPanel()`): Terminaux, Sortie.
   terminals: ['M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'M7 9l3 3-3 3', 'M12 15h5'],
   output: ['M4 6h11', 'M4 10h8', 'M4 14h11', 'M4 18h6', 'M17 13v7', 'M14.5 17.5 17 20l2.5-2.5'],

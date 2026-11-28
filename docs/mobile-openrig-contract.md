@@ -1,5 +1,7 @@
 # Contrat : rigs, kernel et queue OpenRig sur le téléphone (refonte mobile B4)
 
+> Note (#40) : le chat de Ledge, « le point », l'opérateur et « À toi » ont été retirés depuis l'écriture de ce document. Ses mentions de ces surfaces sont historiques ; l'état actuel est dans `docs/ledge-guide.md`. Les demandes d'OpenRig se répondent dans le bloc « Demandes » de la vue Rigs (Desktop) et de l'onglet Rigs (téléphone), les décisions dans la vue Tâches et dans le fil de la session.
+
 Pour `dev-front`, qui code M4 (onglets Rigs et Kernel du téléphone et de la tablette) sans avoir à demander. Les schémas zod font
 foi : `packages/protocol/src/phone.ts` (messages `rigs.*`) et `packages/protocol/src/phoneRigs.ts` (types, bornes, règle de
 passkey). Le comportement est fixé par `packages/ledge/test/mobile-rigs.test.ts`.

@@ -4,7 +4,7 @@ import { copy } from '../copy';
 import { coveredIds, failureWhy, nextLine, routineFailed, routineGroups, routineItems, scheduleView, sessionOf } from '../model/routines';
 import { goBack, href } from '../router';
 import { TabPage } from '../shell/Shell';
-import type { ChatAction } from '../state/chat';
+import type { ActionResult } from '../state/actionResult';
 import { useMobile, type MobileStore } from '../state/store';
 import { Icon } from '../ui/icons';
 import { Card } from '../ui/kit/Box';
@@ -22,15 +22,15 @@ export const routineButton = (primary = false) => ['inline-flex h-10 min-w-0 fle
   primary ? 'border-transparent bg-primary text-primary-fg active:bg-primary-hover' : 'border-input bg-surface dark:bg-transparent text-fg active:bg-raised'].join(' ');
 
 /** What a routine command's end says when it did not go, with the words the phone already has for it; null when it went. */
-export function routineError(r: ChatAction): string | null {
+export function routineError(r: ActionResult): string | null {
   switch (r.status) {
     case 'applied': return null;
     case 'cancelled': return copy.confirm.cancelled;
     case 'expired': return copy.confirm.expired;
-    case 'failed': return copy.chat.point.note.failed;
+    case 'failed': return copy.cards.note.failed;
     case 'rejected':
-      if (r.reason === 'not_pending' || r.reason === 'stale' || r.reason === 'not_found') return copy.chat.point.note.stale;
-      return copy.confirm.refused[r.reason] ?? copy.chat.point.note.failed;
+      if (r.reason === 'not_pending' || r.reason === 'stale' || r.reason === 'not_found') return copy.cards.note.stale;
+      return copy.confirm.refused[r.reason] ?? copy.cards.note.failed;
   }
 }
 

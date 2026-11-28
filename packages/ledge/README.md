@@ -70,36 +70,12 @@ systemctl --user disable --now ledge-daemon.service   # back to on-demand start 
 ~/.ledge/tmux.conf      dedicated tmux server config (status off, mouse on)
 ~/.ledge/sessions.json  journal, reloaded when the daemon restarts
 ~/.ledge/daemon.log     dropped hooks, failed injections, poll errors
-~/.ledge/chat.json      the day's chat conversation (date, session id)
-~/.ledge/chat/context/  files the chat reads (sessions.md, pane-*, reply-*, git-*)
+~/.ledge/{chat.json,chat,ledge.sqlite,mobile/chat}.bak-<date>   the removed chat's data and the operator's journal, set aside at start (#40), never deleted
 ~/.ledge/tui.json       ledge tui's settings (its language)
 ~/.ledge/daemon.pid     PID of the running daemon, removed when it stops cleanly
 ~/.config/systemd/user/ledge-daemon.service   user unit written by `ledge setup`
 ~/.ledge/exit-<id>      transient: the agent's exit code, written by the launcher's wrapper when the agent ends and read and deleted by `ledge claude`
 ```
-
-## Ask Ledge (chat)
-
-The overlay's ask field sends a question to the daemon (`chat.ask`), which answers it with one headless, read-only run of the chosen harness (Settings › Default harness; Claude Code when omitted):
-
-```sh
-# Claude Code (default)
-claude -p --restricted --tools Read,Grep,Glob --permission-mode dontAsk --output-format stream-json --verbose --include-partial-messages --max-turns 16 --append-system-prompt <persona> --add-dir <each session folder> --session-id <id>   # --resume <id> for the next questions of the day
-
-# Codex
-codex exec --sandbox read-only --json --skip-git-repo-check --ignore-user-config -C <context> -c 'sandbox_permissions=["disk-full-read-access"]' -   # exec resume <id> … for the next questions
-
-# Cursor Agent
-cursor-agent -p --mode ask --output-format stream-json --stream-partial-output --sandbox enabled --trust --workspace <context> --add-dir <each session folder>   # --resume <id> for the next questions
-```
-
-The question goes on stdin, never in argv, and `LEDGE_CHAT=1` is set so Ledge's own hooks ignore the run. An inherited `ANTHROPIC_API_KEY` is dropped so Claude Code keeps its own login. `--restricted` ignores the user, project and local settings, so none of your hooks run and no setting can widen the tools. Only `Read`, `Grep` and `Glob` are allowed on Claude Code, and anything else is denied rather than asked. Codex runs in a read-only sandbox; Cursor Agent runs in ask mode.
-
-- `~/.ledge/chat/context/` is the folder the harness runs in, rewritten before each question: `sessions.md` (every session, its state and its file names), `pane-<id>.txt` (last terminal lines), `reply-<id>.md` (last reply), `git-<id>.txt` (status, log and diff stat). A source that fails or is empty is just left out. The folder is deleted when the turn ends.
-- `~/.ledge/chat.json` holds the day's conversation (its date, session id and which tool it belongs to); a new day, a `chat.reset`, or a change of harness starts a new conversation, and a question after a failed resume starts a new one too.
-- One question at a time; a turn that takes more than 180 s is stopped and the chat says it timed out (no retry). `chat.reset` is refused while a question is running.
-
-- Close card: asked to close sessions, the harness ends its answer with one `ledge-close` block per session (8 at most; the daemon takes the id, name and tool from its own store). The card's **Close** sends `session.close { qid, rows? }`: the daemon sends the interrupt keys and waits up to 10 s for a free prompt, types the agent's exit command (`/exit`) once it is free, then waits up to 15 s for the session to end. A pending request is only interrupted, never answered or typed into: a hook's request for the main thread is recorded as a permission denied (or a question dismissed) by the close; a request read off the screen, or a helper's, is interrupted with nothing recorded (a helper's keeps the prompt busy, so that close ends in the kill). The tmux session is killed when the prompt is still not free after 10 s (nothing is typed) or when the agent is still running 15 s after the exit command. The session ends `exited`, not archived, so `session.resume` brings it back. The phone's chat shows the same card, and its **Fermer** / **Fermer tout (n)** send `chat.close` through the gateway, which needs a passkey assertion bound to the `qid` with purpose `close` (a `launch` or `decide` assertion is never accepted); without a registered passkey the gateway answers `confirm_required` and the app shows the setup hint. `rows` is validated like `chat.launch`'s (ints 0..7, unique, 1 to 8), a failed row is only `failed: true` (no error text reaches the phone), and `chat.close` is volatile: never replayed after a page reload. Asked again for rows still being closed (a reload mid-close), the gateway answers `applied`: that close answers for them. Two cards naming one session share its close: the second waits for it and marks its row with the same outcome, never `a close is already in progress`. There is no `ledge close` for agents: only Ledge's chat closes sessions.
 
 Session names and tab titles: Ledge sets `set-titles` in `~/.ledge/tmux.conf`. A tmux server that is already running re-reads `tmux.conf` only after it restarts, so `set-titles` applies to new tmux servers. The tab string is `${name} · ${topic ?? project}`; `session.rename` from the overlay updates it.
 

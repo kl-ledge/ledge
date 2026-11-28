@@ -115,7 +115,7 @@ for (const theme of ['dark', 'light'] as const) {
       test.skip(browserName !== 'chromium', 'The virtual authenticator is a Chromium DevTools feature');
       await paired(page, theme, true);
       await page.getByRole('link', { name: /Nova/ }).first().click();
-      const foot = page.getByRole('contentinfo', { name: c.chat.point.decision });
+      const foot = page.getByRole('contentinfo', { name: c.cards.decision });
       await expect(foot).toContainText('Choisir le dossier des captures');
       await expect(foot.getByRole('button', { name: 'Envoyer ma réponse' })).toBeDisabled();
       await shot(page, `decision-${theme}`);
@@ -128,7 +128,7 @@ for (const theme of ['dark', 'light'] as const) {
     test('without a passkey, the decision foot says so and leads to Réglages (card 2)', async ({ page }) => {
       await paired(page, theme);
       await page.getByRole('link', { name: /Nova/ }).first().click();
-      const foot = page.getByRole('contentinfo', { name: c.chat.point.decision });
+      const foot = page.getByRole('contentinfo', { name: c.cards.decision });
       await expect(foot.getByRole('link', { name: 'Ouvrir les Réglages' })).toBeVisible();
       await shot(page, `decision-nokey-${theme}`);
     });

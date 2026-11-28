@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PushPayloadSchema, pendingKey, type HumanAsk, type Session } from '@ledge/protocol';
-import { chatEndPayload, decisionPayload, pushFor, resolvedFor, rigAskPayload, safeTag } from '../src/mobile/push/triggers.js';
+import { decisionPayload, pushFor, resolvedFor, rigAskPayload, safeTag } from '../src/mobile/push/triggers.js';
 
 const T0 = '2026-10-09T18:00:00.000Z';
 const mk = (over: Partial<Session> = {}): Session => ({
@@ -19,7 +19,6 @@ describe('the name the phone writes its title with (Q29)', () => {
     const decision = decisionPayload({ id: 't1', giverName: 'Pim', title: 'Ship it?' } as never, 1);
     expect(decision).toMatchObject({ kind: 'decision', name: 'Pim' });
     expect(PushPayloadSchema.parse(decision)).toEqual(decision);
-    expect(chatEndPayload(undefined, 0)).not.toHaveProperty('name');
     expect(pushFor(mk(), mk({ name: 'N'.repeat(150), pending: req('x') }), [])!.name).toHaveLength(100);
     // A payload from an older daemon, without the name, is still valid.
     const { name: _n, ...old } = pushFor(mk(), asking, [asking])!;

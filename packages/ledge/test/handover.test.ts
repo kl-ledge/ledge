@@ -13,7 +13,7 @@ import { parseLedgeCommand } from '../src/cli/send.js';
 import { connect, type Client } from '../src/client.js';
 import type { Tmux } from '../src/tmux.js';
 import { until } from './helpers.js';
-import { ledgeCard } from './helpers/ledge-card.js';
+import { taskGiver } from './helpers/giver.js';
 
 const AT = '2026-10-26T08:00:00.000Z';
 const claudeLine = (used: number, extra: Record<string, unknown> = {}) => JSON.stringify({ type: 'assistant', message: { model: 'claude-opus', usage: { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: used - 30, output_tokens: 20 } }, ...extra });
@@ -73,11 +73,12 @@ function fakeTmux(): Tmux & { created: NewSession[]; typed: Array<{ pane: string
 }
 
 let srv: Awaited<ReturnType<typeof startServer>> | undefined; let store: Store; let tmux: ReturnType<typeof fakeTmux>; let work: string; let c: Client;
-let history: History; let card: ReturnType<typeof ledgeCard>;
+let history: History; let card: ReturnType<typeof taskGiver>;
 async function start(briefMs = 60_000) {
-  tmux = fakeTmux(); history = new History({ dir: mkdtempSync(join(tmpdir(), 'ledge-history-')) }); card = ledgeCard();
-  srv = await startServer({ store, tmux, port: 0, history, chat: card.chat, verify: { attempts: 2, intervalMs: 10 }, close: { freeMs: 200, exitMs: 200 }, handoverBriefMs: briefMs });
+  tmux = fakeTmux(); history = new History({ dir: mkdtempSync(join(tmpdir(), 'ledge-history-')) });
+  srv = await startServer({ store, tmux, port: 0, history, verify: { attempts: 2, intervalMs: 10 }, close: { freeMs: 200, exitMs: 200 }, handoverBriefMs: briefMs });
   c = await connect({ port: srv.port }); await c.next('snapshot');
+  card = taskGiver(store);
 }
 const set = (id: string, patch: Partial<Session>) => store.upsert({ ...store.get(id)!, ...patch });
 /** A Claude Code session on opus, its transcript at `used` tokens of 200 000; the turn ends (→ idle) and Ledge reads it. */
@@ -153,9 +154,9 @@ describe('the relief of a session (context handover spec §3.3)', () => {
     const spawned = tmux.created.at(-1)!;
     expect(spawned.command.join(' ')).toContain(BRIEF);
     expect(spawned.command).toEqual(expect.arrayContaining(['--model', 'opus']));
-    // Its task is the relief's, still given by Ledge.
+    // Its task is the relief's, still given by its giver.
     c.send({ type: 'task.cmd', rid: 's', by: 'ledge', op: 'show', task: task.id });
-    expect((await c.next('task.result')).task).toMatchObject({ owner: relief.id, giver: 'ledge', state: 'open' });
+    expect((await c.next('task.result')).task).toMatchObject({ owner: relief.id, giver: 'giver', state: 'open' });
     await until(() => store.get(id)!.state === 'exited');
     // The relief reads the brief again.
     c.send({ type: 'handover.show', rid: 'v', by: relief.id });
@@ -230,7 +231,7 @@ describe('the relief of a session (context handover spec §3.3)', () => {
     const said = tmux.created.at(-1)!.command.join(' ');
     expect(said).toContain('Étape 1 finie, tests verts.');
     expect(said).toContain(`Branche : feat/roles (${work})`);
-    expect(said).toContain('« Écrire les rôles » (confiée par Ledge)');
+    expect(said).toContain('« Écrire les rôles » (confiée par Gil)');
     expect(said).toContain('Il n\'a noté ni décisions ni pièges');
   }, 20_000);
 

@@ -216,7 +216,7 @@ export function MessageLayer({ sessions, clock, paused, reduced, dispatch, tasks
         const from = nameOf(tr.from, tr.fromName), to = nameOf(tr.to, tr.toName);
         return <Wire key={`${task.id}#${tr.index}`} from={endOf(tr.from)} to={endOf(tr.to)} kind="task" still={still} layer={layer}
           label={t.atelier.taskLabel(tr.op, from, to, task.title)} head={<><Icon d={SHELL_ICONS.plan} size={11} />{t.atelier.taskTo[tr.op](to)}</>}
-          text={tr.op === 'pass' && tr.note ? tr.note : task.title} onOpen={() => dispatch({ type: 'ledge', tab: 'tasks', task: task.id })} />;
+          text={tr.op === 'pass' && tr.note ? tr.note : task.title} onOpen={() => dispatch({ type: 'tasks', task: task.id })} />;
       })}
     </div>
   );

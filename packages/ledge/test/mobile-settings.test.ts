@@ -81,23 +81,6 @@ describe('phone settings: device.prefs', () => {
     expect(g.fm.prefs.get('dev1')).toEqual(PREFS);
   });
 
-  it('the chat of a device that chose its agent runs it; another device keeps the PC\'s', async () => {
-    const asked: Array<{ id: string; tool: unknown }> = [];
-    const chatOf = (id: string) => ({
-      async ask(qid: string, _text: string, emit: (m: ServerMessage) => void, tool?: unknown) { asked.push({ id, tool }); emit({ type: 'chat.done', qid, text: 'ok', at: '2026-11-05T10:00:00.000Z' } as never); },
-      cancel() {}, async reset() {}, history: () => [], ignore: () => null
-    });
-    const chats = {
-      device: (id: string) => chatOf(id) as never, async deviceTool() { return 'claude' as const; }, owner: () => undefined,
-      peek: (id: string) => chatOf(id) as never, async drop() {}, setEmitter() {}
-    };
-    const g = setup({ settings: true, chats });
-    g.fm.prefs.set('dev1', { ...DEFAULT_DEVICE_PREFS, chatTool: 'cursor' });
-    g.send('dev1', { type: 'chat.ask', qid: randomUUID(), text: 'hello' });
-    g.send('dev2', { type: 'chat.ask', qid: randomUUID(), text: 'hello' });
-    await flush();
-    expect(asked).toEqual([{ id: 'dev1', tool: 'cursor' }, { id: 'dev2', tool: 'claude' }]);
-  });
 });
 
 describe('phone settings: context.set', () => {

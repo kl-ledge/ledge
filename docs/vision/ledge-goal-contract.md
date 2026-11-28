@@ -1,5 +1,7 @@
 # Contrat — l'objectif écrit à Ledge, Max propose l'équipe (lot 2)
 
+> Note (#40) : le chat de Ledge, « le point », l'opérateur et « À toi » ont été retirés depuis l'écriture de ce document. Ses mentions de ces surfaces sont historiques ; l'état actuel est dans `docs/ledge-guide.md`. Les demandes d'OpenRig se répondent dans le bloc « Demandes » de la vue Rigs (Desktop) et de l'onglet Rigs (téléphone), les décisions dans la vue Tâches et dans le fil de la session.
+
 Auteur : dev-back@ledge-dev, 2026-11-02. Ligne `qitem-20261102211219-e5d6ed658109e48d`. Branche `feat/goal-to-max` (sur
 `feat/human-channel` c74a0762, le lot 1). Maquette : `docs/mockups/ledge-human-operator-ab.html`, écrans `goalAsk` et
 `goalDone` (+ fiche §9). Contrat du lot 1 : `docs/vision/ledge-human-channel-contract.md`.

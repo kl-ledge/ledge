@@ -79,7 +79,7 @@ export const stops: Array<() => void> = [];
 /** Stops every gateway `setup` made: call it from the test file's `afterEach`. */
 export const stopAll = () => { for (const s of stops.splice(0)) s(); };
 
-export function setup(opts: { boot?: string; dispatch?: (msg: ClientMessage, reply: (m: ServerMessage) => void) => Promise<void>; relayUrl?: string; chats?: Parameters<typeof createPhoneGateway>[0]['chats']; relay?: Parameters<typeof createPhoneGateway>[0]['relay']; launchChat?: Parameters<typeof createPhoneGateway>[0]['launchChat']; closeChat?: Parameters<typeof createPhoneGateway>[0]['closeChat']; actChat?: Parameters<typeof createPhoneGateway>[0]['actChat']; tasks?: () => Task[]; deps?: Partial<Parameters<typeof createPhoneGateway>[0]>; onChatEnd?: Parameters<typeof createPhoneGateway>[0]['onChatEnd']; devices?: string[]; attachments?: AttachmentStore; settings?: boolean } = {}) {
+export function setup(opts: { boot?: string; dispatch?: (msg: ClientMessage, reply: (m: ServerMessage) => void) => Promise<void>; relayUrl?: string; tasks?: () => Task[]; deps?: Partial<Parameters<typeof createPhoneGateway>[0]>; devices?: string[]; attachments?: AttachmentStore; settings?: boolean } = {}) {
   const fm = fakeMobile(opts.devices ?? ['dev1', 'dev2'], opts.relayUrl, opts.settings);
   const clock = { t: 1_000_000 };
   const challenges = createChallengeStore({ now: () => clock.t });
@@ -100,12 +100,6 @@ export function setup(opts: { boot?: string; dispatch?: (msg: ClientMessage, rep
   const gw = createPhoneGateway({
     mobile: fm.mobile,
     attachments,
-    ...(opts.chats ? { chats: opts.chats } : {}),
-    ...(opts.relay ? { relay: opts.relay } : {}),
-    ...(opts.launchChat ? { launchChat: opts.launchChat } : {}),
-    ...(opts.closeChat ? { closeChat: opts.closeChat } : {}),
-    ...(opts.actChat ? { actChat: opts.actChat } : {}),
-    ...(opts.onChatEnd ? { onChatEnd: opts.onChatEnd } : {}),
     ...(opts.tasks ? { tasks: opts.tasks } : {}),
     sessions: () => [...sessions.values()],
     session: id => sessions.get(id),

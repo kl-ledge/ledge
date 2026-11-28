@@ -4,15 +4,15 @@
 import { hostname } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  ATTACHMENT_MAX, OperationIdSchema, PHONE_PROTOCOL, actionById, TOOL_TEXT_MAX, proposalRows, PhoneClientMessageSchema, pushEndpointAllowed, RefusalCodeSchema, UNTYPABLE, backendOf, isArchived, pendingKey,
-  LEDGE_GIVER, SEMVER, pcSubject, PHONE_PROJECTS_MAX, type AttachmentRef, type ChatErrorCode, type ChatTurn, type CloseHow, type ClientMessage, type PhoneTask, type Task, type OperationReason, type OperationStatus, type PhoneClientMessage, type PhoneServerMessage, type ServerMessage, type Session, type ThreadItem, type HarnessUsage, type UsagePrefs } from '@ledge/protocol';
+  ATTACHMENT_MAX, OperationIdSchema, PHONE_PROTOCOL, PhoneClientMessageSchema, pushEndpointAllowed, RefusalCodeSchema, UNTYPABLE, backendOf, isArchived, pendingKey,
+  LEDGE_GIVER, SEMVER, pcSubject, PHONE_PROJECTS_MAX, type CloseHow, type ClientMessage, type PhoneTask, type Task, type OperationReason, type OperationStatus, type PhoneClientMessage, type PhoneServerMessage, type ServerMessage, type Session, type ThreadItem, type HarnessUsage, type UsagePrefs } from '@ledge/protocol';
 import { ModelRefusalSchema, type HumanAnswer, type ModelRefusal, type OpenRigAnswered, type OpenRigAsksChanged, type Tool } from '@ledge/protocol';
 import { PHONE_LAUNCH_MULTI, type OmpApproval, type PhoneLaunch, type RepoInfo } from '@ledge/protocol';
 import { NO_PROJECT, placeSessions, sessionOrderKey, sortSessions } from '@ledge/protocol';
 import { PHONE_FORGE_MESSAGE_MAX, PhoneForgeActErrorSchema, type ForgeStateMessage } from '@ledge/protocol';
 import { forgeSubject, phoneForgeDetail, phoneForgeState } from './forge.js';
 import { latestTodos, TODO_TOOLS, type PhoneChecklist, type PhoneChecklistSummary } from '@ledge/protocol';
-import { BROADCAST_SESSIONS_MAX, type DecidedBy, type DeviceKind, type PointAnswer, type PointItem } from '@ledge/protocol';
+import { BROADCAST_SESSIONS_MAX, type DecidedBy, type DeviceKind } from '@ledge/protocol';
 import { PHONE_ROW_SUMMARY_MAX } from '@ledge/protocol';
 import { folderSubject, newProjectSubject, normalizePath, FolderPathSchema, PHONE_FOLDER_ENTRIES_MAX, PHONE_RECENT_FOLDERS_MAX, projectNameKey, projectSubject, type BrainChoice, type PhoneFolderError, type PhoneServerMessage as PhoneOut, type Projects, type Routine, ROUTINES_MAX } from '@ledge/protocol';
 import { listFolder, resolveFolder } from '../daemon/folders.js';
@@ -24,15 +24,9 @@ import {
 } from '@ledge/protocol';
 import { compareVersions } from '@ledge/ui/semver';
 import type { MobileService } from './service.js';
-import type { ChatThreads, ChatThreadId } from '../chat/threads.js';
-import { limitsOf, phoneCut, phoneEmitter, toPhoneHistory } from './chat.js';
-import type { ChatMessage } from '../chat/service.js';
-import { CloseRefused } from '../chat/close.js';
-import { ActRefused } from '../chat/act.js';
 import { AttachmentError, type AttachmentStore } from '../daemon/attachments.js';
 import { createOutbox } from './outbox.js';
 import { createTerminalHost, type SpawnControl, type TerminalHost } from './terminal.js';
-import { humanAnswerOf } from '../operator/act.js';
 import { fingerprint, OperationRegistry, type Outcome, type PhoneOperation, type Report } from './operations.js';
 import { capabilities, clip, forPhone, phoneTasks, toPhoneFullRequest, toPhoneItem, toPhoneSession, toPhoneTask, toPhoneThread } from './project.js';
 import { atelierOf, toPhoneProjects, toPhoneSessionOrder } from './project.js';
@@ -104,13 +98,6 @@ const stableJson = (v: unknown): string =>
     : v !== null && typeof v === 'object' ? `{${Object.keys(v).sort().filter(k => (v as Record<string, unknown>)[k] !== undefined).map(k => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(',')}}`
       : JSON.stringify(v);
 
-/**
- * What an `act` challenge over a point row is bound to: the turn, the row, and a digest of the exact answer, or of the suggestion row when
- * there is no answer, so an assertion approves that and nothing else.
- */
-export const pointActSubject = (qid: string, item: PointItem, answer?: PointAnswer): string =>
-  `point:${qid}:${item.id}:${createHash('sha256').update(stableJson(answer ?? item.suggestion ?? null)).digest('base64url')}`;
-
 /** What a « Nouvelle session » challenge is bound to: that very launch, so an assertion starts nothing else. */
 export const launchSubject = (l: PhoneLaunch): string => `new:${createHash('sha256').update(stableJson(l)).digest('base64url')}`;
 
@@ -179,28 +166,6 @@ export function createPhoneGateway(deps: {
   log: (line: string) => void;
   now?: () => string;
   outbox?: { now?: () => number; frames?: number; bytes?: number; windowMs?: number };
-  /** The chat threads: each device talks to its own. Without them the phone has no chat. */
-  chats?: Pick<ChatThreads, 'device' | 'peek' | 'deviceTool' | 'owner' | 'drop' | 'setEmitter'>;
-  /** The chat relay: hands a turn's instruction to its session. */
-  relay?: { request(qid: string): Promise<void>; cancel(qid: string): void };
-  /** Starts the sessions of a turn's card, on that thread (its own emitter and refusals). */
-  launchChat?: (thread: ChatThreadId, qid: string, rows?: number[]) => Promise<{ launched: string[]; failed: number }>;
-  /** Closes the sessions of a turn's close card, on that thread (its own emitter and marks). */
-  closeChat?: (thread: ChatThreadId, qid: string, rows?: number[]) => Promise<{ closed: Array<{ row: number; id: string; how: CloseHow }>; failed: Array<{ row: number; message: string }> }>;
-  /** Applies the rows of a turn's generic card, on that thread (its own emitter and marks); `rid` names the request. */
-  /**
-   * The operator's point, acted on from the phone. `device` is the device id (not a thread id); the daemon answers through the handlers the
-   * cards use, so the gateway only decides which device check an answer needs.
-   */
-  point?: {
-    act: (device: string, msg: { qid: string; item: string; answer?: PointAnswer; suggest?: true; confirmed?: true; human?: HumanAnswer }, by: DecidedBy) => Promise<{ ok: true } | { ok: false; error: string; code?: string }>;
-    later: (device: string, qid: string) => void;
-    read: (device: string, eventId: number) => void;
-  };
-  actChat?: (thread: ChatThreadId, qid: string, rid: string, rows?: number[], confirmed?: true, deny?: true, by?: DecidedBy) => Promise<{ done: number[]; failed: Array<{ row: number; message: string }> }>;
-  /** A device's question ended (answered, or with a code). */
-  onChatEnd?: (deviceId: string, end: { qid: string; code?: ChatErrorCode }) => void;
-  chatThrottleMs?: number;
   /** The tasks (ledge home spec §2.4): the phone's « Le point » and « À traiter ». */
   tasks?: () => Task[];
   /** The routines (routines spec §3.7): given, the phone reads them, fires, pauses and answers them; each change comes by `forward`. */
@@ -284,33 +249,6 @@ export function createPhoneGateway(deps: {
     terminals?.deviceGone(deviceId);
     followers.delete(deviceId);
     outbox.drop(deviceId);
-    dropThread(deviceId);
-  };
-  /** The devices approved at the last look: one that leaves the list loses its thread, connected or not. */
-  const known = new Set(mobile.state().devices.map(d => d.id));
-  const emitters = new Map<string, (m: ChatMessage) => void>();
-  /** Forgets the device's thread: its question is stopped and its folder removed. */
-  const dropThread = (deviceId: string) => {
-    emitters.delete(deviceId);
-    if (!deps.chats) return;
-    try { deps.chats.drop(deviceId).catch((e: unknown) => log(`phone chat drop failed (${e instanceof Error ? e.name : 'error'})`)); }
-    catch (e) { log(`phone chat drop failed (${e instanceof Error ? e.name : 'error'})`); }
-  };
-  /** The device's emitter, made once and registered as its thread's; what it sends goes to that device only. */
-  const emitterOf = (deviceId: string): (m: ChatMessage) => void => {
-    let e = emitters.get(deviceId);
-    if (!e) {
-      const chats = deps.chats!;
-      // A phone with no live channel gets nothing: its history on the next ready covers the gap, and the push (`onEnd`) does not pass here.
-      const online = () => mobile.state().devices.some(d => d.id === deviceId && d.online);
-      e = phoneEmitter((m, key) => { if (online()) push(deviceId, m, key); }, { history: () => chats.peek(deviceId)?.history() ?? [] }, {
-        ...(deps.chatThrottleMs !== undefined ? { throttleMs: deps.chatThrottleMs } : {}),
-        onEnd: end => deps.onChatEnd?.(deviceId, end)
-      });
-      emitters.set(deviceId, e);
-      chats.setEmitter(`device:${deviceId}`, e);
-    }
-    return e;
   };
   const approved = (deviceId: string) => mobile.state().devices.some(d => d.id === deviceId);
 
@@ -367,10 +305,10 @@ export function createPhoneGateway(deps: {
     if (f) f.pushStatus = push;
     const message: Extract<PhoneServerMessage, { type: 'snapshot' }> = {
     type: 'snapshot', protocol: PHONE_PROTOCOL, sessions: deps.sessions().filter(s => !isArchived(s)).map(s => projected(deviceId, s)), capabilities: capabilities(), daemon: { version: deps.version, boot: deps.boot, name: clip(hostname(), 40).text, ...(deps.pc?.canUpdate ? { update: true as const } : {}), ...(deps.pc?.canRestart ? { restart: true as const } : {}), checklist: true as const, commands: true as const, rigRows: true as const, ...(deps.closeSession ? { sessionClose: true as const } : {}),
-      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const, sessionOrder: true as const } : {}), ...(deps.tasks ? { taskAnswer: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}), ...(deps.chats ? { conversations: true as const } : {}) },
+      ...(deps.terminal ? { terminal: true as const, helperTerminal: true as const } : {}), ...(deps.terminal?.inputAllowed() ? { terminalInput: true as const } : {}), ...(deps.openrig ? { openrig: true as const } : {}), ...(deps.usage ? { usage: true as const } : {}), broadcast: true as const, ...(projects ? { atelier: true as const } : {}), ...(settings ? { settings: true as const } : {}), ...(projects ? { projectEdit: true as const, sessionOrder: true as const } : {}), ...(deps.tasks ? { taskAnswer: true as const } : {}), ...(projects && deps.folders ? { projectFolders: true as const } : {}), ...(deps.rigs ? { rigs: true as const } : {}), ...(projects && deps.launch ? { launch: true as const } : {}), ...(deps.forge ? { forge: true as const } : {}) },
     ...(projects ? { projects: toPhoneProjects(projects) } : {}),
     ...(projects && toPhoneSessionOrder(projects) ? { sessionOrder: toPhoneSessionOrder(projects)! } : {}),
-    device: { confirm: deps.credential(deviceId) !== null, ...(deps.credential(deviceId)?.recover ? { recover: true as const } : {}), push, ...(deps.chats ? { chat: true as const } : {}), ...(deps.contextNear ? { contextNear: deps.contextNear() } : {}), id: deviceId, ...ownInfo(deviceId), ...(settings ? { prefs: mobile.prefsOf!(deviceId) } : {}) }
+    device: { confirm: deps.credential(deviceId) !== null, ...(deps.credential(deviceId)?.recover ? { recover: true as const } : {}), push, ...(deps.contextNear ? { contextNear: deps.contextNear() } : {}), id: deviceId, ...ownInfo(deviceId), ...(settings ? { prefs: mobile.prefsOf!(deviceId) } : {}) }
     };
     // The daemon takes `session.model` and lists an agent's models (#58).
     return deps.models ? { ...message, daemon: { ...message.daemon, models: true } } : message;
@@ -480,10 +418,6 @@ export function createPhoneGateway(deps: {
     return checkAssertion(deviceId, msg.assertion, 'decide', key === undefined ? undefined : subjectOf(msg.id, key, s));
   };
 
-  /** The device check of a launch, bound to the turn. */
-  const launchAssertionOutcome = (deviceId: string, qid: string, assertion: Extract<PhoneOperation, { type: 'chat.launch' }>['assertion']): Outcome | undefined =>
-    checkAssertion(deviceId, assertion, 'launch', qid);
-
   /** The checks only a phone meets, in order; undefined lets the operation through. */
   const precheck = (deviceId: string, msg: SessionOperation): Outcome | undefined => {
     const s = live(msg.id);
@@ -566,55 +500,6 @@ export function createPhoneGateway(deps: {
     return { status: 'applied' };
   };
 
-  /** The thread's turn the device may act on: its own thread's, never the PC's or another device's. A thread that cannot be reached is refused too. */
-  const ownTurn = (deviceId: string, qid: string): ChatTurn | undefined => {
-    const chats = deps.chats;
-    if (!chats) return undefined;
-    try {
-      if (chats.owner(qid) !== `device:${deviceId}`) return undefined;
-      return chats.device(deviceId).history().find(t => t.qid === qid);
-    } catch { return undefined; }
-  };
-
-  /** A card set aside (« Ignorer », on any device) applies no more until it is opened again. */
-  const SET_ASIDE: Outcome = { status: 'rejected', reason: 'stale' };
-
-  const chatRelay = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.relay' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!turn || !deps.relay) return { status: 'rejected', reason: 'unknown_session' };
-    if (turn.ignoredAt) return SET_ASIDE;
-    if (!turn.relay || turn.relay.text.length > TOOL_TEXT_MAX) return { status: 'rejected', reason: 'invalid' };
-    try { await deps.relay.request(msg.qid); } catch (e) { log(`phone chat.relay failed (${e instanceof Error ? e.name : 'error'})`); return { status: 'failed' }; }
-    return { status: 'applied' };
-  };
-  /** Takes the card's queued instruction back, as the PC's « Annuler »: refused once it has gone (or was never queued). */
-  const chatRelayCancel = (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.relay.cancel' }>): Outcome => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!turn?.relay || !deps.relay) return { status: 'rejected', reason: 'unknown_session' };
-    try { deps.relay.cancel(msg.qid); } catch { return { status: 'rejected', reason: 'stale' }; }
-    return { status: 'applied' };
-  };
-
-  const chatLaunch = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.launch' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!turn || !deps.launchChat) return { status: 'rejected', reason: 'unknown_session' };
-    if (turn.ignoredAt) return SET_ASIDE;
-    // Every targeted row must exist and fit the phone's card: it never confirms a text it did not see.
-    const rows = proposalRows(turn);
-    const targets = msg.rows ?? [...rows.keys()];
-    if (targets.length === 0) return { status: 'rejected', reason: 'invalid' };
-    // The projection is all or nothing: a card with any row too long is not shown at all, so no row of it is acted on.
-    if (rows.some(p => (p.prompt?.length ?? 0) > TOOL_TEXT_MAX)) return { status: 'rejected', reason: 'invalid' };
-    for (const r of targets) if (!rows[r]) return { status: 'rejected', reason: 'invalid' };
-    if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
-    // Nothing left to start: answered before the assertion is spent.
-    if (targets.every(r => rows[r]!.launchedId)) return { status: 'failed' };
-    const refused = launchAssertionOutcome(deviceId, msg.qid, msg.assertion);
-    if (refused) return refused;
-    const done = await deps.launchChat(`device:${deviceId}`, msg.qid, targets);
-    return done.launched.length > 0 ? { status: 'applied' } : { status: 'failed' };
-  };
-
   /**
    * « Nouvelle session » (M2 §9): only folders of this PC that the project declares, never a path of the phone's choosing; the passkey
    * over this very launch, since its first message sets an agent to work on the PC.
@@ -641,66 +526,6 @@ export function createPhoneGateway(deps: {
       if (e instanceof PhoneLaunchRefused) return { status: 'rejected', reason: e.reason };
       log(`phone session.launch failed (${e instanceof Error ? e.name : 'error'})`);
       return { status: 'failed' };
-    }
-  };
-
-  const chatClose = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.close' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!turn || !deps.closeChat) return { status: 'rejected', reason: 'unknown_session' };
-    if (turn.ignoredAt) return SET_ASIDE;
-    const closes = turn.closes;
-    const targets = msg.rows ?? (closes ? [...closes.keys()] : []);
-    if (!closes || targets.length === 0) return { status: 'rejected', reason: 'invalid' };
-    for (const r of targets) if (!closes[r]) return { status: 'rejected', reason: 'invalid' };
-    if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
-    // Nothing left to close: answered before the assertion is spent.
-    if (targets.every(r => closes[r]!.closedAt)) return { status: 'failed' };
-    const refused = checkAssertion(deviceId, msg.assertion, 'close', msg.qid);
-    if (refused) return refused;
-    try {
-      const done = await deps.closeChat(`device:${deviceId}`, msg.qid, targets);
-      return done.closed.length > 0 ? { status: 'applied' } : { status: 'failed' };
-    } catch (e) {
-      // A row still being closed (the phone reloaded mid-close and asked again) is that close's: under way, not failed.
-      if (e instanceof CloseRefused) return { status: e.underWay ? 'applied' : 'failed' };
-      throw e;
-    }
-  };
-
-  /**
-   * A generic card (spec 2026-10-26 action registry §9.1-9.2): a destructive row needs the phone's confirmation, and it or any row
-   * the registry gives a device check (`phone`) one assertion for the turn; the rows then apply in order, stopping at the first failure.
-   */
-  const chatAct = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.act' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!turn || !deps.actChat) return { status: 'rejected', reason: 'unknown_session' };
-    if (turn.ignoredAt) return SET_ASIDE;
-    const actions = turn.actions;
-    const targets = msg.rows ?? (actions ? [...actions.keys()] : []);
-    if (!actions || targets.length === 0) return { status: 'rejected', reason: 'invalid' };
-    for (const r of targets) if (!actions[r]) return { status: 'rejected', reason: 'invalid' };
-    // Nothing left to apply: answered before the assertion is spent. The checks below read the rows still open, as act.ts does.
-    const settled = (r: number) => actions[r]!.state === 'done' || actions[r]!.state === 'denied';
-    if (targets.every(settled)) return { status: 'failed' };
-    const todo = targets.filter(r => !settled(r));
-    // « Refuser » answers a session's request only.
-    if (msg.deny && todo.some(r => actions[r]!.action !== 'session.decide')) return { status: 'rejected', reason: 'invalid' };
-    // A request the phone could only show cut is refused from there, never accepted: the rest is read on the PC.
-    if (!msg.deny && todo.some(r => phoneCut(actions[r]!) && actions[r]!.args.decision !== 'deny')) return { status: 'rejected', reason: 'not_offered' };
-    // A deny is never confirmed nor checked on the device, as the phone's own deny of a request is not.
-    if (!msg.deny && !msg.confirmed && todo.some(r => actions[r]!.risk === 'destructive')) return { status: 'rejected', reason: 'confirm_required' };
-    // A destructive row is checked as one the registry marks (§5.3).
-    if (!msg.deny && todo.some(r => actions[r]!.risk === 'destructive' || actionById(actions[r]!.action)?.phone)) {
-      if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
-      const refused = checkAssertion(deviceId, msg.assertion, 'act', msg.qid);
-      if (refused) return refused;
-    }
-    try {
-      const done = await deps.actChat(`device:${deviceId}`, msg.qid, `phone:${msg.op}`, todo, msg.confirmed, msg.deny, decidedBy(deviceId));
-      return done.failed.length === 0 && done.done.length > 0 ? { status: 'applied' } : { status: 'failed' };
-    } catch (e) {
-      if (e instanceof ActRefused) return e.code ? { status: 'rejected', reason: e.code } : { status: 'failed' };
-      throw e;
     }
   };
 
@@ -841,24 +666,6 @@ export function createPhoneGateway(deps: {
     push(deviceId, { type: 'openrig.rowState', qitem, row: { ...row, ...(row.summary !== undefined ? { summary: clip(row.summary, PHONE_ROW_SUMMARY_MAX).text } : {}) } });
   };
 
-  const chatTask = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.task' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    const card = turn?.tasks?.[msg.row];
-    if (!card || !deps.tasks) return { status: 'rejected', reason: 'unknown_session' };
-    if (turn!.ignoredAt) return SET_ASIDE;
-    if ((card.text?.length ?? 0) > TOOL_TEXT_MAX) return { status: 'rejected', reason: 'invalid' };
-    if (card.taskId) return { status: 'failed' };
-    const rid = msg.op;
-    return ask({ type: 'task.cmd', rid, by: LEDGE_GIVER, op: 'give', qid: msg.qid, row: msg.row }, m => (m.type === 'task.result' && m.rid === rid ? m.task !== undefined : undefined));
-  };
-
-  /** « Ignorer » the device's own turn, or `undo` (« Revoir »). */
-  const chatIgnore = (deviceId: string, msg: Extract<PhoneOperation, { type: 'chat.ignore' }>): Outcome => {
-    if (!ownTurn(deviceId, msg.qid) || !deps.chats) return { status: 'rejected', reason: 'unknown_session' };
-    const why = deps.chats.device(deviceId).ignore(msg.qid, msg.undo === true, emitterOf(deviceId));
-    return why === null ? { status: 'applied' } : { status: 'rejected', reason: 'invalid' };
-  };
-
   /**
    * Updating or restarting the PC's daemon. Accepted once the passkey holds, before npm runs: `applied` means started, not done.
    * The updater's progress and refusals then reach every phone through `forward`; a busy refusal reaches this one alone.
@@ -962,75 +769,6 @@ export function createPhoneGateway(deps: {
     const { qitemId: _q, ...rest } = r;
     told({ ...rest, ...(rest.message !== undefined ? { message: clip(rest.message, 500).text } : {}) });
     return r.ok ? { status: 'applied', detail } : { status: 'failed', detail };
-  };
-
-  /**
-   * A row of the operator's point answered (or its suggestion applied) from the phone. What the answer is about says which device check it
-   * needs, as the same answer does elsewhere: a request accepted (`decide`), a rig ask (`rig`), a proposal accepted (`note`), and a decision
-   * or a suggestion (`act`, bound to the turn, the row and a digest of the exact answer or suggestion: `pointActSubject`). A destructive one
-   * also needs the phone's `confirmed`. A row that is gone or settled needs no check: the daemon says so on it.
-   */
-  const pointAct = async (deviceId: string, msg: Extract<PhoneOperation, { type: 'point.act' }>): Promise<Outcome> => {
-    const turn = ownTurn(deviceId, msg.qid);
-    if (!deps.point || !turn?.point) return { status: 'rejected', reason: 'unknown_session' };
-    if ((msg.answer === undefined) === (msg.suggest !== true)) return { status: 'rejected', reason: 'invalid' };
-    const item = turn.point.items.find(i => i.id === msg.item);
-    let human: HumanAnswer | undefined;
-    // What needs a check: its purpose, the subject it is bound to, and whether the answer is destructive (it then needs `confirmed` too).
-    let check: { purpose: 'decide' | 'act' | 'note' | 'rig'; subject: string | undefined } | undefined; let destructive = false;
-    if (item && !item.settled && msg.suggest) {
-      const row = item.suggestion;
-      if (row) {
-        // As the phone's own card: a set-aside turn applies nothing, a request the phone could only show cut is never accepted from it.
-        if (turn.ignoredAt) return SET_ASIDE;
-        if (row.state === 'done' || row.state === 'running') return { status: 'rejected', reason: 'stale' };
-        if (phoneCut(row) && row.args.decision !== 'deny') return { status: 'rejected', reason: 'not_offered' };
-        destructive = row.risk === 'destructive';
-        if (destructive || actionById(row.action)?.phone) check = { purpose: 'act', subject: pointActSubject(msg.qid, item) };
-      }
-    } else if (item && !item.settled && item.ref && msg.answer) {
-      const ref = item.ref; const answer = msg.answer;
-      const picked = 'id' in answer ? answer.id : undefined;
-      if (ref.kind === 'rig.ask') {
-        const ask = (await deps.openrig?.list())?.asks.find(a => a.id === ref.qitem);
-        human = ask ? humanAnswerOf(ask, answer) : undefined;
-        check = { purpose: 'rig', subject: human ? rigSubject(ref.qitem, human) : undefined };
-      } else if (ref.kind === 'task') {
-        if (deps.tasks?.().find(t => t.id === ref.task)?.brain) { if (picked === 'accept') check = { purpose: 'note', subject: noteSubject(ref.task, { yes: true }) }; }
-        else { check = { purpose: 'act', subject: pointActSubject(msg.qid, item, answer) }; destructive = true; }
-      } else {
-        const s = deps.session(ref.session);
-        // A request the phone could only show cut is refused from it, as on the card: the rest is read on the PC.
-        if (s?.pending && s.pending.kind !== 'question' && picked === 'accept' && phoneCut({ action: 'session.decide', args: {}, summary: '', risk: 'destructive', detail: s.pending.body ? `${s.pending.text}\n\n${s.pending.body}` : s.pending.text })) return { status: 'rejected', reason: 'not_offered' };
-        if (s?.pending?.kind !== 'question' && picked === 'accept') { destructive = true; if (!s || riskOf(s)?.risk !== 'low') check = { purpose: 'decide', subject: subjectOf(ref.session, ref.key, s) }; }
-        else if (s?.pending?.kind === 'question' && s.pending.source === 'rpc' && riskOf(s)?.risk !== 'low') check = { purpose: 'decide', subject: subjectOf(ref.session, ref.key, s) };
-      }
-    }
-    if (destructive && !msg.confirmed) return { status: 'rejected', reason: 'confirm_required' };
-    if (check) {
-      if (deps.credential(deviceId) === null) return { status: 'rejected', reason: 'confirm_required' };
-      const refused = checkAssertion(deviceId, msg.assertion, check.purpose, check.subject);
-      if (refused) return refused;
-    }
-    try {
-      const r = await deps.point.act(deviceId, { qid: msg.qid, item: msg.item, ...(msg.answer ? { answer: msg.answer } : {}), ...(msg.suggest ? { suggest: true as const } : {}), ...(human ? { human } : {}), ...(msg.confirmed ? { confirmed: true as const } : {}) }, decidedBy(deviceId));
-      if (r.ok) return { status: 'applied' };
-      if (r.code === 'confirm_required') return { status: 'rejected', reason: 'confirm_required' };
-      if (r.code === 'changed' || r.code === 'settled') return { status: 'rejected', reason: 'stale' };
-      if (r.code === 'unknown_item') return { status: 'rejected', reason: 'unknown_session' };
-      if (r.code === 'invalid') return { status: 'rejected', reason: 'invalid' };
-      return { status: 'failed' };
-    } catch (e) { log(`phone point.act failed (${e instanceof Error ? e.name : 'error'})`); return { status: 'failed' }; }
-  };
-  const pointLater = (deviceId: string, msg: Extract<PhoneOperation, { type: 'point.later' }>): Outcome => {
-    if (!deps.point || !ownTurn(deviceId, msg.qid)?.point) return { status: 'rejected', reason: 'unknown_session' };
-    deps.point.later(deviceId, msg.qid);
-    return { status: 'applied' };
-  };
-  const operatorRead = (deviceId: string, msg: Extract<PhoneOperation, { type: 'operator.read' }>): Outcome => {
-    if (!deps.point) return { status: 'rejected', reason: 'not_offered' };
-    deps.point.read(deviceId, msg.eventId);
-    return { status: 'applied' };
   };
 
   /** A proposal about the notes answered from « Le point »: a `yes` writes, so it needs the device's check over that exact choice. */
@@ -1439,8 +1177,9 @@ export function createPhoneGateway(deps: {
 
   const run = async (deviceId: string, msg: PhoneOperation): Promise<Outcome> => {
     if (msg.type === 'daemon.update' || msg.type === 'daemon.restart') return pcOperation(deviceId, msg);
-    if (msg.type === 'chat.ignore') return chatIgnore(deviceId, msg);
-    if (msg.type === 'chat.task') return chatTask(deviceId, msg);
+    // The chat's cards and its point left Ledge (#40): an older phone's operation is refused, nothing happens.
+    if (msg.type === 'chat.ignore' || msg.type === 'chat.task' || msg.type === 'chat.relay' || msg.type === 'chat.relay.cancel' || msg.type === 'chat.launch'
+      || msg.type === 'chat.close' || msg.type === 'chat.act' || msg.type === 'point.act' || msg.type === 'point.later' || msg.type === 'operator.read') return { status: 'rejected', reason: 'not_offered' };
     if (msg.type === 'task.seen') {
       if (!deps.tasks) return { status: 'rejected', reason: 'unavailable' };
       const rid = msg.op;
@@ -1479,12 +1218,7 @@ export function createPhoneGateway(deps: {
       mobile.setPush(deviceId, null);
       return { status: 'applied' };
     }
-    if (msg.type === 'chat.relay') return chatRelay(deviceId, msg);
-    if (msg.type === 'chat.relay.cancel') return chatRelayCancel(deviceId, msg);
-    if (msg.type === 'chat.launch') return chatLaunch(deviceId, msg);
     if (msg.type === 'session.launch') return sessionLaunch(deviceId, msg);
-    if (msg.type === 'chat.close') return chatClose(deviceId, msg);
-    if (msg.type === 'chat.act') return chatAct(deviceId, msg);
     if (msg.type === 'session.close' || msg.type === 'session.resume') return sessionEnd(deviceId, msg);
     if (msg.type === 'session.broadcast') return broadcast(deviceId, msg);
     if (msg.type === 'term.open') return termOpen(deviceId, msg);
@@ -1493,9 +1227,6 @@ export function createPhoneGateway(deps: {
     if (msg.type === 'brain.answer') return brainAnswer(deviceId, msg);
     if (msg.type === 'task.answer') return taskAnswer(deviceId, msg);
     if (msg.type === 'rigs.act') return rigsAct(deviceId, msg);
-    if (msg.type === 'point.act') return pointAct(deviceId, msg);
-    if (msg.type === 'point.later') return pointLater(deviceId, msg);
-    if (msg.type === 'operator.read') return operatorRead(deviceId, msg);
     if (msg.type === 'forge.act') return forgeAct(deviceId, msg);
     if (msg.type === 'routine.cmd') return routineCmd(deviceId, msg);
     if (msg.type === 'rigs.seats') return rigsSeats(deviceId, msg);
@@ -1543,59 +1274,6 @@ export function createPhoneGateway(deps: {
     }
   };
 
-  /** The phone's own chat. A thread that cannot be reached (an id off the pattern, a thread being dropped) is refused, never thrown. */
-  const chatRead = async (deviceId: string, msg: Extract<PhoneClientMessage, { type: 'chat.ask' | 'chat.cancel' | 'chat.reset' | 'chat.history' | 'chat.conversations' | 'chat.conversation' }>) => {
-    const chats = deps.chats;
-    if (!chats || !approved(deviceId)) return;
-    known.add(deviceId);
-    try {
-      switch (msg.type) {
-        case 'chat.ask': {
-          const thread = chats.device(deviceId);
-          const emit = emitterOf(deviceId);
-          // The images were put first; an id the store does not know fails the question rather than sending it without.
-          const refs: AttachmentRef[] = [];
-          for (const id of msg.attachments ?? []) {
-            const ref = deps.attachments.ref(id);
-            if (!ref) return push(deviceId, { type: 'chat.error', qid: msg.qid, code: 'failed' });
-            refs.push(ref);
-          }
-          if (msg.text === '' && refs.length === 0) return push(deviceId, { type: 'chat.error', qid: msg.qid, code: 'failed' });
-          return await thread.ask(msg.qid, msg.text, emit, (settings ? mobile.prefsOf!(deviceId).chatTool : null) ?? await chats.deviceTool(), refs);
-        }
-        case 'chat.cancel':
-          // Only the device's own turn: another thread's qid is nothing here.
-          if (chats.owner(msg.qid) === `device:${deviceId}`) chats.device(deviceId).cancel(msg.qid);
-          return;
-        case 'chat.reset': return await chats.device(deviceId).reset(emitterOf(deviceId));
-        case 'chat.history': {
-          const turns = chats.device(deviceId).history();
-          push(deviceId, { type: 'chat.history', turns: toPhoneHistory(turns) }, 'chat.history');
-          const reads = limitsOf(turns);
-          return reads.length ? push(deviceId, { type: 'chat.limits', reads }, 'chat.limits') : undefined;
-        }
-        // The kept conversations (M3 Q33): read-only, answered to the asker alone.
-        case 'chat.conversations': {
-          const thread = chats.device(deviceId);
-          if (!thread.conversations) return push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
-          return push(deviceId, { type: 'chat.conversations', ...(await thread.conversations()) }, 'chat.conversations');
-        }
-        case 'chat.conversation': {
-          const thread = chats.device(deviceId);
-          if (!thread.conversation) return push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
-          const turns = await thread.conversation(msg.id);
-          if (!turns) return push(deviceId, { type: 'chat.conversation', id: msg.id, error: 'unknown' });
-          const limits = limitsOf(turns);
-          return push(deviceId, { type: 'chat.conversation', id: msg.id, turns: toPhoneHistory(turns), ...(limits.length ? { limits } : {}) });
-        }
-      }
-    } catch (e) {
-      log(`phone ${msg.type} failed (${e instanceof Error ? e.name : 'error'})`);
-      if (msg.type === 'chat.ask') push(deviceId, { type: 'chat.error', qid: msg.qid, code: 'failed' });
-      else push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
-    }
-  };
-
   /** A phone's image upload or download; the answer is the request's, matched by `requestId`. */
   const attachment = async (deviceId: string, msg: Extract<PhoneClientMessage, { type: 'attachment.put' | 'attachment.get' }>) => {
     if (!approved(deviceId)) return;
@@ -1625,10 +1303,10 @@ export function createPhoneGateway(deps: {
       case 'attachment.put': case 'attachment.get':
         void attachment(deviceId, msg);
         return;
-      case 'chat.ask': case 'chat.cancel': case 'chat.reset': case 'chat.history': case 'chat.conversations': case 'chat.conversation':
-        if (!deps.chats) return push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
-        void chatRead(deviceId, msg);
-        return;
+      // The chat left Ledge (#40): an older phone's question ends at once (its turn's `chat.error`), its other reads are refused.
+      case 'chat.ask': return push(deviceId, { type: 'chat.error', qid: msg.qid, code: 'failed' });
+      case 'chat.cancel': case 'chat.reset': case 'chat.history': case 'chat.conversations': case 'chat.conversation':
+        return push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
       case 'openrig.asks': {
         if (!deps.openrig) return push(deviceId, { type: 'error', code: 'invalid', request: msg.type });
         follower(deviceId).openrig = true;
@@ -1759,13 +1437,6 @@ export function createPhoneGateway(deps: {
           const challenge = deps.challenges.issue({ deviceId, purpose: 'launch', subject: launchSubject(msg.launch) });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'launch', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
-        if (msg.purpose === 'launch') {
-          if (msg.qid === undefined || !ownTurn(deviceId, msg.qid)) return invalid();
-          const cred = deps.credential(deviceId);
-          if (!cred || cred.rpId !== rp.rpId) return invalid();
-          const challenge = deps.challenges.issue({ deviceId, purpose: 'launch', subject: msg.qid });
-          return push(deviceId, { type: 'confirm.challenge', purpose: 'launch', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
-        }
         // A session's own « Fermer » or « Reprendre »: bound to the session, for a daemon that takes them.
         if ((msg.purpose === 'close' || msg.purpose === 'act') && msg.qid === undefined && msg.id !== undefined) {
           if (!deps.closeSession) return invalid();
@@ -1775,29 +1446,8 @@ export function createPhoneGateway(deps: {
           const challenge = deps.challenges.issue({ deviceId, purpose: msg.purpose, subject: sessionSubject(msg.id) });
           return push(deviceId, { type: 'confirm.challenge', purpose: msg.purpose, challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
         }
-        if (msg.purpose === 'close') {
-          if (msg.qid === undefined || !ownTurn(deviceId, msg.qid)) return invalid();
-          const cred = deps.credential(deviceId);
-          if (!cred || cred.rpId !== rp.rpId) return invalid();
-          const challenge = deps.challenges.issue({ deviceId, purpose: 'close', subject: msg.qid });
-          return push(deviceId, { type: 'confirm.challenge', purpose: 'close', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
-        }
-        // A point row's decision or suggestion: bound to the row and the exact answer, not to the whole turn.
-        if (msg.purpose === 'act' && msg.item !== undefined) {
-          const turn = msg.qid === undefined ? undefined : ownTurn(deviceId, msg.qid);
-          const item = turn?.point?.items.find(i => i.id === msg.item);
-          const cred = deps.credential(deviceId);
-          if (!msg.qid || !item || !cred || cred.rpId !== rp.rpId || (msg.pointAnswer === undefined) === (msg.suggest !== true) || (msg.suggest && !item.suggestion)) return invalid();
-          const challenge = deps.challenges.issue({ deviceId, purpose: 'act', subject: pointActSubject(msg.qid, item, msg.suggest ? undefined : msg.pointAnswer) });
-          return push(deviceId, { type: 'confirm.challenge', purpose: 'act', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
-        }
-        if (msg.purpose === 'act') {
-          if (msg.qid === undefined || !ownTurn(deviceId, msg.qid)) return invalid();
-          const cred = deps.credential(deviceId);
-          if (!cred || cred.rpId !== rp.rpId) return invalid();
-          const challenge = deps.challenges.issue({ deviceId, purpose: 'act', subject: msg.qid });
-          return push(deviceId, { type: 'confirm.challenge', purpose: 'act', challenge, rpId: rp.rpId, credentialId: cred.id, expiresInMs: CHALLENGE_TTL_MS });
-        }
+        // A chat card's launch, close or act (`qid`), or a point row's: the chat left Ledge (#40).
+        if (msg.purpose === 'launch' || msg.purpose === 'close' || msg.purpose === 'act') return invalid();
         if (msg.purpose === 'register') {
           const challenge = deps.challenges.issue({ deviceId, purpose: 'register', subject: '' });
           return push(deviceId, { type: 'confirm.challenge', purpose: 'register', challenge, rpId: rp.rpId, expiresInMs: CHALLENGE_TTL_MS });
@@ -1935,13 +1585,6 @@ export function createPhoneGateway(deps: {
   /** A device no longer approved is forgotten, with all it followed; one whose channel fell is no longer in front; one whose push status changed hears of it. */
   const pruneRevoked = () => {
     const devices = new Map(mobile.state().devices.map(d => [d.id, d]));
-    // A device that left the list loses its thread whether or not it is connected.
-    for (const id of [...known]) {
-      if (devices.has(id)) continue;
-      known.delete(id);
-      if (!followers.has(id)) dropThread(id);
-    }
-    for (const id of devices.keys()) known.add(id);
     for (const [deviceId, f] of [...followers]) {
       const d = devices.get(deviceId);
       if (!d) { forget(deviceId); continue; }

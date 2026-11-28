@@ -1,9 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { PhoneHarnessUsage } from '@ledge/protocol';
+import type { PhoneHarnessUsage, PhoneServerMessage } from '@ledge/protocol';
 import { copy } from '../../src/copy';
 import { indicators, modelName, overWindows, resetLabel, span, usageTone } from '../../src/model/usage';
-import { Chat } from '../../src/screens/Chat';
+import { Usage } from '../../src/screens/Usage';
 import { session } from '../model/fixtures';
 import { snapshot } from '../state/helpers';
 import { setup } from './setup';
@@ -15,14 +15,15 @@ const claude = (o: Partial<PhoneHarnessUsage> = {}): PhoneHarnessUsage => ({
   windows: [{ kind: 'five_hour', pct: 84, resetsAt: at(60) }, { kind: 'seven_day', pct: 58, resetsAt: at(4 * 24 * 60) }, { kind: 'model', model: 'Opus', pct: 100, resetsAt: at(4 * 24 * 60) }],
   ...o
 });
-const ON = { confirm: true, chat: true as const };
 
+/** Réglages › Usage, the point's « LIMITES » since #40 D9: the same Limits, the alert of the moment at its head. */
 function point(usage: PhoneHarnessUsage[], alert = 0.8) {
   const t = setup();
-  t.deliver(snapshot([session('a', { name: 'Bix', repo: 'ledge' })], 'Atelier', undefined, ON));
+  const snap = snapshot([session('a', { name: 'Bix', repo: 'ledge' })], 'Atelier', undefined, { confirm: true }) as Extract<PhoneServerMessage, { type: 'snapshot' }>;
+  t.deliver({ ...snap, daemon: { ...snap.daemon, usage: true } } as PhoneServerMessage);
   t.deliver({ type: 'usage.state', harnesses: usage, prefs: { alert } });
-  render(<Chat store={t.store} />);
-  return screen.getByRole('region', { name: copy.chat.point.label });
+  render(<Usage store={t.store} />);
+  return screen.getByRole('main');
 }
 
 describe('the model', () => {
@@ -43,37 +44,33 @@ describe('the model', () => {
   });
 });
 
-describe('« Le point »', () => {
-  it('LIMITES: per harness its logo and windows, amber past the threshold, red reached; both also in « À toi »', () => {
+describe('Réglages › Usage (#40 D9)', () => {
+  it('per harness its logo and windows, amber past the threshold, red reached; the reached one heads the screen', () => {
     const region = point([claude()]);
-    const limits = within(region).getByRole('group', { name: copy.chat.point.limitsLabel });
+    const limits = within(region).getByRole('group', { name: copy.limits.limitsLabel });
     expect(limits.textContent).toContain('Claude Code');
     expect(limits.textContent).toContain('84 %');
     expect(limits.textContent).toContain('Opus');
     expect(limits.querySelector('svg.harness-claude')).not.toBeNull();
-    const yours = within(region).getByRole('group', { name: copy.chat.point.yoursLabel });
-    expect(within(yours).getByLabelText('Claude · Opus atteinte').textContent).toContain('100 %');
-    const five = within(yours).getByLabelText('Claude · 5 h à 84 %');
-    expect(five.querySelector('b')?.className).toContain('text-attention');
-    // In the windows' order, as the mockup: the 5 hours, then Opus.
-    expect([...yours.querySelectorAll('[data-usage-over]')].map(e => e.getAttribute('data-usage-over'))).toEqual(['amber', 'red']);
+    // The reached window before the one past the threshold.
+    expect(within(region).getByRole('status')).toHaveTextContent(/^Claude Code · Opus atteinte/);
     const pcts = [...limits.querySelectorAll('b')].map(b => [b.textContent, b.className.includes('text-attention') ? 'amber' : b.className.includes('text-approval') ? 'red' : '']);
     expect(pcts).toEqual([['84 %', 'amber'], ['58 %', ''], ['100 %', 'red']]);
   });
 
-  it('a higher threshold: 84 % stays neutral and out of « À toi »', () => {
-    const yours = within(point([claude()], 0.9)).getByRole('group', { name: copy.chat.point.yoursLabel });
-    expect(yours.querySelectorAll('[data-usage-over]')).toHaveLength(1);
+  it('a higher threshold: 84 % stays neutral', () => {
+    const limits = within(point([claude()], 0.9)).getByRole('group', { name: copy.limits.limitsLabel });
+    expect([...limits.querySelectorAll('b')].find(b => b.textContent === '84 %')?.className).not.toContain('text-attention');
   });
 
   it('says reading, expired, old and unreachable as the mockup does; nothing without limits', () => {
-    expect(within(point([claude({ status: 'loading', readAt: null, windows: [] })])).getByText(copy.chat.point.loading)).toBeTruthy();
+    expect(within(point([claude({ status: 'loading', readAt: null, windows: [] })])).getByText(copy.limits.loading)).toBeTruthy();
   });
 
   it.each([
     ['expired', 'Lecture impossible : reconnecte Claude Code sur le PC.'],
-    ['stale', copy.chat.point.stale('12 min')],
-    ['unreachable', copy.chat.point.unreach('25 min')]
+    ['stale', copy.limits.stale('12 min')],
+    ['unreachable', copy.limits.unreach('25 min')]
   ] as const)('%s', (status, text) => {
     const readAt = status === 'unreachable' ? at(-25) : at(-12);
     const region = point([claude({ status, readAt, ...(status === 'expired' ? { windows: [] } : {}) })]);
@@ -81,11 +78,11 @@ describe('« Le point »', () => {
   });
 
   it('without limits from the PC, no LIMITES', () => {
-    expect(within(point([])).queryByRole('group', { name: copy.chat.point.limitsLabel })).toBeNull();
+    expect(within(point([])).queryByRole('group', { name: copy.limits.limitsLabel })).toBeNull();
   });
 });
 
-describe('Cursor Agent in « Le point »', () => {
+describe('Cursor Agent in Réglages › Usage', () => {
   const reset = new Date(NOW + 24 * 86_400_000).toISOString();
   const cursor = (o: Partial<PhoneHarnessUsage> = {}): PhoneHarnessUsage => ({
     harness: 'cursor', status: 'ok', readAt: at(-1),
@@ -103,9 +100,9 @@ describe('Cursor Agent in « Le point »', () => {
     expect(resetLabel(six.toISOString(), NOW)).toBe(`${wd} ${String(six.getHours()).padStart(2, '0')}:${String(six.getMinutes()).padStart(2, '0')}`);
   });
 
-  it('LIMITES: Mois, Cursor, Autres with their % and « reprend »; two lines in « À toi »', () => {
+  it('Mois, Cursor, Autres with their % and « reprend »; the reached pool heads the screen', () => {
     const region = point([claude({ windows: [] }), cursor()]);
-    const limits = within(region).getByRole('group', { name: copy.chat.point.limitsLabel });
+    const limits = within(region).getByRole('group', { name: copy.limits.limitsLabel });
     const c = limits.querySelector('[data-harness="cursor"]')!;
     expect(c.textContent).toContain('Cursor Agent');
     expect(c.querySelector('svg.harness-cursor')).not.toBeNull();
@@ -113,23 +110,18 @@ describe('Cursor Agent in « Le point »', () => {
     expect(c.textContent).toContain('81 %');
     expect(c.textContent).toContain('Cursor41 %');
     expect(c.textContent).toContain('Autres');
-    expect(c.textContent).toContain(copy.chat.point.resumesOn(date));
+    expect(c.textContent).toContain(copy.limits.resumesOn(date));
     expect(c.textContent).toContain(`reprend le ${date}`);
-    const yours = within(region).getByRole('group', { name: copy.chat.point.yoursLabel });
-    const lines = [...yours.querySelectorAll('[data-usage-over]')].map(e => e.textContent);
-    expect(lines).toHaveLength(2);
-    expect(lines[0]).toContain('Cursor · Mois 81 %');
-    expect(lines[1]).toContain('Cursor · Autres 100 %');
-    expect(lines[0]).toContain(`↺ ${resetLabel(reset, NOW, true)}`);
+    expect(within(region).getByRole('status')).toHaveTextContent(/^Cursor Agent · Autres atteinte/);
   });
 
   it('weekly plans say Semaine', () => {
-    const week = within(point([cursor({ windows: [{ kind: 'seven_day', pct: 30, resetsAt: reset }] })])).getByRole('group', { name: copy.chat.point.limitsLabel });
+    const week = within(point([cursor({ windows: [{ kind: 'seven_day', pct: 30, resetsAt: reset }] })])).getByRole('group', { name: copy.limits.limitsLabel });
     expect(week.textContent).toContain('Semaine');
   });
 
   it('unread says so', () => {
-    expect(within(point([cursor({ windows: [] })])).getByText(copy.chat.point.unread)).toBeTruthy();
+    expect(within(point([cursor({ windows: [] })])).getByText(copy.limits.unread)).toBeTruthy();
   });
 
   it('expired says Codex', () => {

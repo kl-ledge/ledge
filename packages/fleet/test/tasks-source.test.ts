@@ -9,7 +9,7 @@ function peer() {
   const client: DaemonClient = { connect() {}, close() {}, send(m) { sent.push(m as never); }, status: () => status, onMessage(fn) { onMsg = fn; return () => {}; }, onStatus(fn) { onSt = fn; return () => {}; } };
   return { client, sent, set(s: DaemonStatus) { status = s; onSt(s); }, emit(m: ServerMessage) { onMsg(m); } };
 }
-const snap: ServerMessage = { type: 'snapshot', sessions: [], recents: [], daemon: { version: '0.18.0', install: 'npm', systemd: true, routing: true } };
+const snap: ServerMessage = { type: 'snapshot', sessions: [], recents: [], daemon: { version: '0.18.0', install: 'npm', systemd: true } };
 const task = (id: string, extra: Partial<Task> = {}): Task => ({ id, title: 'Implémenter', giver: 'ledge', giverName: 'Ledge', owner: 'ab12', ownerName: 'Otto', state: 'open', at: '2026-10-26T08:00:00.000Z', updatedAt: '2026-10-26T08:00:00.000Z', log: [], ...extra });
 function setup() {
   const local = peer();

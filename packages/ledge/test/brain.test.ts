@@ -76,7 +76,8 @@ describe('ledge brain', () => {
     expect(r.line).toContain("- et 1 note(s) d'autres projets : api");
     // Outside a session (the user in a terminal): every note, each scope said.
     const user = await runBrain([], { from, cwd: '/', inSession: false });
-    expect(user.line).toContain('— réservée au chat');
+    expect(user.line).toContain('— plus lue');
+    expect(user.line).not.toContain('réservée au chat');
     expect(user.line).toContain('- api — ');
   });
 
@@ -86,7 +87,7 @@ describe('ledge brain', () => {
     const r = await runBrain(['machines'], { from, inSession: true });
     expect(r).toEqual({ code: 0, line: `# machines — « Les machines » — vérifiée le 2026-11-01 (${join(from, 'machines.md')})\n\nLe Pi est en Debian.` });
     expect(await runBrain(['MACHINES.md'], { from, inSession: true })).toMatchObject({ code: 0 });
-    expect(await runBrain(['secrets'], { from, inSession: true })).toEqual({ code: 1, line: 'La note « secrets » est réservée au chat de Ledge.' });
+    expect(await runBrain(['secrets'], { from, inSession: true })).toEqual({ code: 1, line: 'secrets : note plus lue, sa portée était le chat de Ledge.' });
     expect(await runBrain(['secrets'], { from, inSession: false })).toMatchObject({ code: 0 });
     expect(await runBrain(['nope'], { from })).toMatchObject({ code: 1, line: expect.stringContaining('`ledge brain` liste ce qu\'il sait') });
   });

@@ -31,12 +31,12 @@ export const tasksBadge = (tasks: readonly Task[]): number => shownTasks(tasks).
 /** « Connexion… » before the local daemon's first state: in place of the list, no skeleton. */
 export function Connecting(): JSX.Element {
   const { t } = useI18n();
-  return <div className="rt-empty" role="status"><span className="rt-spin" aria-hidden="true" />{t.home.tasks.connecting}</div>;
+  return <div className="rt-empty" role="status"><span className="rt-spin" aria-hidden="true" />{t.tasks.connecting}</div>;
 }
 /** The local daemon is gone: the last list stays, dimmed, under this banner. */
 export function OfflineBanner(): JSX.Element {
   const { t } = useI18n();
-  return <div className="rt-banner" role="status"><span className="rt-dot" aria-hidden="true" />{t.home.tasks.offline}</div>;
+  return <div className="rt-banner" role="status"><span className="rt-dot" aria-hidden="true" />{t.tasks.offline}</div>;
 }
 
 /** What the report card (issue #9) needs to answer an agent's report from its detail (#40 D5). */
@@ -50,7 +50,7 @@ export interface ReportHandlers { client: DaemonClient; desktop: string | null; 
 export function TasksPane({ api, task, seen, state, onShow, report }: { api: TasksApi; task: string | null; seen: number; state: ListState; onShow(id: string | null): void; report?: ReportHandlers }): JSX.Element {
   const { t } = useI18n();
   const tasks = shownTasks(api.tasks);
-  const c = t.home.tasks;
+  const c = t.tasks;
   const [filter, setFilter] = useState<StateFilter>('all');
   const [giver, setGiver] = useState<GiverFilter>('all');
   const [answering, setAnswering] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export function TasksPane({ api, task, seen, state, onShow, report }: { api: Tas
         {offline && <OfflineBanner />}
         <button ref={backRef} type="button" className="rt-back" onClick={() => onShow(null)}>‹ {c.back}</button>
         <h3><code>{detail.id}</code> · {detail.title}</h3>
-        <span className="rt-meta">{asked ? t.decision.asks(detail.giverName) : `${c.from(detail.giverName, detail.ownerName)} · ${t.chat.task.state[detail.state]}`}</span>
+        <span className="rt-meta">{asked ? t.decision.asks(detail.giverName) : `${c.from(detail.giverName, detail.ownerName)} · ${t.tasks.state[detail.state]}`}</span>
         {detail.text && !r && <div className="rt-txt">{detail.text}</div>}
         {detail.result && <div><b>{detail.state === 'done' ? c.result : c.reason} :</b> {detail.result}</div>}
         {asked && r && report && <ReportDecision task={{ ...detail, report: r }} {...report} />}
@@ -116,7 +116,7 @@ export function TasksPane({ api, task, seen, state, onShow, report }: { api: Tas
                     <b>{x.title}</b>
                     <small><code>{x.id}</code> · {x.report && k === 'asked'
                       ? <>{x.giverName} · <span className="rt-pill">{t.report.pill}</span></>
-                      : <>{c.from(x.giverName, x.ownerName)} · {k === 'asked' ? t.asks.pill.decision : t.chat.task.state[x.state]}</>}</small>
+                      : <>{c.from(x.giverName, x.ownerName)} · {k === 'asked' ? t.asks.pill.decision : t.tasks.state[x.state]}</>}</small>
                   </button>
                 );
               })}
@@ -138,8 +138,8 @@ export function TasksView({ api, task, seen, state, onShow, report }: Parameters
     e.preventDefault(); e.stopPropagation(); onShow(null);
   };
   return (
-    <aside className="ide-tasks" aria-label={t.home.tasks.back} onKeyDown={onKey}>
-      <div className="ide-tasks-h"><span>{t.home.tasks.back}</span><small>{t.ide.tasksOpen(open)}</small></div>
+    <aside className="ide-tasks" aria-label={t.tasks.back} onKeyDown={onKey}>
+      <div className="ide-tasks-h"><span>{t.tasks.back}</span><small>{t.ide.tasksOpen(open)}</small></div>
       <div className="ide-tasks-b">
         <TasksPane api={api} task={task} seen={seen} state={state} onShow={onShow} {...(report ? { report } : {})} />
       </div>

@@ -13,7 +13,7 @@ tmux, answers hooks, and serves the apps over WebSocket on `127.0.0.1:47831` (`P
 ## Layout
 
 `src/cli` (commands, hooks), `src/daemon` (server, sessions, OpenRig), `src/adapters` (one per agent tool),
-`src/chat` (Ask Ledge), `src/tui`, `src/brain`, `src/mobile` (relay link, phone gateway), `src/term`,
+`src/tui`, `src/brain` (notes, and the guide `ledge brain @ledge` serves), `src/mobile` (relay link, phone gateway), `src/term`,
 `src/transport`, `src/update`.
 
 ## Pitfalls
@@ -22,7 +22,8 @@ tmux, answers hooks, and serves the apps over WebSocket on `127.0.0.1:47831` (`P
   default server, where OpenRig's seats run: read and attach there, never change its global options or environment.
 - `src/cli/index.ts` imports nothing statically, and a hook must never fail the agent: an npm reinstall can leave the
   package half written while agents keep calling `ledge hook`.
-- Ask Ledge runs carry `LEDGE_CHAT=1` so Ledge's own hooks ignore them.
+- There is no chat with Ledge and no operator any more (#40): a decision a session puts to the user is a task
+  (`ledge task give ledge`), answered in Tasks, the phone's thread or the TUI's Session screen.
 - `rig` is run without `NO_COLOR`/`FORCE_COLOR` (`src/daemon/openrig.ts`): it can start OpenRig's daemon, which would
   hand them to every seat. Its output is stripped of escape sequences instead.
 - Do not restart or replace the installed daemon (`ledge-daemon.service`) to try a change: use the tests, or `dev` with

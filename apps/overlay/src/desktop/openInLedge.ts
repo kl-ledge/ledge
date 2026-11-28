@@ -9,8 +9,6 @@ export type LedgeTarget =
   | { kind: 'launch' }
   | { kind: 'update' }
   | { kind: 'machines' }
-  /** The operator's point: Desktop's chat panel, where the point is a turn. */
-  | { kind: 'point'; qid: string }
   /** A rig's question, by its OpenRig queue item: Desktop's Rigs view, that card ringed (#40 D1). */
   | { kind: 'ask'; id: string }
   /** OpenRig's requests, none in particular: Desktop's Rigs view (#40 D1). */

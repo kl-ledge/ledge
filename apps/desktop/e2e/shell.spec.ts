@@ -48,18 +48,6 @@ test('a stored list preference opens the atelier', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'List' })).toHaveCount(0);
 });
 
-test('the right panel\'s toggle hides and shows the chat with Ledge (Ctrl+/ opens Tasks, #40 D3)', async ({ page }) => {
-  await fakeDaemon(page, eight, { projects: twoProjects });
-  await page.goto('/'); await ideReady(page);
-  const chat = page.locator('.ide-right');
-  await expect(chat).toBeVisible();
-  const toggle = page.getByRole('button', { name: /^(Panneau de droite|Right panel)$/ });
-  await toggle.click();
-  await expect(chat).toHaveCount(0);
-  await toggle.click();
-  await expect(chat).toBeVisible();
-});
-
 test('at 1000 px the Atelier bar stays on one line with a long project name, inside the bar', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 700 });
   await fakeDaemon(page, eight, { projects: { projects: [{ id: 'ledge', name: 'Payment Service Platform Migration Europe', color: 'blue', description: '', repos: [{ machine: 'local', path: '/w/ledge' }] }], rules: [] } });

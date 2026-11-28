@@ -3,7 +3,7 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrainChoice, BrainProposal, NoteInfo } from '@ledge/protocol';
-import { redact } from '../chat/forge.js';
+import { redact } from '../daemon/forge/run.js';
 import { brainFile, NOTE_MAX, notesDir, oldFor, readBrainState, readNotes, type BrainState } from './notes.js';
 
 /** The most open proposals one session may have waiting for the user. */

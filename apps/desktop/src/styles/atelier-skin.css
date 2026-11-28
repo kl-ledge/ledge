@@ -57,8 +57,6 @@
 :root[data-skin="atelier"] .ide-btile-tab.on::before { display: none; }
 :root[data-skin="atelier"] .ide-btile-tools .chip-k, :root[data-skin="atelier"] .ide-term-kind .chip-k { border-radius: 9px; }
 
-:root[data-skin="atelier"] .ide-right { border: 1px solid var(--at-line); border-radius: var(--radius-lg); overflow: hidden; }
-:root[data-skin="atelier"] .ide-right > .ledge-chat-panel { background: var(--at-side); border-left: 0; }
 
 /* The status bar: each item a soft pill, the waiting requests in coral. */
 :root[data-skin="atelier"] .ide-status { gap: 8px; font-size: 12px; }

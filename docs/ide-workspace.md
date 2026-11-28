@@ -20,31 +20,30 @@ Ledge n'édite pas de code. « Ouvrir dans… » envoie le worktree d'une sessio
 ## Hors périmètre
 
 - **Le mur d'agents.** Il sera retravaillé plus tard et n'est pas au premier plan.
-- **Pas d'onglet Brain** dans l'IDE. Les tâches sont un onglet du panneau de droite, pas un onglet de la zone d'édition (lot 12).
-- **L'Accueil** de Ledge a disparu. La page « À toi » et le panneau de droite le remplacent (lot 12).
+- **Pas d'onglet Brain** dans l'IDE. Les tâches sont une vue de la barre d'activité (#40), pas un onglet de la zone d'édition.
+- **L'Accueil** de Ledge a disparu, comme ensuite le chat de Ledge, son panneau de droite et « À toi » (#40) : ce qui attend l'utilisateur s'affiche là où il y répond (voir « Tâches et demandes »).
 - **Le TUI**, qui reprendra le modèle après le Desktop.
 
 ## La fenêtre
 
 | Zone | Contenu |
 |---|---|
-| Barre de titre | Le champ de recherche qui ouvre la palette (`Ctrl+K`), et les boutons pour afficher ou masquer la barre latérale, le panneau du bas et le panneau de droite. |
-| Barre d'activité (à gauche) | **Projets**, **Rigs**, **À toi** (badge rouge ou ambre), **MR et PR** (badge : pipelines échoués), **Atelier** (onglet), **Réglages** (onglet). Un second clic sur la vue active replie la barre latérale. |
-| Barre latérale | Selon la vue : **Projets** (sessions par projet, puis **Archives**), **Rigs** (le kernel, les rigs et leurs sièges, OpenRig en bas ; voir « OpenRig »), **À toi** (demandes, tranchables sur place, et le bouton « Page »), **MR et PR**. Elle se redimensionne en glissant son bord : sous 150 px elle se replie, un double-clic lui rend sa largeur par défaut. `Ctrl+B` ou le bouton de la barre de titre la replie (plus de « Réduire » en bas, décision de l'utilisateur du 2026-11-09). |
+| Barre de titre | Le champ de recherche qui ouvre la palette (`Ctrl+K`), et les boutons pour afficher ou masquer la barre latérale et le panneau du bas. |
+| Barre d'activité (à gauche) | **Projets** (badge rouge pour une autorisation, ambre pour une question), **Rigs** (badge ambre : les demandes d'OpenRig), **MR et PR** (badge : pipelines échoués), **Routines**, **Tâches** (badge ambre : les décisions), **Atelier** (onglet), **Réglages** (onglet). Un second clic sur la vue active replie la barre latérale. |
+| Barre latérale | Selon la vue : **Projets** (sessions par projet, puis **Archives**), **Rigs** (en tête le bloc **Demandes** d'OpenRig, puis le kernel, les rigs et leurs sièges, OpenRig en bas ; voir « OpenRig »), **MR et PR**, **Routines**, **Tâches**. Elle se redimensionne en glissant son bord : sous 150 px elle se replie, un double-clic lui rend sa largeur par défaut. `Ctrl+B` ou le bouton de la barre de titre la replie (plus de « Réduire » en bas, décision de l'utilisateur du 2026-11-09). |
 | Zone d'édition | Des groupes d'onglets côte à côte. Voir « Onglets et groupes ». |
 | Panneau du bas (`Ctrl+J`) | Deux onglets en icônes : les terminaux (avec leur nombre) et la sortie (les commandes `rig` lancées par Ledge, avec leur nombre). |
-| Panneau de droite (`Ctrl+/`, ou `/`) | **Le chat de Ledge**, avec trois onglets : « Conversation », « Tâches » (le nombre des ouvertes) et « Historique » (lot 12, maquette `docs/mockups/ledge-ide-tasks-history.html`). |
 | Barre d'état | Le daemon, OpenRig (rigs en marche), les demandes en attente (un clic mène à la suivante), les MR et PR (nombre, pipelines échoués, en cours), les **limites d'usage** et la **disposition** en cours (menu : appliquer, enregistrer, gérer). |
 
 Les rigs ne figurent pas dans la vue Projets. Ils sont réservés à la vue Rigs.
 
 ## Onglets et groupes
 
-Types d'onglets : **session**, **siège OpenRig**, **modifications** d'une session, **terminal**, **MR ou PR**, **vue Rig** (la topologie et les réglages d'un rig ou du kernel), **page OpenRig**, **page À toi**, **atelier**, **réglages**.
+Types d'onglets : **session**, **siège OpenRig**, **modifications** d'une session, **terminal**, **MR ou PR**, **vue Rig** (la topologie et les réglages d'un rig ou du kernel), **page OpenRig**, **atelier**, **réglages**.
 
 - **Ouvrir.** Un clic dans l'explorateur ouvre selon le réglage « Ouvrir une session » : dans le groupe actif, ou à droite. `Ctrl`+clic ouvre à droite. Le clic droit propose : ouvrir, ouvrir à droite, son terminal (ou sa capture pour un siège), envoyer un message et redémarrer le siège (pour un siège), ouvrir dans l'éditeur. Un onglet déjà ouvert est mis au premier plan, jamais dupliqué.
 - **Aperçu : un clic regarde, un double clic garde** (spec `docs/superpowers/specs/2026-11-26-preview-tabs-design.md`, maquette `docs/mockups/ledge-preview-tabs.html`, validées par l'utilisateur le 2026-11-26).
-  - **Un simple clic** (ou `Entrée`) ouvre un onglet d'**aperçu**, son titre en italique. Le prochain simple clic le **remplace à sa place**. Ce clic est fait dans l'explorateur (Projets, Archives, Rigs, À toi et sa « Page », MR et PR, Routines), sur un agent de l'atelier, sur « Atelier » et « Réglages » de la barre d'activité, sur la prochaine demande de la barre d'état, ou sur « Voir » dans l'île. Un groupe a au plus un aperçu ; chaque groupe a le sien.
+  - **Un simple clic** (ou `Entrée`) ouvre un onglet d'**aperçu**, son titre en italique. Le prochain simple clic le **remplace à sa place**. Ce clic est fait dans l'explorateur (Projets, Archives, Rigs, MR et PR, Routines, Tâches), sur un agent de l'atelier, sur « Atelier » et « Réglages » de la barre d'activité, sur la prochaine demande de la barre d'état, ou sur « Voir » dans l'île. Un groupe a au plus un aperçu ; chaque groupe a le sien.
   - **`Ctrl`+clic** met l'aperçu dans le groupe de droite, à la place de son aperçu. Un groupe n'est créé que s'il n'y en a pas à droite.
   - **Un double clic** sur la ligne ou sur l'onglet **garde** l'onglet : son titre redevient droit, et le prochain clic ouvre un aperçu à côté.
   - **Ouvrent un onglet gardé :** « Ouvrir » et « Ouvrir à droite » du clic droit (« Ouvrir à droite » crée toujours un groupe), une session qui vient d'être lancée, « Nouvelle routine », la palette (`Ctrl+K`), `Ctrl+Maj+T`, une disposition appliquée, et l'espace de travail relu au démarrage.
@@ -86,7 +85,7 @@ Version 27, lot 9. Une fenêtre détachée est une popout dockview du même docu
 | Atelier | « Détacher » envoie l'onglet atelier, seul, dans une nouvelle fenêtre. Hors de la fenêtre principale, le bouton devient « Ramener » et rend l'onglet au groupe actif de la fenêtre principale. L'onglet atelier se glisse aussi comme les autres. |
 | Dispositions | Elles enregistrent les fenêtres détachées (une par groupe), leur écran et leur taille. |
 
-**Barre de titre d'une fenêtre détachée.** Comme la principale (`decorations: false`), sans la recherche ni les bascules de panneaux : la marque Ledge, au centre le nom de l'onglet actif, à droite les boutons Réduire, Agrandir et Fermer (`WindowCaps`). Le nom suit l'onglet actif : « dev-front · ledge-dev » pour un siège, « Pim · ledge » pour une session, sinon le titre de l'onglet sans compteur (« À toi », « Atelier »). Titre dans la barre des tâches Windows : « {onglet actif} — Ledge ». La fenêtre principale garde « Ledge Desktop ».
+**Barre de titre d'une fenêtre détachée.** Comme la principale (`decorations: false`), sans la recherche ni les bascules de panneaux : la marque Ledge, au centre le nom de l'onglet actif, à droite les boutons Réduire, Agrandir et Fermer (`WindowCaps`). Le nom suit l'onglet actif : « dev-front · ledge-dev » pour un siège, « Pim · ledge » pour une session, sinon le titre de l'onglet sans compteur (« Atelier », « Réglages »). Titre dans la barre des tâches Windows : « {onglet actif} — Ledge ». La fenêtre principale garde « Ledge Desktop ».
 
 **Pendant un glisser.** Un bandeau en bas de la fenêtre d'où part l'onglet :
 
@@ -102,7 +101,7 @@ Autres textes : toast de fermeture « Fenêtre fermée : son onglet revient dans
 
 - **Onglet :** logo du provider (Anthropic, OpenAI, omp), nom, pastille d'état aux couleurs de l'encoche. L'onglet est souligné en rouge pour une autorisation, en ambre pour une question. Un siège affiche aussi le nom de son rig. La vue terminal ajoute `>_`.
 - **Vues :** le fil par défaut ; le terminal par `Ctrl+`` ou le clic droit sur l'onglet ; role.md pour un siège, par le clic droit. Il n'y a pas de sélecteur de vue.
-- **Demandes :** une autorisation se tranche par `Y` / `N` sur la session active, où qu'elle soit. Une question se répond par ses options. On peut aussi trancher depuis « À toi ».
+- **Demandes :** une autorisation se tranche par `Y` / `N` sur la session active, où qu'elle soit. Une question se répond par ses options.
 - **Réponse :** un champ sur plusieurs lignes sous le fil (Entrée envoie, Maj+Entrée passe à la ligne ; pour un siège, c'est un `rig send`). Il n'existe pas dans la vue terminal.
 - **Barre du bas de l'onglet**, de gauche à droite :
   - le **modèle** (un clic propose les modèles du même harnais) ;
@@ -122,22 +121,18 @@ Elle s'ouvre dans une **fenêtre modale**, jamais en page ni en onglet. On l'ouv
 
 Les champs : projet, où travailler (nouvelle branche dans un worktree, ou `main` dans le dossier du projet), agent (Claude Code, Codex, Cursor Agent, omp, chacun avec la limite 5 h de son compte), modèle, permissions, premier message, où ouvrir la session (groupe actif, à droite). Le texte d'aide en haut reprend l'endroit choisi. `Ctrl+Entrée` lance, Échap ferme. Une fois lancée, la session s'ouvre à l'endroit choisi et se met au travail.
 
-## À toi
+## Tâches et demandes
 
-- **Vue À toi** (barre latérale) : les demandes, tranchables sur place.
-- **Page À toi**, qui remplace l'Accueil : elle s'ouvre en onglet, par le bouton « Page » de la vue À toi, ou par « Voir » sur la demande d'un rig (sa carte s'y déplie). Lot 12 : elle reprend aussi ce que montrait « Le point » de l'Accueil. Ses blocs, dans l'ordre :
-  - les **demandes** (autoriser, refuser, répondre, ouvrir) ;
-  - les **décisions** que les sessions posent par Ledge (`ledge decide`, propositions de notes), avec « Répondre » ;
-  - les **demandes des rigs** OpenRig ;
-  - les **MR et PR** qui attendent l'utilisateur : pipeline échoué (« Demander à X de corriger ») ou prête à fusionner (« Fusionner ») ;
-  - les sessions dont le **contexte est presque plein** (passer le relais, ou plus tard) ;
-  - **terminé depuis ton passage** : les sessions qui ont fini, avec leur dernier message, et les tâches de Ledge closes (« Voir » les ouvre dans « Tâches », « Ranger »).
-
-  « Résumer la journée », en haut, pose la question dans la Conversation du panneau de droite.
+Il n'y a plus de chat avec Ledge ni de page « À toi » (#40, maquettes `docs/mockups/ledge-remove-chat-d1-d3-d6.html` et `ledge-remove-chat-p2.html`). Chaque chose s'affiche là où on y répond :
+- les **autorisations et questions des sessions** : leur ligne dans la vue Projets et leur onglet (badge de Projets) ;
+- les **demandes d'OpenRig** (rigs, Max, l'opérateur du kernel) : le bloc **Demandes** en tête de la vue Rigs, les plus urgentes d'abord (badge de Rigs) ;
+- les **décisions** qu'une session pose à l'utilisateur (`ledge task give ledge`), les **propositions de notes** et les **signalements** (`ledge report`) : la vue **Tâches** (`Ctrl+/`, badge ambre), avec « Répondre » ;
+- une **routine** à activer : sa page et la vue Routines ;
+- une **relève** qui a échoué : le ◔ de sa ligne passe en rouge (la raison au survol) et une bande avec « Réessayer » sur sa page.
 
 ## Historique
 
-Les conversations du jour avec Ledge sont l'onglet « Historique » du panneau de droite. Les **Archives** sont en bas de la vue Projets, repliables, comme aujourd'hui. Elles listent les sessions archivées, avec leur projet et leur ancienneté. La palette les trouve aussi (`@`, marquées « archivée »).
+Les **Archives** sont en bas de la vue Projets, repliables, comme aujourd'hui. Elles listent les sessions archivées, avec leur projet et leur ancienneté. La palette les trouve aussi (`@`, marquées « archivée »).
 
 ## MR et PR
 
@@ -251,7 +246,7 @@ Les réglages s'ouvrent en onglet (`Ctrl+,`). Les sections d'avant ne changent p
 | `Ctrl+\` | Diviser le groupe à droite. |
 | `Ctrl+B` | Replier ou déplier la barre latérale. |
 | `Ctrl+J` | Afficher ou masquer le panneau du bas. |
-| `Ctrl+/` | Afficher le panneau de droite, le curseur dans le champ du chat ; le masquer rend le clavier à l'onglet actif. `/` (hors d'un champ) l'ouvre sur la Conversation. |
+| `Ctrl+/` | Ouvrir la vue Tâches ; la deuxième fois, revenir à la vue d'avant. `/` ne fait rien. |
 | `Alt+1…9` | Ouvrir la Nième session de la liste. |
 | `Alt+←` / `→` | Session précédente ou suivante. |
 | `Ctrl+W` / `Ctrl+Maj+T` | Fermer l'onglet ; rouvrir le dernier fermé. |
@@ -260,7 +255,7 @@ Les réglages s'ouvrent en onglet (`Ctrl+,`). Les sections d'avant ne changent p
 | `?` | La liste des raccourcis. |
 | `Ctrl+,` | Réglages. |
 | `Ctrl+Entrée` | Lancer la nouvelle session, ou le rig dans « Lancer un rig ». |
-| Échap | Fermer une fenêtre modale, un menu, une confirmation ou le chat ; retirer un filtre. |
+| Échap | Fermer une fenêtre modale, un menu ou une confirmation ; retirer un filtre. |
 
 ## Points ouverts
 

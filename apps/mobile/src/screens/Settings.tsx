@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { CONTEXT_NEAR, CONTEXT_NEAR_MAX, CONTEXT_NEAR_MIN, DEFAULT_DEVICE_PREFS, type DevicePrefs, type MutableNotification, type Tool } from '@ledge/protocol';
+import { CONTEXT_NEAR, CONTEXT_NEAR_MAX, CONTEXT_NEAR_MIN, DEFAULT_DEVICE_PREFS, type DevicePrefs, type MutableNotification } from '@ledge/protocol';
 import { copy, locale } from '../copy';
 import { setReducedMotion, useReducedMotion } from '../motion';
 import { useMobile, type MobileStore } from '../state/store';
@@ -15,9 +15,7 @@ const ROW = 'flex flex-col gap-1 border-b border-line px-4 py-3 last:border-b-0'
 export const NEARS = Array.from({ length: Math.round((CONTEXT_NEAR_MAX - CONTEXT_NEAR_MIN) * 20) + 1 }, (_, i) => Math.round((CONTEXT_NEAR_MIN + i * 0.05) * 100));
 // « Le point de Ledge » and « Réponse de Ledge » left with the chat (#40, docs/mockups/ledge-remove-chat-p2.html, card 8); their
 // prefs stay in the device's settings, read and ignored, so an older phone is not refused (D12).
-const KINDS: readonly MutableNotification[] = ['decision'];
-type ToolChoice = Tool | 'pc';
-const TOOL_CHOICES: readonly ToolChoice[] = ['pc', 'claude', 'codex', 'cursor', 'omp'];
+const KINDS = ['decision'] as const satisfies readonly MutableNotification[];
 
 /** A labelled row: the label (and its hint) on the left, the control on the right. */
 function Row({ label, hint, children }: { label: string; hint?: ReactNode; children: (describedBy: string | undefined) => ReactNode }) {
@@ -114,7 +112,7 @@ export function NotificationPrefs({ store }: { store: MobileStore }) {
   );
 }
 
-/** « Ledge »: the PC's « Contexte max » (shared with every front) and the agent of this device's chat. Nothing from an older PC. */
+/** « Ledge »: the PC's « Contexte max », shared with every front. Nothing from an older PC. The chat's agent left with the chat (#40). */
 export function LedgePrefs({ store }: { store: MobileStore }) {
   const state = useMobile(store);
   const p = usePrefs(store);
@@ -132,7 +130,6 @@ export function LedgePrefs({ store }: { store: MobileStore }) {
       if (r.status !== 'applied') setNearFailed(true);
     });
   };
-  const tool: ToolChoice = p.prefs.chatTool ?? 'pc';
   return (
     <section aria-labelledby="ledge-title" className="flex flex-col gap-2.5">
       <h2 id="ledge-title" className="text-small font-medium text-muted">{S.ledge}</h2>
@@ -144,17 +141,6 @@ export function LedgePrefs({ store }: { store: MobileStore }) {
             </select>
           )}
         </Row>
-        {state.device.chat && (
-          <div className={ROW}>
-            <span>{S.chatTool}</span>
-            <p className="text-small text-muted">{S.chatToolHint}</p>
-            <div className="mt-1">
-              <Segmented name="chat-tool" legend={S.chatTool} value={tool} options={TOOL_CHOICES.map(v => ({ value: v, label: S.tools[v] }))}
-                onChange={v => { if (state.fresh) p.send({ ...p.prefs, chatTool: v === 'pc' ? null : v }); }} />
-            </div>
-            <p className="text-meta text-muted">{S.toolPcHint}</p>
-          </div>
-        )}
       </div>
       {!state.fresh && <p className="text-small text-muted">{S.offline}</p>}
       {(nearFailed || p.failed) && <p role="alert" className="text-small text-danger-fg">{S.failed}</p>}

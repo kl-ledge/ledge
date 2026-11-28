@@ -1,5 +1,7 @@
 # Tester l'île — guide de recette manuelle
 
+> Note (#40) : le chat de Ledge, « le point », l'opérateur et « À toi » ont été retirés depuis l'écriture de ce document. Ses mentions de ces surfaces sont historiques ; l'état actuel est dans `docs/ledge-guide.md`. Les demandes d'OpenRig se répondent dans le bloc « Demandes » de la vue Rigs (Desktop) et de l'onglet Rigs (téléphone), les décisions dans la vue Tâches et dans le fil de la session.
+
 Version visée : Ledge 0.2.1 (tag `v0.2.1`, installeur `Ledge_0.1.0_x64-setup.exe`). Référence : la [spec de l'île](superpowers/specs/2026-10-12-island-design.md) et le [tour](tour.md).
 
 Ce guide est une suite de scénarios à dérouler sur la version installée sous Windows, avec de vraies sessions lancées depuis WSL. Chaque scénario dit comment provoquer la situation, ce qui doit se passer et ce qu'il faut noter si ça ne se passe pas. Les cases `[ ]` se cochent au fur et à mesure ; une grille de résultats attend à la fin.

@@ -13,7 +13,6 @@ import { App } from '../src/App';
 import { loadWorkspace } from '../src/session/lazy';
 import { loadComposer } from '../src/launch/lazy';
 import { loadEditor } from '../src/projects/lazy';
-import { loadChat } from '../src/chat/lazy';
 import { loadIde } from '../src/ide/lazy';
 import { loadSettings } from '../src/settings/lazy';
 import { empty, open, serialize } from '../src/workspace/model';
@@ -158,7 +157,6 @@ export async function preloadChunks(): Promise<void> {
   await loadEditor();
   await loadSettings();
   await loadIde();
-  await loadChat();
 }
 export async function boot({ sessions = DEFAULT_SESSIONS, projects = PROJECTS, list = false, machines = [{ id: 'local', label: 'Local' }, { id: 'dev', label: 'Dev SSH', ssh: 'dev' }], repoInfo, daemon, home = false }: { sessions?: Session[]; projects?: Projects; list?: boolean; machines?: Machines; repoInfo?: ReadonlyMap<string, RepoInfo>; daemon?: DaemonInfo; /** Kept for the tests written before lot 12b: the IDE always opens on its Atelier tab. */ home?: boolean } = {}): Promise<{ d: MockDaemon; side: ReturnType<typeof within>; view: RenderResult; client: DaemonClient; user: UserEvent }> {
   await preloadChunks();

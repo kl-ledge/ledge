@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { isArchived, type BrowserLive, type ChatTurn, type DaemonInfo, type Recent, type ServerMessage, type Session, type ThreadItem } from '@ledge/protocol';
+import { isArchived, type BrowserLive, type DaemonInfo, type Recent, type ServerMessage, type Session, type ThreadItem } from '@ledge/protocol';
 import type { DaemonClient, DaemonStatus } from './client';
 
 /** A daemon `error` reply; `seq` tells two identical messages apart. */
@@ -25,8 +25,6 @@ export interface DaemonState {
   launcher: string[] | null;
   lastLaunched: Launched | null;
   lastListing: FolderListing | null;
-  /** The day's conversation with Ledge, oldest first, and the answer being streamed (null between questions). */
-  chat: ChatTurn[]; chatLive: { qid: string; text: string } | null;
   /** The daemon's version and install mode, from the last snapshot; null when it does not report them. */
   daemon: DaemonInfo | null;
   /** How many snapshots arrived (one per connection), so a reconnect after a restart is detectable. */
@@ -36,7 +34,7 @@ export interface DaemonState {
 }
 /** The daemon's last `folder.listing` answer (to this client's `folder.list` or `folder.create`); `seq` tells two apart. */
 export type FolderListing = Omit<Extract<ServerMessage, { type: 'folder.listing' }>, 'type'> & { seq: number };
-const empty = (): DaemonState => ({ sessions: [], archived: [], byId: new Map(), status: 'connecting', previews: new Map(), threads: new Map(), browsers: new Map(), lastError: null, errors: [], recents: [], launcher: null, lastLaunched: null, lastListing: null, chat: [], chatLive: null, daemon: null, snapshotSeq: 0, lastUpdate: null });
+const empty = (): DaemonState => ({ sessions: [], archived: [], byId: new Map(), status: 'connecting', previews: new Map(), threads: new Map(), browsers: new Map(), lastError: null, errors: [], recents: [], launcher: null, lastLaunched: null, lastListing: null, daemon: null, snapshotSeq: 0, lastUpdate: null });
 const archivedOf = (m: Map<string, Session>) => [...m.values()].filter(isArchived).sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '') || a.id.localeCompare(b.id));
 let state: DaemonState = empty();
 const subs = new Set<() => void>();
@@ -48,20 +46,9 @@ export const daemonStore = {
   subscribe(fn: () => void) { subs.add(fn); return () => { subs.delete(fn); }; },
   setStatus(status: DaemonStatus) { state = { ...state, status }; emit(); },
   reset() { state = empty(); emit(); },
-  /** The overlay lists its own question at once; the daemon's events fill it in. */
-  beginTurn(turn: ChatTurn) { state = { ...state, chat: [...state.chat.filter(t => t.qid !== turn.qid), turn], chatLive: null }; emit(); },
   apply(m: ServerMessage) {
     // The browser's frames (up to ≈ 11 a second) and the answer to « Activer le direct » go to whoever listens for them, never through the state.
     if (m.type === 'browser.frame' || m.type === 'browser.enabled') return;
-    if (m.type === 'chat.history') { state = { ...state, chat: m.turns, chatLive: null }; emit(); return; }
-    if (m.type === 'chat.step' || m.type === 'chat.delta' || m.type === 'chat.done' || m.type === 'chat.error') {
-      const chat = state.chat.map(t => t.qid !== m.qid ? t
-        : m.type === 'chat.step' ? { ...t, steps: [...t.steps, m.step] }
-        : m.type === 'chat.done' ? { ...t, answer: m.text, answeredAt: m.at, ...(m.proposal ? { proposal: m.proposal } : {}), ...(m.proposals ? { proposals: m.proposals } : {}), ...(m.relay ? { relay: m.relay } : {}), ...(m.closes ? { closes: m.closes } : {}), ...(m.projectProposal ? { projectProposal: m.projectProposal } : {}), ...(m.tasks ? { tasks: m.tasks } : {}), ...(m.actions ? { actions: m.actions } : {}) }
-        : m.type === 'chat.error' ? { ...t, error: m.message } : t);
-      const chatLive = m.type === 'chat.delta' ? { qid: m.qid, text: (state.chatLive?.qid === m.qid ? state.chatLive.text : '') + m.text } : m.type === 'chat.step' ? state.chatLive : null;
-      state = { ...state, chat, chatLive }; emit(); return;
-    }
     if (m.type === 'error') {
       const e: DaemonError = { id: m.id, message: m.message, seq: (state.lastError?.seq ?? 0) + 1, ...(m.request ? { request: m.request } : {}), ...(m.code ? { code: m.code } : {}) };
       state = { ...state, lastError: e, errors: [...state.errors, e].slice(-ERRORS_KEPT) }; emit(); return;

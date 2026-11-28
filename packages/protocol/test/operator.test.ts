@@ -37,14 +37,4 @@ describe('operator protocol', () => {
     const ok = { v: 1, kind: 'point', title: 'Ledge', body: 'Un point', url: '/#/chat', badge: 1, tag: 'point_1' };
     expect(PushPayloadSchema.safeParse(ok).success).toBe(true);
   });
-  it('client message point.act parses with an option id or with text', () => {
-    expect(parseClientMessage({ type: 'point.act', qid: 'q1', item: item.id, answer: { id: 'allow' } }).type).toBe('point.act');
-    expect(parseClientMessage({ type: 'point.act', qid: 'q1', item: item.id, answer: { text: 'oui' } }).type).toBe('point.act');
-    expect(() => parseClientMessage({ type: 'point.act', qid: 'q1', item: item.id, answer: {} })).toThrow();
-    expect(parseClientMessage({ type: 'point.later', qid: 'q1' }).type).toBe('point.later');
-    expect(parseClientMessage({ type: 'operator.read', eventId: 7 }).type).toBe('operator.read');
-    expect(PhoneClientMessageSchema.parse({ type: 'point.act', op: OP, qid: OP, item: item.id, answer: { id: 'allow' } }).type).toBe('point.act');
-    expect(PhoneClientMessageSchema.parse({ type: 'point.later', op: OP, qid: OP }).type).toBe('point.later');
-    expect(PhoneClientMessageSchema.parse({ type: 'operator.read', op: OP, eventId: 3 }).type).toBe('operator.read');
-  });
 });

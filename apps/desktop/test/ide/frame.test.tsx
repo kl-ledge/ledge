@@ -9,7 +9,6 @@ import { createDesktopFleet } from '../../src/fleet/useFleet';
 import { App } from '../../src/App';
 import { loadWorkspace } from '../../src/session/lazy';
 import { loadSettings } from '../../src/settings/lazy';
-import { loadChat } from '../../src/chat/lazy';
 import { loadIde } from '../../src/ide/lazy';
 import { saveOpenSession } from '../../src/workspace/openPrefs';
 import type { DaemonInfo, Machines } from '@ledge/protocol';
@@ -24,7 +23,7 @@ beforeEach(() => { localStorage.clear(); localStorage.setItem('desktop.lang', 'f
 afterEach(async () => { cleanup(); for (const d of daemons.splice(0)) await d.close(); localStorage.clear(); });
 
 async function mount({ machines = [{ id: 'local', label: 'Local' }], daemon }: { machines?: Machines; daemon?: DaemonInfo } = {}) {
-  await Promise.all([loadWorkspace(), loadSettings(), loadChat(), loadIde()]);
+  await Promise.all([loadWorkspace(), loadSettings(), loadIde()]);
   seedAtelier();
   const d = await createMockDaemon(); daemons.push(d);
   d.machines(machines);
@@ -109,15 +108,6 @@ describe('the IDE shell', () => {
     expect(JSON.parse(JSON.parse(localStorage.getItem('ledge.ide.workspace')!)).groups[0].tabs).toEqual([{ kind: 'atelier', ref: 'main' }]);
   });
 
-  it('the right panel\'s toggle hides the chat, then shows it again (Ctrl+/ opens Tasks, #40 D3)', async () => {
-    const { user } = await mount();
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Panneau de droite' }));
-    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull());
-    await user.click(screen.getByRole('button', { name: 'Panneau de droite' }));
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-  });
-
   it('Ctrl+J shows the bottom frame: Terminaux, Sortie and « Masquer le panneau »', async () => {
     const { user } = await mount();
     expect(screen.queryByRole('region', { name: 'Panneau du bas' })).toBeNull();
@@ -131,23 +121,20 @@ describe('the IDE shell', () => {
 
 });
 
-describe('the IDE keyboard: the chat never holds the single keys', () => {
-  // #40 D3: Ctrl+/ is the Tasks view's; the right panel (the chat, until #40 PR 4) keeps its title-bar toggle.
-  it('Ctrl+/ opens the Tasks view and leaves the right panel as it is; again, back to the view before', async () => {
+describe('the IDE keyboard', () => {
+  // #40: Ctrl+/ is the Tasks view's; the chat and its right panel are gone (PR 4).
+  it('Ctrl+/ opens the Tasks view; again, back to the view before; no chat anywhere', async () => {
     const { user } = await mount();
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
     await user.keyboard('{Control>}/{/Control}');
     expect(await screen.findByRole('complementary', { name: 'Tâches' })).toBeVisible();
-    expect(screen.getByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
+    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
     await user.keyboard('{Control>}/{/Control}');
     await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Tâches' })).toBeNull());
   });
 
   it('/ does nothing (#40); Alt+1 opens the first agent\'s tab and ? the shortcuts', async () => {
     const { user } = await mount();
-    const chat = await screen.findByRole('complementary', { name: 'Chat Ledge' });
     await user.keyboard('/');
-    expect(chat.contains(document.activeElement)).toBe(false);
     await user.keyboard('{Alt>}1{/Alt}');
     await waitFor(() => expect(['Otto', 'Nova']).toContain(activeTab()?.getAttribute('aria-label')));
     expect(tabs()).toHaveLength(2);
@@ -230,33 +217,6 @@ describe('the IDE tabs carry the place (whole-branch review)', () => {
     await waitFor(() => expect(activeTab()).toHaveAccessibleName('Otto'));
     pointer('Réglages');
     expect(await screen.findByRole('heading', { level: 1, name: 'Apparence' })).toBeVisible();
-  });
-});
-
-describe('the right panel needs room (whole-branch review)', () => {
-  const width = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
-  afterEach(() => { width(1024); });
-  const toggle = () => screen.getByRole('button', { name: 'Panneau de droite' });
-
-  it('900 px, the sidebar open: the panel does not fit and its toggle is off; the toggle folds the sidebar and shows the chat', async () => {
-    width(900);
-    const { user } = await mount();
-    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
-    expect(toggle()).toHaveAttribute('aria-pressed', 'false');
-    await user.click(toggle());
-    expect(await screen.findByRole('complementary', { name: 'Chat Ledge' })).toBeVisible();
-    expect(document.querySelector('.ide-explorer')).toBeNull();
-    expect(toggle()).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('600 px: no room even folded — the toggle stays off and nothing shows', async () => {
-    width(600);
-    const { user } = await mount();
-    expect(toggle()).toHaveAttribute('aria-pressed', 'false');
-    await user.click(toggle());
-    expect(toggle()).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('complementary', { name: 'Chat Ledge' })).toBeNull();
-    expect(document.querySelector('.ide-explorer')).not.toBeNull();
   });
 });
 
@@ -451,7 +411,7 @@ describe('split and the empty group (lot 3)', () => {
     await waitFor(() => expect(groupviews()[1]).toHaveClass('dv-active-group'));
     const second = within(groupviews()[1]!);
     expect(groupviews()[1]!.querySelector('.ide-welcome [data-ledge-mark]')).not.toBeNull();
-    expect(startRows(groupviews()[1]!)).toEqual(['Terminal · Otto', 'Nouvelle session', 'Aller à une session', 'Demander à Ledge', 'OpenRig', 'Atelier', 'Terminal', 'Réglages']);
+    expect(startRows(groupviews()[1]!)).toEqual(['Terminal · Otto', 'Nouvelle session', 'Aller à une session', 'OpenRig', 'Atelier', 'Terminal', 'Réglages']);
     const terminal = second.getByRole('button', { name: 'Terminal · Otto' });
     expect(terminal).toHaveClass('pri');
     expect(second.getByText(/^Astuce : lie ce groupe/)).toHaveTextContent('Astuce : lie ce groupe (carré à gauche des onglets) avec celui de la session : il suivra la session choisie.');

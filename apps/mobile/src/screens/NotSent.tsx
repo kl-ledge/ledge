@@ -8,8 +8,6 @@ import { Icon } from '../ui/icons';
 import { Box, EmptyState } from '../ui/kit/Box';
 import { kitButtonClass } from '../ui/kit/Controls';
 import { useWide } from '../ui/layout';
-import { Mascot } from '../ui/MobileBot';
-import { PaneHead } from './Chat';
 
 /*
  * The tabs whose data the PC does not send to the phone yet (docs/mockups/ledge-mobile-refonte/m0-socle.html, §2 and §3,

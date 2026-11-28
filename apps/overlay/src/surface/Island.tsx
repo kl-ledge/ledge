@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { ProviderLogo, type Provider } from '@ledge/ui/logos/ProviderLogo';
 import { LedgeMark } from '@ledge/ui/logos/LedgeMark';
-import { inline } from '@ledge/ui/chat/inline';
+import { inline } from '@ledge/ui/text/inline';
 import { Button } from '../ui/Button';
 import { Kbd } from '../ui/Kbd';
 import { useI18n } from '../i18n/lang';

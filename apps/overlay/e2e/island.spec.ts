@@ -199,29 +199,16 @@ test('reduced motion: the island fades in already open, without the pill', async
   await expect(island(page)).toHaveAttribute('data-reduced', 'true');
 });
 
-test('a rig’s question from Ledge: its mark, the suggested answer first; a click answers through its point', async ({ page }) => {
-  const d = await fakeDaemon(page, [pim()], { daemon: DAEMON });
-  await ready(page);
-  const ask: OperatorNotice = { id: 'rig.ask:q1', kind: 'rig.ask', qid: 'p1', qitem: 'q1', text: 'Merge #309 now?', who: 'pilot-lead', rig: 'ledge-dev', options: [{ id: 'merge', label: 'Merge' }, { id: 'wait', label: 'Wait for qa' }], priority: 'urgent', at: new Date().toISOString() };
-  d.notices([{ id: 'point:p0', kind: 'point', qid: 'p0', text: 'Two things for you.', priority: 'routine', at: new Date().toISOString() }, ask]);
-  await expect(island(page)).toHaveAttribute('data-kind', 'rig');
-  await expect(card(page).locator('[data-ledge-mark]')).toHaveCount(1);
-  await expect(card(page).locator('.di-sentence')).toHaveText('pilot-lead: “Merge #309 now?”');
-  await page.getByRole('button', { name: 'Merge' }).click();
-  expect(await received(d.received, 'point.act')).toEqual({ type: 'point.act', qid: 'p1', item: 'rig.ask:q1', answer: { id: 'merge' } });
-  await expect(island(page)).toHaveCount(0);
-});
-
-test('#40: a rig’s question from a daemon without the point: its buttons show; a click answers through OpenRig (openrig.answer), not the point', async ({ page }) => {
+test('a rig’s question from Ledge: its mark, the suggested answer first; a click answers through OpenRig (openrig.answer, #40)', async ({ page }) => {
   const d = await fakeDaemon(page, [pim()], { daemon: DAEMON });
   await ready(page);
   const ask: OperatorNotice = { id: 'rig.ask:q1', kind: 'rig.ask', qitem: 'q1', questionId: 'q', text: 'Merge #309 now?', who: 'pilot-lead', rig: 'ledge-dev', options: [{ id: 'merge', label: 'Merge' }, { id: 'wait', label: 'Wait for qa' }], priority: 'urgent', at: new Date().toISOString() };
   d.notices([ask]);
   await expect(island(page)).toHaveAttribute('data-kind', 'rig');
+  await expect(card(page).locator('[data-ledge-mark]')).toHaveCount(1);
   await expect(card(page).locator('.di-sentence')).toHaveText('pilot-lead: “Merge #309 now?”');
   await page.getByRole('button', { name: 'Merge' }).click();
   expect(await received(d.received, 'openrig.answer')).toEqual({ type: 'openrig.answer', requestId: expect.any(String), qitemId: 'q1', answer: { kind: 'choice', questionId: 'q', optionId: 'merge' } });
-  expect(d.received.some(m => (m as { type: string }).type === 'point.act')).toBe(false);
   await expect(island(page)).toHaveCount(0);
 });
 

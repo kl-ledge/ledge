@@ -215,7 +215,7 @@ test('split from a session: the welcome, « Terminal · Otto » first, then its 
   await expect(tabsIn(page, 1)).toHaveCount(0);
   await expect(groups(page).nth(1)).toHaveClass(/dv-active-group/);
   await expect(empty.locator('[data-ledge-mark]')).toBeVisible();
-  expect(await startRows(empty)).toEqual(['Terminal · Otto', 'New session', 'Go to a session', 'Ask Ledge', 'Next request', 'OpenRig', 'Atelier', 'Terminal', 'Settings']);
+  expect(await startRows(empty)).toEqual(['Terminal · Otto', 'New session', 'Go to a session', 'Next request', 'OpenRig', 'Atelier', 'Terminal', 'Settings']);
   await expect(empty.getByRole('region', { name: 'Recent' })).toContainText('Otto');
   await expect(empty).toContainText('Tip: link this group');
   // The mockup's rows (docs/mockups/accueil-vide): 28 px high, 12.5 px type, 6 px corners.
@@ -306,7 +306,7 @@ test('Review Focus 3: split from the Atelier, the welcome offers no « Terminal 
   await split(page, 0);
   const empty = groups(page).nth(1).locator('.ide-welcome');
   await expect(empty).toBeVisible();
-  expect(await startRows(empty)).toEqual(['New session', 'Go to a session', 'Ask Ledge', 'Next request', 'OpenRig', 'Atelier', 'Terminal', 'Settings']);
+  expect(await startRows(empty)).toEqual(['New session', 'Go to a session', 'Next request', 'OpenRig', 'Atelier', 'Terminal', 'Settings']);
   await expect(empty).not.toContainText('Tip:');
   // « Settings » opens in the empty group.
   await empty.getByRole('button', { name: 'Settings' }).click();

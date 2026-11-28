@@ -113,10 +113,10 @@ function Row({ session: s, filter, offline, threshold, now, closing, pressed, on
         <b className="font-semibold"><SessionName session={s} nameClassName="font-normal text-muted" /></b>
         {woken && <span data-woken="" className="ml-1 inline-flex align-[-2px] text-muted"><Icon name="clock" className="size-[13px]" /></span>}
         {kids > 0 && <span aria-label={copy.sessions.kidsLabel(kids)} className="ml-1.5 font-mono text-small text-muted">{copy.sessions.kids(kids)}</span>}
-        {decision && <span className="ml-1.5 inline-flex align-[1px]"><Pill tone="ask">{copy.chat.point.decision}</Pill></span>}
+        {decision && <span className="ml-1.5 inline-flex align-[1px]"><Pill tone="ask">{copy.cards.decision}</Pill></span>}
       </>}
       // A close this phone sent says so over the state, as the list always did, until the session ends.
-      sub={closing ? <span className="text-attention">{copy.chat.closing}</span> : <span className={dot === 'ask' ? 'text-attention' : undefined}>{rowLine(s, filter, now)}</span>}
+      sub={closing ? <span className="text-attention">{copy.sessions.closing}</span> : <span className={dot === 'ask' ? 'text-attention' : undefined}>{rowLine(s, filter, now)}</span>}
       {...(dot === 'perm' ? { subTone: 'perm' as const } : {})}
       {...(meta !== undefined ? { meta, metaWarn: filter === 'working' && pct !== undefined && pct / 100 >= threshold } : {})}
     />

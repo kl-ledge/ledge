@@ -174,67 +174,6 @@ describe('daemon client + store', () => {
     expect(client.status()).toBe('connecting');
   });
 
-  it('keeps the proposal a chat.done carries', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'x', askedAt: T0, steps: [] });
-    const proposal = { cwd: '/w/ledge', project: 'ledge', tool: 'claude' as const };
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal });
-    expect(daemonStore.getState().chat[0]).toMatchObject({ answer: 'ok', proposal });
-  });
-
-  it('keeps every session row a chat.done carries (#24)', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'x', askedAt: T0, steps: [] });
-    const a = { cwd: '/w/a', project: 'a', tool: 'claude' as const }, b = { cwd: '/w/b', project: 'b', tool: 'claude' as const };
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, proposal: a, proposals: [a, b] });
-    expect(daemonStore.getState().chat[0]).toMatchObject({ proposal: a, proposals: [a, b] });
-  });
-
-  it('chat.done keeps the generic rows (#94)', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'archive Otto', askedAt: T0, steps: [] });
-    const actions = [{ action: 'session.archive' as const, args: { session: 'a' }, summary: 'Archiver **Otto**', risk: 'reversible' as const, session: 'a' }];
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, actions });
-    expect(daemonStore.getState().chat[0]).toMatchObject({ actions });
-  });
-
-  it('chat.done keeps the closes', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'ferme Otto', askedAt: T0, steps: [] });
-    const closes = [{ id: 's1', name: 'Otto', tool: 'claude' as const }];
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, closes });
-    expect(daemonStore.getState().chat[0]!.closes).toEqual(closes);
-  });
-
-  it('chat.done keeps the relay', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'dis à Otto', askedAt: T0, steps: [] });
-    const relay = { id: 's1', name: 'Otto', tool: 'claude' as const, text: 'Lance les tests' };
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, relay });
-    expect(daemonStore.getState().chat[0]!.relay).toEqual(relay);
-  });
-
-  it('chat.done keeps the project proposal', () => {
-    daemonStore.reset();
-    daemonStore.beginTurn({ qid: 'q1', question: 'crée un projet', askedAt: T0, steps: [] });
-    const projectProposal = { name: 'Paper', repos: [{ path: '/w/paper', why: 'Nommé paper' }] };
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'ok', at: T0, projectProposal });
-    expect(daemonStore.getState().chat[0]!.projectProposal).toEqual(projectProposal);
-  });
-
-  it('keeps the chat turns and the live answer', () => {
-    daemonStore.reset();
-    daemonStore.apply({ type: 'chat.history', turns: [{ qid: 'q0', question: 'hier', askedAt: T0, steps: [], answer: 'ok', answeredAt: T0 }] });
-    daemonStore.beginTurn({ qid: 'q1', question: 'Où en sont les autres ?', askedAt: T0, steps: [] });
-    daemonStore.apply({ type: 'chat.step', qid: 'q1', step: { kind: 'sessions' } });
-    daemonStore.apply({ type: 'chat.delta', qid: 'q1', text: 'Deux ' }); daemonStore.apply({ type: 'chat.delta', qid: 'q1', text: 'bots.' });
-    expect(daemonStore.getState().chatLive).toEqual({ qid: 'q1', text: 'Deux bots.' });
-    daemonStore.apply({ type: 'chat.done', qid: 'q1', text: 'Deux bots travaillent.', at: T0 });
-    const s = daemonStore.getState();
-    expect(s.chatLive).toBeNull(); expect(s.chat.map(t => t.qid)).toEqual(['q0', 'q1']); expect(s.chat[1]).toMatchObject({ answer: 'Deux bots travaillent.', steps: [{ kind: 'sessions' }] });
-    daemonStore.apply({ type: 'chat.error', qid: 'q1', message: 'boom' }); expect(daemonStore.getState().chat[1]?.error).toBe('boom');
-  });
-
   it('keeps a session thread, updates its items in place, ignores items of a thread it never loaded, forgets removed ones', () => {
     daemonStore.reset();
     const at = '2026-10-13T10:00:00.000Z';

@@ -9,7 +9,6 @@ import { b64u, fingerprint, randomNonce, recoverChallenge, recoveryUserId } from
 import type { MobileRecoveryEvent, SealedFrame } from '@ledge/protocol';
 import { createMobileService, type MobileService } from '../src/mobile/service.js';
 import { readDevices, readRecovery, writeMobileConfig, writeRelaySession } from '../src/mobile/files.js';
-import { deviceChatDir } from '../src/chat/threads.js';
 import { paths } from '../src/paths.js';
 import { startTestRelay, TEST_ACCOUNT } from './mobile-relay-harness.js';
 import { fakeDevice, type FakeDevice } from './mobile-fake-device.js';
@@ -78,9 +77,6 @@ async function reinstalled() {
   const passkey = softAuthenticator();
   s.setCredential(oldId, { id: passkey.id, publicKey: passkey.publicKey, alg: -7, counter: 0, rpId: rp.rpId, recover: true });
   s.rename(oldId, 'iPad de G');
-  const chat = deviceChatDir(paths().dir, oldId);
-  mkdirSync(chat, { recursive: true });
-  writeFileSync(join(chat, 'turns.json'), '[]');
   expect(s.state().devices[0]).toMatchObject({ id: oldId, recover: true });
 
   // The app is deleted: its socket goes, and so does its key.
@@ -102,7 +98,7 @@ async function reinstalled() {
     on.sendFrame({ k: 'recover_proof', assertion: passkey.get(rp, challenge, { counter: ++counter }), userHandle });
     return done;
   };
-  return { s, relay, revoked, events, old, oldId, app, recover, chat, passkey };
+  return { s, relay, revoked, events, old, oldId, app, recover, passkey };
 }
 
 describe('passkey recovery through the service', () => {
@@ -116,8 +112,6 @@ describe('passkey recovery through the service', () => {
     expect(d).toMatchObject({ id: newId, publicKey: t.app.publicKey, label: 'iPad', name: 'iPad de G', lastPeer: NEW_PEER, peers: [NEW_PEER],
       credential: { id: t.passkey.id, counter: 1, recover: true }, recovering: { model: 'iPad' } });
     expect(d).not.toHaveProperty('push');
-    expect(existsSync(t.chat)).toBe(false);
-    expect(readFileSync(join(deviceChatDir(paths().dir, newId), 'turns.json'), 'utf8')).toBe('[]');
     await until(() => t.revoked.length === 1, 'old peer revoked');
     expect(t.revoked).toEqual([OLD_PEER]);
     expect(readRecovery().tombstones).toEqual([]);
@@ -152,33 +146,18 @@ describe('passkey recovery through the service', () => {
     expect(readRecovery().tombstones).toEqual([{ credentialId: t.passkey.id, device: 'iPad de G', revokedAt: expect.any(String) }]);
   });
 
-  it('the device\'s chat is held before its folder moves and released after', async () => {
-    const t = await reinstalled();
-    const log: string[] = [];
-    t.s.holdChats!(async id => {
-      log.push(`hold ${id} ${existsSync(t.chat) ? 'before' : 'after'} the move`);
-      return () => { log.push(`release ${id} ${existsSync(t.chat) ? 'before' : 'after'} the move`); };
-    });
-    expect(await t.recover()).toMatchObject({ k: 'recover_ok' });
-    expect(log).toEqual([`hold ${t.oldId} before the move`, `release ${t.oldId} after the move`]);
-  });
-
-  it('connected: refused, its chat is not held', async () => {
+  it('connected: refused', async () => {
     const u = await reinstalled();
-    const held: string[] = [];
-    u.s.holdChats!(async id => { held.push(id); return () => {}; });
     const again = await fakeDevice({ relayUrl: u.relay.url, token: u.relay.deviceToken(OLD_PEER), peer: OLD_PEER, pcPublicKey: u.s.pcKey(), identity: u.old.identity });
     cleanups.push(() => again.close());
     await again.hello();
     await until(() => u.s.state().devices[0]?.online === true, 'iPad online');
     expect(await u.recover()).toMatchObject({ k: 'recover_no', why: 'connected' });
-    expect(held).toEqual([]);
   });
 
   it('« Réessayer » after a recover_ok the phone could not keep: a new device key is put back again, each start counts, Desktop hears it once', async () => {
     const t = await reinstalled();
     expect(await t.recover('iPhone')).toMatchObject({ k: 'recover_ok' });
-    const firstId = await fingerprint(t.app.publicKey);
     // The phone failed to keep the PC's key: it throws its device key away and tries again, on the same relay peer.
     t.app.close();
     const retry = await fakeDevice({ relayUrl: t.relay.url, token: t.relay.deviceToken(NEW_PEER), peer: NEW_PEER, pcPublicKey: t.s.pcKey() });
@@ -187,8 +166,6 @@ describe('passkey recovery through the service', () => {
     const id = await fingerprint(retry.publicKey);
     expect(readDevices().map(d => d.id)).toEqual([id]);
     expect(readDevices()[0]).toMatchObject({ peers: [NEW_PEER], recovering: { model: 'iPhone' } });
-    expect(existsSync(deviceChatDir(paths().dir, firstId))).toBe(false);
-    expect(readFileSync(join(deviceChatDir(paths().dir, id), 'turns.json'), 'utf8')).toBe('[]');
     // Its own peer is not revoked by the second restore.
     await new Promise(r => setTimeout(r, 50));
     expect(t.revoked).toEqual([OLD_PEER]);
@@ -236,40 +213,13 @@ describe('passkey recovery through the service', () => {
     expect(t.s.state()).not.toHaveProperty('recovery');
     expect(await t.recover()).toMatchObject({ k: 'recover_ok' });
   });
-  it('a chat folder that cannot be moved stops the restore with nothing changed: the old device and its thread stay', async () => {
-    const t = await reinstalled();
-    const parent = dirname(t.chat);
-    chmodSync(parent, 0o555);
-    cleanups.push(() => chmodSync(parent, 0o755));
-    expect(await t.recover()).toEqual({ k: 'recover_no', why: 'failed' });
-    expect(readDevices().map(x => x.id)).toEqual([t.oldId]);
-    expect(readFileSync(join(t.chat, 'turns.json'), 'utf8')).toBe('[]');
-    expect(t.revoked).toEqual([]);
-    expect(t.events).toEqual([]);
-    // Not the phone's fault: no failure counted.
-    expect(readRecovery().failures).toEqual([]);
-  });
-
-  it('a new key that already has a chat folder stops the restore: neither folder is touched', async () => {
-    const t = await reinstalled();
-    const there = deviceChatDir(paths().dir, await fingerprint(t.app.publicKey));
-    mkdirSync(there, { recursive: true });
-    writeFileSync(join(there, 'stray'), 'x');
-    expect(await t.recover()).toEqual({ k: 'recover_no', why: 'failed' });
-    expect(readDevices().map(x => x.id)).toEqual([t.oldId]);
-    expect(readFileSync(join(t.chat, 'turns.json'), 'utf8')).toBe('[]');
-    expect(readFileSync(join(there, 'stray'), 'utf8')).toBe('x');
-  });
-
-  it('a device list that cannot be written puts the chat folder back: the old device stays approved with its thread', async () => {
+  it('a device list that cannot be written stops the restore: the old device stays approved', async () => {
     const t = await reinstalled();
     // devices.json replaced by a folder: the write's final rename fails.
     rmSync(paths().devices);
     mkdirSync(paths().devices);
     expect(await t.recover()).toEqual({ k: 'recover_no', why: 'failed' });
     expect(t.s.state().devices.map(x => x.id)).toEqual([t.oldId]);
-    expect(readFileSync(join(t.chat, 'turns.json'), 'utf8')).toBe('[]');
-    expect(existsSync(deviceChatDir(paths().dir, await fingerprint(t.app.publicKey)))).toBe(false);
     expect(t.revoked).toEqual([]);
     expect(t.events).toEqual([]);
   });

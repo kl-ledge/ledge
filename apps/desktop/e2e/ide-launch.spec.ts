@@ -141,9 +141,8 @@ test('a message, Ctrl+Enter: one launch, the modal closes, the new session\'s ta
 test('N opens the modal; Escape closes it and gives the focus back', async ({ page }) => {
   await boot(page);
   const plus = page.locator('.ide-dock').getByRole('button', { name: 'New session (N)' }).first();
-  // The right panel's « Ask Ledge » field does not take the focus by itself: N, straight after the IDE shows, is the shortcut.
-  await expect(page.getByRole('textbox', { name: 'Ask Ledge' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Ask Ledge' })).not.toBeFocused();
+  // N, straight after the IDE shows, is the shortcut (no chat field any more, #40 PR 4).
+  await expect(plus).toBeVisible();
   await page.keyboard.press('n');
   const dialog = page.getByRole('dialog', { name: 'New session' });
   await expect(dialog).toBeVisible();

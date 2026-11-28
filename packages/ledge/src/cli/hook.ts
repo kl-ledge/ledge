@@ -535,8 +535,6 @@ async function storeImages(client: Client, images: Array<{ mime: ImageMime; data
 export async function runHook(eventName: string, stdin: string, opts: { port?: number; timeoutMs?: number; tool?: Tool } = {}): Promise<string | undefined> {
   const agent = opts.tool ?? 'claude';
   const label = agent === 'claude' ? eventName : `${agent} ${eventName}`;
-  // Ledge's own chat runs Claude Code headless: its hooks (if any ran) must never make a session.
-  if (process.env.LEDGE_CHAT === '1') { log(`hook ${label} ignored: Ledge chat`); return undefined; }
   let mapped: MappedHook | null = null;
   let identify = false; let known: Session | undefined; let sessions: Session[] = []; let deadline = Date.now() + (opts.timeoutMs ?? 100);
   let relayed: string | undefined;

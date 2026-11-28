@@ -18,7 +18,7 @@ import { DaemonOutdated } from './shell/DaemonOutdated';
 import { daemonTokenSource, onOpenTarget, shellsAvailable, onTrayAction, openUrl, setTrayLabels } from './tauri/bridge';
 import { parseTarget, targetAction } from './open/target';
 import { useAppearance } from './shell/theme';
-import { initialNav, navReducer, reconcile, type HomeTab, type NavAction, type NavState, type OpenRigSection, type SectionId } from './nav/state';
+import { initialNav, navReducer, reconcile, type NavAction, type NavState, type OpenRigSection, type SectionId } from './nav/state';
 import { openRequests, sessionOfAsk } from './asks/model';
 import { loadOverview, saveOverview } from './nav/overview';
 import { ScreenKeysContext, type ScreenKeys } from './nav/screenKeys';
@@ -35,7 +35,6 @@ import { alertWindowName } from './usage/alertName';
 import { LaunchModalPlace } from './launch/lazy';
 import type { LaunchWhere } from './launch/LaunchModal';
 import { openWhere } from './launch/modalModel';
-import { ChatPlace } from './chat/lazy';
 import { SettingsPlace } from './settings/lazy';
 import type { SettingsContext } from './settings/SettingsPage';
 import { daemonTarget, useDaemonUpdates } from './update/daemon';
@@ -264,12 +263,9 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   const [openSession] = useOpenSession();
   const ideNow = useRef({ nav, openSession });
   ideNow.current = { nav, openSession };
-  // The IDE's right panel is there from the start: its field takes the focus only once asked (/, Ctrl+/, an open button), never by
-  // itself when the app starts (a single key such as N would land in it). `chatFocus` counted from there.
-  const ideChatFrom = useRef<number>(nav.chatFocus);
-  // The IDE's right panel tabs (lot 12, docs/mockups/ledge-ide-tasks-history.html), kept for the window's life: Conversation at
-  // the start; `seen` counts the « Voir » that brought a task (the filters go back to All / Anyone); `ask` a question from « À toi ».
-  const [rightTab, setRightTab] = useState<{ tab: HomeTab; task: string | null; seen: number; ask?: { text: string; n: number } }>({ tab: 'conversation', task: null, seen: 0 });
+  // The Tasks view (#40 D3): the task whose detail replaces the list, and `seen`, which counts the « Voir dans Tâches » that brought
+  // one (the filters go back to All / Anyone).
+  const [tasksView, setTasksView] = useState<{ task: string | null; seen: number }>({ task: null, seen: 0 });
   // What every child dispatches: the action routed (routeNav) to the navigation, the tabs and the panels. Stable, as the
   // reducer's own dispatch.
   // The section the Settings tab was last left on (set below, as the place changes): where Ctrl+, and the tab bring it back.
@@ -283,15 +279,11 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
       // A single click in the explorer, the activity bar, the status bar or a tab asks for a preview (spec 2026-11-26-preview-tabs).
       how: clickIntent() });
     if (r.nav) navDispatch(r.nav);
-    // The right panel is `layout.right`, never `nav.chat`: asking for the chat only bumps `chatFocus` (its field takes the
-    // focus), and `nav.chat` goes straight back to false, or the single keys, Alt + 1…9 and the screen's Escape would stay off.
-    if (r.nav?.type === 'chat' && r.nav.open !== false) navDispatch({ type: 'chat', open: false });
     if (r.ws) wsStore.update(r.ws);
     // A « Voir dans Tâches » that shows the Tasks view remembers the view it replaces, so Ctrl / goes back there (review-qa2, 2a).
     if (r.layout?.type === 'showView' && r.layout.view === 'tasks') { const l = layoutNow.current; if (!(l.sideOpen && l.sideView === 'tasks')) beforeTasks.current = l.sideOpen ? l.sideView : null; }
     if (r.layout) onLayout(r.layout);
-    // « Voir dans Tâches » (#40 D3) keeps the right panel's tab: the task is the Tasks view's.
-    if (r.chat) { const c = r.chat; setRightTab(x => ({ ...x, ...(c.tab === 'tasks' ? {} : { tab: c.tab }), ...(c.task !== undefined ? { task: c.task, seen: x.seen + 1 } : {}) })); }
+    if (r.tasks) { const task = r.tasks.task; setTasksView(x => ({ task, seen: x.seen + 1 })); }
   }, [wsStore, onLayout]);
   // The bottom panel: its terminals and its tab, for this run only (R15).
   const [panelStore] = useState(() => createPanelStore());
@@ -729,20 +721,14 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
   }, [termStore, wsStore, panelStore, t]);
   // The pairing dialog, like a confirmation, owns the keyboard while it shows (it takes Escape itself, before this listener).
   // The tab keys (VS Code's): Ctrl W closes the focused group's active tab (remembered for Ctrl Shift T), or the group when empty.
-  // Ctrl+/ (design-ux, 2026-11-10): the right panel hidden, it shows with the focus in the chat's field; shown, it hides and the
-  // focus goes back to the front tab. The other panels only toggle.
+  // Ctrl+B and Ctrl+J toggle the sidebar and the bottom panel; Ctrl+/ shows the Tasks view (#40 D3).
   const ideKeys = useMemo((): IdeKeys => ({ tasks: () => {
     // Ctrl / (#40 D3): the Tasks view; on it, back to the view shown before (the sidebar closed again if it was).
     const l = layoutNow.current;
     if (l.sideOpen && l.sideView === 'tasks') { const back = beforeTasks.current; onLayout(back ? { type: 'showView', view: back } : { type: 'show', panel: 'side', on: false }); return; }
     beforeTasks.current = l.sideOpen ? l.sideView : null;
     onLayout({ type: 'showView', view: 'tasks' });
-  }, toggle: (panel: 'side' | 'bottom' | 'right') => {
-    if (panel !== 'right') { onLayout({ type: 'toggle', panel }); return; }
-    if (!layoutNow.current.right) { dispatch({ type: 'chat', open: true }); return; }
-    onLayout({ type: 'show', panel: 'right', on: false });
-    requestAnimationFrame(() => focusFrontTab());
-  }, split: () => wsStore.update(w => splitGroup(w, w.focus)), newSessionAnywhere: true as const,
+  }, toggle: (panel: 'side' | 'bottom') => { onLayout({ type: 'toggle', panel }); }, split: () => wsStore.update(w => splitGroup(w, w.focus)), newSessionAnywhere: true as const,
     closeTab: () => { const g = focused(wsStore.get()); const tab = g.tabs[g.active]; if (tab) wsStore.close(keyOf(tab)); else wsStore.update(w => closeGroup(w, g.id)); },
     reopenTab: () => wsStore.reopen(t => keepTabNow.current(t)),
     cycleTab: step => wsStore.update(w => cycleTab(w, w.focus, step)),
@@ -793,19 +779,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
     const name = s?.name ?? preview?.name ?? '';
     if (table) notify(table.name !== null ? t.launch.started(name, table.name) : t.launch.startedNoTable(name));
   });
-  // A chat card's session started (the daemon listed it before answering): the chat stays open; if the current filter hides its
-  // table, the filter goes back to All without leaving the page; the seat lights and the notice names who starts where (lot 7's words),
-  // or says it starts with no project (not mapped yet, or « Sans projet »: the proposal's folder name is no table). Not listed: nothing
-  // to show, so the filter stays and there is no notice.
-  const chatLaunched = (id: string) => {
-    const s = sessions.find(x => x.id === id);
-    filing.markSeated(id);
-    if (!s) return;
-    const table = projectIdOf(s) ?? 'none';
-    if (base.project !== 'all' && base.project !== table) dispatch({ type: 'filter', project: 'all' });
-    const own = projects?.projects.find(p => p.id === table)?.name;
-    notify(own ? t.launch.started(s.name, own) : t.launch.startedNoTable(s.name));
-  };
   // The form closed (Escape, Cancel, another dialog): nothing is waited for any more; a late answer is not announced.
   const { reset: resetLaunch } = launcher;
   useEffect(() => { if (nav.modal?.kind !== 'launch') resetLaunch(); }, [nav.modal?.kind, resetLaunch]);
@@ -1082,7 +1055,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         if (p === 'terminal') { if (s) wsStore.update(w => openTab(w, agentTerminalTab(s.id), 'active')); return; }
         if (p === 'launch') { dispatch({ type: 'modal', modal: { kind: 'launch', from: 'plus' } }); return; }
         if (p === 'search') { dispatch({ type: 'modal', modal: { kind: 'search' } }); return; }
-        if (p === 'ledge') { dispatch({ type: 'ledge' }); return; }
         if (p === 'next') { const first = waiting[0]; if (first) dispatch({ type: 'open', id: first.id, where: 'active' }); return; }
         // « Terminal »: the default shell (R7), in a tab of this group, in the folder of the session it was split from.
         if (p === 'shell') { const k = pickDefault(); openShell(k, menuDir(k, shellDir(from)), id => wsStore.update(w => openTab(focusGroup(w, gid), { kind: 'terminal', ref: id }, 'active'))); return; }
@@ -1107,8 +1079,8 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
         prsFailing={prsFailing(forge.prs)} prsStatus={<IdePrsStatus prs={forge.prs} onShow={() => { if (!(layout.sideOpen && layout.sideView === 'prs')) onLayout({ type: 'view', view: 'prs' }); }} />}
         routinesBadge={routinesBadge(routines)} requestsBadge={openRequests(asks)} tasksBadge={tasksBadge(tasksApi.tasks)}
         explorer={layout.sideView === 'tasks'
-          ? <TasksView api={tasksApi} task={rightTab.task} seen={rightTab.seen} state={fleet.localSnapshot() === null ? 'connecting' : localDown ? 'offline' : 'ready'}
-              onShow={id => setRightTab(x => ({ ...x, task: id }))} report={reportHandlers} />
+          ? <TasksView api={tasksApi} task={tasksView.task} seen={tasksView.seen} state={fleet.localSnapshot() === null ? 'connecting' : localDown ? 'offline' : 'ready'}
+              onShow={id => setTasksView(x => ({ ...x, task: id }))} report={reportHandlers} />
           : layout.sideView === 'routines'
           ? <IdeRoutines routines={routines} proposals={routineProposals} sessionOf={routineSession} machines={routineMachines} dirLabel={(r, path) => homeLabel(path, homeOf(r.machineId))} current={front?.kind === 'routine' ? front.ref : null} lit={routinesLit}
               running={routineActions.running} connecting={routinesConnecting} offline={localDown}
@@ -1148,22 +1120,6 @@ function Shell({ client, setLang }: { client?: DaemonClient; setLang(l: Lang): P
             onDockDrop={dockToPanel} onArrange={next => panelStore.update(() => next)} onRefused={() => notify(t.ide.panel.onlyTerms)} />
         }
         editor={<IdeDock ws={ws} store={wsStore} title={title} body={body} label={label} alert={alert} onTabMenu={(tab, at) => setTabMenu({ tab, at })} onNewSession={gid => { wsStore.update(w => focusGroup(w, gid)); dispatch({ type: 'modal', modal: { kind: 'launch', from: 'plus' } }); }} emptyGroup={emptyGroup} onPanelDrop={panelToDock} windowTitle={windowTitle} onWindowClosed={n => notify(t.ide.windows.closed(n))} />}
-        chat={
-          <ChatPlace label={t.side.chat} client={fleetClient} view={fleetView} paused={nav.paused} focus={nav.chatFocus - (ideChatFrom.current ?? 0)} askedOnly
-            onOpenSession={id => dispatch({ type: 'open', id })} onTerminal={showTerminal} onLaunched={chatLaunched}
-            projects={projects} notify={notify} onProposal={openProposal}
-            onPointNav={(m, n) => {
-              // A point's ids are its machine's own: a session is qualified, a rig tab names its machine, PRs and tasks keep theirs.
-              if (n.kind === 'session') dispatch({ type: 'open', id: qualify(m, n.id) });
-              else if (n.kind === 'pr') onTab({ kind: 'pr', ref: n.id });
-              else if (n.kind === 'rig') onTab({ kind: 'rig', ref: rigTabRef(m, n.id) });
-              // A routine's « Voir » (routines mockup, card 26): its page, the sidebar on Routines. The kind comes with
-              // feat/routines-ui-point-tui (09aff498), hence the widened comparison until that branch is merged.
-              else if ((n.kind as string) === 'routine') { showRoutinesView(); openRoutineRef(routineRef({ machineId: m, id: n.id })); }
-              else dispatch({ type: 'ledge', tab: 'tasks', task: n.id });
-            }}
-            tabs={{ tasks: tasksApi, ...rightTab, onAsked: () => setRightTab(({ ask: _, ...x }) => x), onTab: (tab, task) => setRightTab(x => ({ ...x, tab, ...(task !== undefined ? { task } : {}) })) }} />
-        }
         footer={<Footer dispatch={dispatch} localDown={localDown} island={island} machines={footMachines} />}
         // No amber in the IDE's status bar: the alert is told once, in a toast (red stays at 100 %).
         usage={showUsage ? <UsageFooter groups={usage.groups} threshold={Infinity} alertAt={usage.threshold} label={usage.label} now={usage.now} onSettings={() => dispatch({ type: 'settings', section: 'general' })} /> : undefined} />

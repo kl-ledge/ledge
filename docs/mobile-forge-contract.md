@@ -1,5 +1,7 @@
 # Contrat : MR/PR et pipelines sur le téléphone (refonte mobile B5, partie 1)
 
+> Note (#40) : le chat de Ledge, « le point », l'opérateur et « À toi » ont été retirés depuis l'écriture de ce document. Ses mentions de ces surfaces sont historiques ; l'état actuel est dans `docs/ledge-guide.md`. Les demandes d'OpenRig se répondent dans le bloc « Demandes » de la vue Rigs (Desktop) et de l'onglet Rigs (téléphone), les décisions dans la vue Tâches et dans le fil de la session.
+
 Pour `dev-front`, qui code M5 (l'onglet MR/PR du téléphone et de la tablette, la section « Pipelines » de « À toi », le lien
 PR du pied de session) sans avoir à demander. Les schémas zod font foi :
 - `packages/protocol/src/phone.ts` : les messages `forge.*` ;

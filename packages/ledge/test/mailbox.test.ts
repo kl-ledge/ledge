@@ -14,7 +14,7 @@ const pim = (extra: Partial<Session> = {}) => mk('s2', { name: 'Pim', tool: 'cod
 const msg = (extra: Partial<Extract<ClientMessage, { type: 'session.message' }>> = {}): Extract<ClientMessage, { type: 'session.message' }> =>
   ({ type: 'session.message', rid: 'r1', from: 's1', to: 'Pim', text: 'Salut', ...extra });
 
-let store: Store; let typed: Array<[string, string]>; let sentCalls: unknown[][]; let relayQueued: (id: string) => boolean;
+let store: Store; let typed: Array<[string, string]>; let sentCalls: unknown[][];
 let typing: Set<string>; let answer: (id: string, text: string) => Promise<string | null>; let box: Mailbox;
 const setState = (id: string, state: Session['state']) => store.upsert({ ...store.get(id)!, state });
 const flush = () => new Promise(r => setTimeout(r, 0));
@@ -22,9 +22,9 @@ const sent: MailboxDeps['sent'] = { record: (...a) => { sentCalls.push(['record'
 
 beforeEach(() => {
   store = new Store({ journalPath: join(mkdtempSync(join(tmpdir(), 'mailbox-')), 'j.json') });
-  typing = new Set(); typed = []; sentCalls = []; relayQueued = () => false; answer = async () => null;
+  typing = new Set(); typed = []; sentCalls = []; answer = async () => null;
   store.upsert(mk('s1', { state: 'idle' })); store.upsert(pim());
-  box = createMailbox({ store, typing, sent, now: () => T0, relayQueued: id => relayQueued(id),
+  box = createMailbox({ store, typing, sent, now: () => T0,
     replyTo: (id, text) => { typed.push([id, text]); return answer(id, text); } });
 });
 
@@ -64,14 +64,6 @@ describe('createMailbox', () => {
     store.remove('s1'); setState('s2', 'idle'); await flush();
     expect(typed[0]![1]).toContain('from="Otto"');
     expect(sentCalls).toContainEqual(['mark', 's1', 'r1', 'delivered']);
-  });
-
-  it('a queued chat relay goes first', async () => {
-    relayQueued = id => id === 's2';
-    expect(box.submit(msg())).toMatchObject({ outcome: 'queued' });
-    await flush(); expect(typed).toEqual([]);
-    relayQueued = () => false; box.kick('s2'); await flush();
-    expect(typed).toHaveLength(1);
   });
 
   it('what waits for a busy target is typed together at its free moment, oldest first, each card delivered', async () => {
@@ -230,7 +222,7 @@ describe('createMailbox', () => {
     let saved: Parameters<NonNullable<MailboxDeps['journal']>['save']>[0] | undefined;
     const journal = { load: () => saved, save: (s: typeof saved) => { saved = s; } };
     const long = 'x'.repeat(2000);
-    const deps = (extra: Partial<MailboxDeps> = {}): MailboxDeps => ({ store, typing, sent, now: () => T0, relayQueued: () => false,
+    const deps = (extra: Partial<MailboxDeps> = {}): MailboxDeps => ({ store, typing, sent, now: () => T0,
       replyTo: async (id, text) => { typed.push([id, text]); return null; }, journal, ...extra });
     box.close(); box = createMailbox(deps());
     store.upsert(pim({ state: 'working' })); store.upsert(mk('s3', { name: 'Nova', tool: 'codex', state: 'working' }));
@@ -251,7 +243,7 @@ describe('createMailbox', () => {
   it('a closing target is never delivered to, even free; once out of the set, the next store change delivers', async () => {
     box.close();
     const closing = new Set(['s2']);
-    box = createMailbox({ store, typing, sent, now: () => T0, relayQueued: id => relayQueued(id), closing,
+    box = createMailbox({ store, typing, sent, now: () => T0, closing,
       replyTo: (id, text) => { typed.push([id, text]); return answer(id, text); } });
     expect(box.submit(msg())).toMatchObject({ outcome: 'queued' });
     box.kick('s2'); setState('s2', 'idle'); await flush();
@@ -279,7 +271,7 @@ describe('Ledge\'s own lines for routines', () => {
   it('tells how a line went: typed, or given up on with its reason', async () => {
     const done: Array<[string, boolean, string | undefined]> = [];
     box.close();
-    box = createMailbox({ store, typing, sent, now: () => T0, relayQueued: () => false, noticeDone: (rid, ok, why) => { done.push([rid, ok, why]); },
+    box = createMailbox({ store, typing, sent, now: () => T0, noticeDone: (rid, ok, why) => { done.push([rid, ok, why]); },
       replyTo: (id, text) => { typed.push([id, text]); return answer(id, text); } });
     store.upsert(pim({ state: 'working' }));
     expect(box.notify('s2', '<ledge-routine name="b" slot="08:00" late="false">x</ledge-routine>', 'routine:r1:1')).toBe(true);
