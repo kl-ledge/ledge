@@ -4,13 +4,13 @@ import { useMotionPreferences } from '../motionPreferences';
 import { cls } from '../shell/cls';
 import { fmtDur } from './exchanges';
 import { Spin } from './ActionGroup';
-import { drawingOf, WorkDrawing } from './workDrawing';
+import { nodeOf, WorkDrawing } from './workDrawing';
 import { CLOCK_S, seedOf, stageOf, type Wait, type WaitCause } from './waiting';
 
-/** The waiting row at the end of the rail (mockup C): the agent works and no action runs. A drawing of what it does (its last
- *  action's verb: it reads, writes, searches, runs; docs/mockups/ledge-operator-rigs-panel.html); nothing while no action is behind the
- *  wait (it thinks: the phrase alone, owner's choice A); the turning node for a verb without a drawing or a failed action; a phrase (what
- *  the thread last shows, then the bank in turn, then « it takes its time ») and, past a few seconds, the time waited.
+/** The waiting row at the end of the rail (mockup C): the agent works and no action runs. Its node (nodeOf, #67): a drawing of what it
+ *  does (its last action's verb: it reads, writes, searches, runs; docs/mockups/ledge-operator-rigs-panel.html), the turning ring (a
+ *  failed action, a helper), or nothing at all, the phrase then starting where the node would be (the agent thinks, owner's choice A).
+ *  Then a phrase (what the thread last shows, then the bank in turn, then « it takes its time ») and, past a few seconds, the time waited.
  *  Screen readers hear only that the agent works: the phrase changing every few seconds would talk over everything. */
 export function WaitLine({ wait, seedKey, now }: { wait: Wait; seedKey: string; now: number }): JSX.Element {
   const { t, lang } = useI18n();
@@ -19,14 +19,12 @@ export function WaitLine({ wait, seedKey, now }: { wait: Wait; seedKey: string; 
   const secs = Math.max(0, (now - wait.since) / 1000);
   const stage = stageOf(wait.cause, secs, seedOf(seedKey, tw.bank.length), tw.bank.length);
   const phrase = stage.stage === 'fact' ? factOf(wait.cause, tw) : stage.stage === 'bank' ? tw.bank[stage.index] : tw.long;
-  const drawing = drawingOf(wait.cause);
+  const node = nodeOf(wait.cause);
   return (
-    <li className="r wait-row" role="status" aria-label={tw.label}>
-      {wait.cause.kind !== 'tool'
-        ? <span className="n" aria-hidden="true" />
-        : drawing
-          ? <span className="n work-node" aria-hidden="true"><WorkDrawing kind={drawing} still={reduced} /></span>
-          : <span className="n node info" aria-hidden="true"><Spin live /></span>}
+    <li className={cls('r wait-row', node.kind === 'none' && 'bare')} role="status" aria-label={tw.label}>
+      {node.kind === 'drawing'
+        ? <span className="n work-node" aria-hidden="true"><WorkDrawing kind={node.drawing} still={reduced} /></span>
+        : node.kind === 'ring' && <span className="n node info" aria-hidden="true"><Spin live /></span>}
       <span className={cls('wait-phrase', reduced && 'still')} key={stage.stage === 'bank' ? stage.index : stage.stage} aria-hidden="true">{phrase}</span>
       <span className="tm" aria-hidden="true">{secs >= CLOCK_S ? clock(secs, lang) : ''}</span>
     </li>
