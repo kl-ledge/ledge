@@ -720,6 +720,33 @@ describe('multi-machine connections', () => {
     client.send({ type: 'openrig.goal.send', requestId: 'g5', machineId: 'server', goalId: 'abcdef12-0001', text: 'z' });
     expect(goals().at(-1)).toEqual({ type: 'openrig.goal.sent', requestId: 'g5', machineId: 'server', goalId: 'abcdef12-0001', ok: false, error: 'offline' });
   });
+  it('routes the operator thread\'s missions (#54) to their machine: outdated without openrigMissions, the answer and the pushes tagged with it', () => {
+    const { client, server, got } = setup();
+    const missions = () => got.filter(m => m.type === 'openrig.missionsChanged');
+    const none = { openrig: 'unreachable', operator: null, missions: [], exchanges: [], exchangesMore: false };
+    // The setup's daemon predates #54: answered here, nothing sent.
+    client.send({ type: 'openrig.missions', requestId: 'k1', machineId: 'server' });
+    expect(server.sent).toEqual([]);
+    expect(missions().at(-1)).toEqual({ type: 'openrig.missionsChanged', requestId: 'k1', machineId: 'server', ...none, error: 'outdated' });
+    const newer = { type: 'snapshot', sessions: [], daemon: { version: '0.69.0', install: 'npm', systemd: true, openrig: true, openrigRig: true, openrigMissions: true } } as ServerMessage;
+    server.emit({ ...newer, sshAlias: remote.ssh } as ServerMessage); server.sent.length = 0;
+    client.send({ type: 'openrig.missions', requestId: 'k2', machineId: 'server', exchanges: 100 });
+    expect(server.sent).toEqual([{ type: 'openrig.missions', requestId: 'k2', exchanges: 100 }]);
+    const read = { openrig: 'ok' as const, operator: 'operator-agent@kernel', missions: [], exchanges: [], exchangesMore: false };
+    server.emit({ type: 'openrig.missionsChanged', requestId: 'k2', ...read });
+    server.emit({ type: 'openrig.missionsChanged', ...read, exchangesMore: true }); // a push
+    expect(missions().slice(-2)).toEqual([
+      { type: 'openrig.missionsChanged', requestId: 'k2', machineId: 'server', ...read },
+      { type: 'openrig.missionsChanged', machineId: 'server', ...read, exchangesMore: true }
+    ]);
+    // A refusal by name fails only that ask; a machine gone answers offline.
+    client.send({ type: 'openrig.missions', requestId: 'k3', machineId: 'server' });
+    server.emit({ type: 'error', message: 'invalid message', request: 'openrig.missions' });
+    expect(missions().at(-1)).toEqual({ type: 'openrig.missionsChanged', requestId: 'k3', machineId: 'server', ...none, error: 'outdated' });
+    server.set('unreachable');
+    client.send({ type: 'openrig.missions', requestId: 'k4', machineId: 'server' });
+    expect(missions().at(-1)).toEqual({ type: 'openrig.missionsChanged', requestId: 'k4', machineId: 'server', ...none, error: 'offline' });
+  });
   it('a write already sent whose machine drops is uncertain, never offline; a read stays offline; a write refused before sending is offline', () => {
     const { client, server, got } = setup();
     client.send({ type: 'openrig.goal.send', requestId: 'w1', machineId: 'server', goalId: 'abcdef12-0000', text: 'x' });

@@ -41,6 +41,7 @@ import { claudeSlashRefusal, createCommands, type Commands } from './commands.js
 import { createOpenRig, execRun, type OpenRig } from './openrig.js';
 import { createHumanChannel, type HumanChannelService } from './openrigHuman.js';
 import { createGoals, type GoalsService } from './openrigGoals.js';
+import { createMissions, EXCHANGES_DEFAULT, type MissionsService } from './openrigMissions.js';
 import type { OpenRigState } from '@ledge/protocol';
 import { actionMessage, resolveRun, runGuard, type Resolved, type ResolveCtx } from './actions.js';
 import { createMailbox, free, type MailboxDeps, type MailJournal } from './mailbox.js';
@@ -207,7 +208,7 @@ function logDroppedRequest(id: string, ev: SessionEvent, before: Session | undef
 /** The reports an agent may have waiting on the user at once (issue #9). */
 const REPORTS_OPEN_MAX = 5;
 
-export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; asides?: Asides; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
+export async function startServer(opts: { store: Store; tmux: Tmux; port?: number; host?: string; now?: () => string; verify?: { attempts?: number; intervalMs?: number }; confirmMs?: number; untilMs?: number; launcher?: string[]; home?: string; agentEnv?: () => Promise<NodeJS.ProcessEnv>; claudeBin?: string[]; daemon?: DaemonInfo; updater?: ReturnType<typeof createDaemonUpdater>; ssh?: typeof serveSsh; history?: History; machinesFile?: string; projectsFile?: string; islandFile?: string; contextFile?: string; scan?: typeof scanRepos; models?: Models; commands?: Commands; asides?: Asides; openrig?: OpenRig; human?: HumanChannelService; goals?: GoalsService; missions?: MissionsService; missionsPollMs?: number; mobile?: MobileService; mobileUnavailable?: string; omp?: OmpHost; ompSeats?: OmpSeats; browserLive?: BrowserLiveService; close?: { freeMs?: number; exitMs?: number }; peers?: () => readonly ClaudePeer[]; mail?: MailJournal; tasks?: TasksJournal; routines?: RoutinesJournal; handoverBriefMs?: number; attachments?: AttachmentStore;
   /** Reports (issue #9): how `gh` runs, whether it can create an issue, the system line, the daemon log read; a test gives its own. */
   report?: { run?: ForgeRun; ready?: () => Promise<boolean>; system?: () => Promise<string>; logFile?: string; login?: () => Promise<string | undefined> };
   /** Each harness's account limits (docs/mockups/ledge-harness-usage.html): the daemon's own, started with it; tests give one or none. */ usage?: UsageService;
@@ -336,14 +337,49 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
       }).catch(e => log(`openrig goals: not read: ${(e as Error).message}`));
     }, 600);
   };
-  const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: pushGoals });
+  // #54: the operator's thread's « Missions » and « Échanges », read while a front that asked for them is connected, again on each queue
+  // event and on a timer (OpenRig sends no event for a message), pushed whole to those fronts when they change.
+  const missions = opts.missions ?? createMissions({ state: () => openrig.state() });
+  /** Each front that asked, and how many exchanges it wants: one read with the most, each front its own count. */
+  const missionsAskers = new Map<Reply, number>();
+  let missionsTimer: NodeJS.Timeout | null = null, missionsPoll: NodeJS.Timeout | null = null;
+  const lastMissions = new Map<Reply, string>();
+  const missionsMost = () => Math.max(EXCHANGES_DEFAULT, ...missionsAskers.values());
+  /** A read as one front wants it: its own count of exchanges, older ones said when the read had more. */
+  const missionsFor = (l: Awaited<ReturnType<MissionsService['list']>>, want: number) =>
+    ({ ...l, exchanges: l.exchanges.slice(0, want), exchangesMore: l.exchangesMore || l.exchanges.length > want });
+  const pushMissions = () => {
+    if (!missionsAskers.size || missionsTimer) return;
+    missionsTimer = setTimeout(() => {
+      missionsTimer = null;
+      if (!missionsAskers.size) return;
+      const most = missionsMost();
+      void missions.list(most).then(l => {
+        for (const [r, want] of missionsAskers) {
+          // A front that asked for more since this read began gets the next one, never a shorter list.
+          if (want > most) continue;
+          const mine = missionsFor(l, want), key = JSON.stringify(mine);
+          if (key !== lastMissions.get(r)) { lastMissions.set(r, key); r({ type: 'openrig.missionsChanged', ...mine }); }
+        }
+      }).catch(e => log(`openrig missions: not read: ${(e as Error).message}`));
+    }, 600);
+  };
+  /** The last front that asked has gone: no more reading. */
+  const leaveMissions = (r: Reply) => {
+    lastMissions.delete(r);
+    if (!missionsAskers.delete(r) || missionsAskers.size) return;
+    if (missionsPoll) clearInterval(missionsPoll);
+    missionsPoll = null;
+  };
+  const onQueueEvent = () => { pushGoals(); pushMissions(); };
+  const human = opts.human ?? createHumanChannel({ state: () => openrig.state(), run: execRun(agentEnv), onEvent: onQueueEvent });
   /** « À toi »: OpenRig followed from the first front (desktop, TUI or phone) that asks; each change goes to all of them, and moves the goals. */
   const followAsks = () => human.start(l => {
     // The island's notices and the urgent asks' push (#40, D11): the daemon's own.
     const fresh = askWatch.read(l);
     if (fresh.length > 0) notifyAsks?.(fresh);
     tellNotices();
-    broadcast({ type: 'openrig.asksChanged', ...l }); pushGoals();
+    broadcast({ type: 'openrig.asksChanged', ...l }); onQueueEvent();
   });
   /** The seats recognised before and idle since (no hook to bring them): looked for again at start and at each OpenRig read. */
   const adoptSeats = () => { for (const s of store.all()) if (s.rig) adoptSeat(s.id, s.rig.seat); };
@@ -651,7 +687,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     broadcast(c.type === 'updated' ? { type: 'session.updated', session: c.session } : { type: 'session.removed', id: c.id });
   });
   const sendSnapshot = (reply: Reply) => {
-    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
+    reply({ type: 'snapshot', sessions: store.all(), recents: store.recents(), launcher, ...(opts.daemon ? { daemon: { ...opts.daemon, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, openrigMissions: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true, ...(panes ? { terminalStream: true, terminalStreamSeats: true } : {}), ...(asides ? { aside: true } : {}), ...(usage ? { usage: true } : {}), ...(forge ? { forge: true } : {}), ...(mobile || unavailable ? { mobile: true } : {}) } } : {}) });
     reply(machinesMsg()); // spec §5.2: after each snapshot, the shared machines list
     reply(projectsMsg()); // then the shared projects (build spec §5)
     reply(islandMsg()); // then the island's settings
@@ -1427,6 +1463,19 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
         lastGoals = JSON.stringify(l);
         return reply({ type: 'openrig.goalsChanged', requestId: msg.requestId, ...l });
       }
+      // #54: asked by the operator's thread only. `exchanges`: what « Échanges » shows (« Voir plus ancien » asks for more).
+      case 'openrig.missions': {
+        const want = msg.exchanges ?? EXCHANGES_DEFAULT;
+        missionsAskers.set(reply, want);
+        if (!missionsPoll) {
+          followAsks();
+          missionsPoll = setInterval(pushMissions, opts.missionsPollMs ?? 15_000);
+          missionsPoll.unref?.();
+        }
+        const mine = missionsFor(await missions.list(missionsMost()), want);
+        lastMissions.set(reply, JSON.stringify(mine));
+        return reply({ type: 'openrig.missionsChanged', requestId: msg.requestId, ...mine });
+      }
       case 'openrig.goal.send': { const r = await goals.send(msg.goalId, msg.text, msg.folder); pushGoals(); return reply({ type: 'openrig.goal.sent', requestId: msg.requestId, goalId: msg.goalId, ...r }); }
       case 'openrig.goal.reply': { const r = await goals.reply(msg.goalId, msg.replyId, msg.text); pushGoals(); return reply({ type: 'openrig.goal.replied', requestId: msg.requestId, goalId: msg.goalId, replyId: msg.replyId, ...r }); }
       case 'openrig.act': {
@@ -2029,7 +2078,7 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     localClients.add(ws); ws.once('close', () => localClients.delete(ws));
     const reply: Reply = m => send(ws, m);
     shellReplies.add(reply);
-    ws.once('close', () => { shellReplies.delete(reply); browserLive.unwatchAll(reply); panes?.release(reply); });
+    ws.once('close', () => { shellReplies.delete(reply); browserLive.unwatchAll(reply); panes?.release(reply); leaveMissions(reply); });
     sendSnapshot(reply);
     ws.on('message', data => {
       let msg: ClientMessage;
@@ -2060,6 +2109,6 @@ export async function startServer(opts: { store: Store; tmux: Tmux; port?: numbe
     sweepAttachments,
     closeSession: id => { const s = store.get(id); return s ? closeSession(s) : Promise.reject(unknownSession()); },
     labelExited,
-    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); gateway?.stop(); mailbox.close(); tasks.close(); routineList.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
+    close: () => new Promise(res => { clearInterval(sweepTimer); clearInterval(seatTimer); ompSeats.stop(); browserLive.stop(); unsubscribeUsage?.(); unsubscribeForge?.(); panes?.stop(); human.stop(); if (goalsTimer) clearTimeout(goalsTimer); if (missionsTimer) clearTimeout(missionsTimer); if (missionsPoll) clearInterval(missionsPoll); void reducer.close(); unsubscribe(); for (const u of unsubscribeHistory) u(); unsubscribeMobile?.(); unsubscribeRecovery?.(); unsubscribePush?.(); gateway?.stop(); mailbox.close(); tasks.close(); routineList.close(); handovers.close(); void omp.closeAll(); for (const c of wss.clients) c.terminate(); for (const socket of sockets) socket.destroy(); wss.close(() => httpServer.close(() => res())); })
   };
 }

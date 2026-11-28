@@ -9,7 +9,7 @@ import { ReposInspectSchema, ReposInfoSchema } from './repos.js';
 import { SessionCommandsSchema, SessionCommandsListingSchema } from './commands.js';
 import { ModelsListSchema, ModelsListingSchema, ModelIdSchema, EffortSchema, SessionModelAcceptedSchema } from './models.js';
 import { ReposScanSchema, ReposFoundSchema } from './scan.js';
-import { RigSeatNameSchema, OpenRigGraphSchema, OpenRigGraphStateSchema, OpenRigSnapshotsSchema, OpenRigSnapshotListSchema, OpenRigPermissionsSchema, OpenRigPermissionListSchema, OpenRigActSchema, OpenRigGoalRepliedSchema, OpenRigGoalReplySchema, OpenRigGoalSendSchema, OpenRigGoalSentSchema, OpenRigGoalsChangedSchema, OpenRigGoalsSchema, OpenRigAnswerSchema, OpenRigAnsweredSchema, OpenRigAsksChangedSchema, OpenRigAsksSchema, OpenRigDoneSchema, OpenRigLaunchedSchema, OpenRigLaunchSchema, OpenRigReseatedSchema, OpenRigSeatsSchema, OpenRigSpecListSchema, OpenRigSpecsSchema, OpenRigStateMessageSchema, OpenRigStatusSchema } from './openrig.js';
+import { RigSeatNameSchema, OpenRigGraphSchema, OpenRigGraphStateSchema, OpenRigSnapshotsSchema, OpenRigSnapshotListSchema, OpenRigPermissionsSchema, OpenRigPermissionListSchema, OpenRigActSchema, OpenRigGoalRepliedSchema, OpenRigGoalReplySchema, OpenRigGoalSendSchema, OpenRigGoalSentSchema, OpenRigGoalsChangedSchema, OpenRigGoalsSchema, OpenRigMissionsChangedSchema, OpenRigMissionsSchema, OpenRigAnswerSchema, OpenRigAnsweredSchema, OpenRigAsksChangedSchema, OpenRigAsksSchema, OpenRigDoneSchema, OpenRigLaunchedSchema, OpenRigLaunchSchema, OpenRigReseatedSchema, OpenRigSeatsSchema, OpenRigSpecListSchema, OpenRigSpecsSchema, OpenRigStateMessageSchema, OpenRigStatusSchema } from './openrig.js';
 import { OpenRigRowSchema, OpenRigRowStateSchema, OpenRigQueueSchema, OpenRigQueueStateSchema } from './rigMessages.js';
 import { OpenRigRoleDetailSchema, OpenRigRoleDuplicateSchema, OpenRigRoleDuplicatedSchema, OpenRigRoleFileContentSchema, OpenRigRoleFileSchema, OpenRigRoleListSchema, OpenRigRoleSchema, OpenRigRolesSchema } from './openrigRoles.js';
 import { DocumentReadSchema, DocumentContentSchema, DocumentErrorSchema } from './documents.js';
@@ -121,6 +121,7 @@ export const DaemonInfoSchema = z.object({ version: z.string(), install: z.enum(
   /** Answers `openrig.row`: a queue row's state, for the OpenRig task cards of a thread. */ openrigRows: z.boolean().optional(),
   /** Answers `openrig.asks` and `openrig.answer`: what OpenRig asks the person, and their answers (« À toi »). */ openrigAsks: z.boolean().optional(),
   /** Answers `openrig.goal.send`, `openrig.goals` and `openrig.goal.reply`: goals given to Max (lot 2). */ openrigGoals: z.boolean().optional(),
+  /** Answers `openrig.missions`: the operator's thread's « Missions » and « Échanges » cards (#54). */ openrigMissions: z.boolean().optional(),
   /** Takes `session.broadcast` (its `ledge bridge` too, on this machine): a client sends it only when this is set. */ broadcast: z.boolean().optional(),
   /** Sends `browser.live` and answers `browser.watch`, `browser.unwatch` and `browser.enable`: the agent's browser, live. */ browserLive: z.boolean().optional(),
   /** Answers `term.watch` and `term.shell`: the pane and the shells as a tmux control stream, xterm.js the only emulator. */ terminalStream: z.boolean().optional(),
@@ -174,6 +175,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   OpenRigAnsweredSchema,
   OpenRigGoalSentSchema,
   OpenRigGoalsChangedSchema,
+  OpenRigMissionsChangedSchema,
   OpenRigGoalRepliedSchema,
   /** `recents`: the folders of past sessions, most recent first. `launcher`: the command that runs `ledge` inside WSL
    *  (`[node, cli]`), so the overlay can attach a terminal to a session with `<launcher> attach <id>`. `daemon`: absent
@@ -291,6 +293,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   OpenRigAnswerSchema,
   OpenRigGoalSendSchema,
   OpenRigGoalsSchema,
+  OpenRigMissionsSchema,
   OpenRigGoalReplySchema,
   /** The overlay starts a session: `cwd` is a WSL path (`~` allowed), `name` a preferred bot name (the daemon picks a
    *  free one otherwise), `prompt` the agent's first instruction, `continue` resumes the folder's last conversation.

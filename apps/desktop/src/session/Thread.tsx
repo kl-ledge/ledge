@@ -24,6 +24,8 @@ import { parseDiff } from './diff';
 import { PlanCard } from './PlanCard';
 import { usePastExchanges } from './pastExchanges';
 import { WaitLine } from './WaitLine';
+import { Card } from './SideCard';
+import { OperatorCards, isOperatorThread } from './OperatorCards';
 import { closeAside, useAsides, type HeldAside } from './asides';
 import { machineOf } from '../nav/agents';
 import { waitOf, type Wait } from './waiting';
@@ -418,19 +420,9 @@ const Turn = memo(function Turn({ client, session, helper, items, x, at, last, f
   );
 });
 
-/** A card of the summary beside the thread: a title, a figure, and its rows; it folds to its title. */
-function Card({ title, count, children }: { title: string; count?: string; children: ReactNode }): JSX.Element {
-  return (
-    <details className="cw-card" open>
-      <summary><span>{title}</span>{count !== undefined && <span className="cw-count mono">{count}</span>}<Icon d={SHELL_ICONS.chevronDown} size={13} /></summary>
-      <div className="cw-card-body">{children}</div>
-    </details>
-  );
-}
-
 /** Beside the column, when the session is wide enough: where the work plan stands, which files changed, which subagents ran.
  *  No work plan (Cursor keeps none), no Progression card. */
-function Summary({ session, helper, items, dispatch, onChange }: Pick<ThreadProps, 'session' | 'helper' | 'items' | 'dispatch' | 'onChange'>): JSX.Element {
+function Summary({ client, session, helper, items, now, dispatch, onChange }: Pick<ThreadProps, 'client' | 'session' | 'helper' | 'items' | 'now' | 'dispatch' | 'onChange'>): JSX.Element {
   const { t } = useI18n();
   const ts = t.session.thread.side;
   const todos = useMemo(() => latestTodos(items, helper?.id), [items, helper?.id]);
@@ -487,6 +479,8 @@ function Summary({ session, helper, items, dispatch, onChange }: Pick<ThreadProp
           </ul>
         </Card>
       )}
+      {/* #54: the operator's thread only, under « Fichiers modifiés » and « Sous-agents ». */}
+      {helper === null && isOperatorThread(session) && <OperatorCards client={client} session={session} now={now} />}
     </aside>
   );
 }
@@ -665,7 +659,7 @@ export const Thread = memo(function Thread({ client, session, helper, items, xs,
         <Foot key="foot" run={run} waiting={waiting} wait={wait} thinking={working ? helper?.kind ?? session.name : null} seedKey={lastX?.key ?? ''} now={now} />
         {helper === null && <Asides client={client} session={session} onDocument={onDocument} onTerminal={onTerminal} />}
       </ol>
-      <Summary session={session} helper={helper} items={items} dispatch={dispatch} onChange={onChange} />
+      <Summary client={client} session={session} helper={helper} items={items} now={now} dispatch={dispatch} onChange={onChange} />
     </div>
   );
 });

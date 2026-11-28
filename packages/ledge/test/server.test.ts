@@ -2198,7 +2198,7 @@ describe('update.daemon', () => {
       updater: { running: () => false, update: async (v, send) => { seen.push(v); send({ type: 'update.progress', version: v, step: 'installing' }); }, restart: async () => {} } });
     const c = await connect({ port: srv.port });
     const snap = await c.next('snapshot');
-    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true });
+    expect(snap.daemon).toEqual({ version: '0.2.2', install: 'npm', systemd: true, archive: true, freeShell: true, models: true, modelSwitch: true, commands: true, omp: true, ompApproval: true, openrig: true, openrigRoles: true, openrigRig: true, openrigPolicy: true, openrigFresh: true, ping: true, openrigRows: true, broadcast: true, openrigAsks: true, openrigGoals: true, openrigMissions: true, browserLive: true, routines: true, routineGroups: true, sessionLabel: true });
     c.send({ type: 'update.daemon', version: '0.3.0' });
     expect(await c.next('update.progress')).toMatchObject({ step: 'installing' });
     expect(seen).toEqual(['0.3.0']);
@@ -2842,6 +2842,68 @@ describe('server: goals to Max', () => {
     expect(await c.next('openrig.goal.replied')).toEqual({ type: 'openrig.goal.replied', requestId: 'g3', goalId: 'abcdef12-0000', replyId: 'fedcba98-0000', ok: false, error: 'uncertain', message: 'lost' });
     expect(sent).toEqual(['send abcdef12-0000 La pochette', 'reply abcdef12-0000 fedcba98-0000']);
     c.close(); other.close(); await srv2.close();
+  });
+});
+
+describe('server: the operator thread\'s missions and exchanges (#54)', () => {
+  it('openrig.missions answers its asker, then is pushed to the fronts that asked on a queue event or the timer, only when it changed; reading stops when they leave', async () => {
+    const asked: number[] = [];
+    let read = { openrig: 'ok' as const, operator: 'operator-agent@kernel', missions: [], exchanges: [], exchangesMore: false };
+    let event: (() => void) | null = null;
+    const srv2 = await startServer({ store, tmux, port: 0, missionsPollMs: 50,
+      human: { async list() { return { channel: { state: 'ready' as const, person: null, slack: false }, asks: [] }; }, async answer(q) { return { qitemId: q, ok: true }; },
+        start(push) { event = () => push({ channel: { state: 'ready', person: null, slack: false }, asks: [] }); }, stop() {} },
+      missions: { async list(n) { asked.push(n ?? 0); return read; } } });
+    const c = await connect({ port: srv2.port }), other = await connect({ port: srv2.port }), idle = await connect({ port: srv2.port });
+    await c.next('snapshot'); await other.next('snapshot'); await idle.next('snapshot');
+    c.send({ type: 'openrig.missions', requestId: 'm1', exchanges: 120 });
+    expect(await c.next('openrig.missionsChanged')).toEqual({ type: 'openrig.missionsChanged', requestId: 'm1', ...read });
+    other.send({ type: 'openrig.missions', requestId: 'm2', exchanges: 120 });
+    await other.next('openrig.missionsChanged');
+    expect(asked.slice(0, 2)).toEqual([120, 120]);
+    // Unchanged: the timer reads again, nothing is pushed.
+    await new Promise(r => setTimeout(r, 800));
+    expect(asked.length).toBeGreaterThan(2);
+    expect(asked.every(n => n === 120)).toBe(true);
+    read = { ...read, exchangesMore: true };
+    event!();
+    expect((await other.next('openrig.missionsChanged', 3000)).exchangesMore).toBe(true);
+    // A front that never asked gets nothing.
+    await expect(idle.next('openrig.missionsChanged', 300)).rejects.toThrow();
+    // Both askers gone: the timer stops reading.
+    c.close(); other.close();
+    await new Promise(r => setTimeout(r, 300));
+    const n = asked.length;
+    await new Promise(r => setTimeout(r, 800));
+    expect(asked.length).toBe(n);
+    idle.close(); await srv2.close();
+  });
+
+  it('each front gets the count of exchanges it asked for, from one read', async () => {
+    const e = (id: string) => ({ id, at: 't', kind: 'message' as const, from: 'a@r', to: ['b@r'], rigs: ['r'], text: id });
+    const asked: number[] = [];
+    const srv2 = await startServer({ store, tmux, port: 0, missionsPollMs: 60_000,
+      human: { async list() { return { channel: { state: 'ready' as const, person: null, slack: false }, asks: [] }; }, async answer(q) { return { qitemId: q, ok: true }; }, start() {}, stop() {} },
+      missions: { async list(n) { asked.push(n ?? 0); return { openrig: 'ok' as const, operator: null, missions: [], exchanges: [e('e1'), e('e2'), e('e3')], exchangesMore: false }; } } });
+    const c = await connect({ port: srv2.port }), other = await connect({ port: srv2.port });
+    await c.next('snapshot'); await other.next('snapshot');
+    c.send({ type: 'openrig.missions', requestId: 'm1', exchanges: 2 });
+    const mine = await c.next('openrig.missionsChanged');
+    expect(mine.exchanges.map(x => x.id)).toEqual(['e1', 'e2']);
+    expect(mine.exchangesMore).toBe(true);
+    other.send({ type: 'openrig.missions', requestId: 'm2', exchanges: 80 });
+    const theirs = await other.next('openrig.missionsChanged');
+    expect(theirs.exchanges).toHaveLength(3);
+    expect(theirs.exchangesMore).toBe(false);
+    expect(asked).toEqual([50, 80]);
+    c.close(); other.close(); await srv2.close();
+  });
+
+  it('the daemon says it answers them', async () => {
+    const srv2 = await startServer({ store, tmux, port: 0, daemon: { version: '0.2.2', install: 'npm', systemd: true } });
+    const c = await connect({ port: srv2.port });
+    expect((await c.next('snapshot')).daemon?.openrigMissions).toBe(true);
+    c.close(); await srv2.close();
   });
 });
 
