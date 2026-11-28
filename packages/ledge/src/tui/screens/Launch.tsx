@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { launchDefaults, launchMessage, missingOf, MULTI_REPO_TOOLS, previewOf, reposOn, toggleRepo, withMachine, withPick, withProject, withTool, type LaunchForm } from '@ledge/fleet/launch';
 import { useModels } from '@ledge/fleet/models';
@@ -46,6 +46,14 @@ export function Launch() {
 
   // A machine that comes up after the form opened is chosen when none was.
   useEffect(() => { if (form.machine === null) { const up = machines.find(m => m.ready); if (up) setForm(f => withMachine(f, list, up.id)); } }, [machines]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Projects that arrive after the form opened (the daemon sends them after its snapshot): the default project is chosen, as if they
+  // had been there, unless the project field or the repositories were already touched.
+  const projectTouched = useRef(false);
+  useEffect(() => {
+    if (projectTouched.current || form.project !== null || list.length === 0) return;
+    const id = launchDefaults(list, machines, {}, form.tool).project;
+    if (id) setForm(f => (f.project === null ? withProject(f, list, id) : f));
+  }, [list]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const machine = machines.find(m => m.id === form.machine);
   const tools: Tool[] = ['claude', 'codex', 'cursor', ...(machine?.daemon?.omp ? ['omp' as const] : [])];
@@ -97,14 +105,14 @@ export function Launch() {
     const by = key.rightArrow || input === 'l' ? 1 : key.leftArrow || input === 'h' ? -1 : 0;
     if (field === 'repos') {
       if (by) setRepoAt(i => (repoOptions.length ? (i + by + repoOptions.length) % repoOptions.length : 0));
-      else if (input === ' ' && repoOptions[repoAt]) setForm(f => toggleRepo(f, repoOptions[repoAt]!));
+      else if (input === ' ' && repoOptions[repoAt]) { projectTouched.current = true; setForm(f => toggleRepo(f, repoOptions[repoAt]!)); }
       return;
     }
     if (!by) return;
     if (field === 'tool') setForm(f => { const next = cycle(tools, f.tool, by); return withTool(f, next); });
     else if (field === 'model') setForm(f => withPick(f, { model: cycle(modelIds, f.model, by), effort: null }));
     else if (field === 'effort') setForm(f => withPick(f, { model: f.model, effort: cycle(efforts, f.effort, by) }));
-    else if (field === 'project') { const ids = [...list.map(p => p.id), null]; setForm(f => { const next = cycle(ids, f.project, by); return next === null ? { ...f, project: null, repos: [] } : withProject(f, list, next); }); setRepoAt(0); }
+    else if (field === 'project') { projectTouched.current = true; const ids = [...list.map(p => p.id), null]; setForm(f => { const next = cycle(ids, f.project, by); return next === null ? { ...f, project: null, repos: [] } : withProject(f, list, next); }); setRepoAt(0); }
     else if (field === 'machine') { const up = machines.filter(m => m.ready).map(m => m.id); if (up.length) setForm(f => withMachine(f, list, cycle(up, f.machine ?? up[0]!, by))); setRepoAt(0); }
   });
 
